@@ -45,4 +45,12 @@ export default defineConfig([
       ],
     },
   },
+  {
+    // 声明文件里用 declare var 声明全局变量（与 TS 内置 lib.dom 的写法一致），
+    // no-var 只针对运行时代码，这里关掉。
+    files: ['**/*.d.ts'],
+    rules: {
+      'no-var': 'off',
+    },
+  },
 ])

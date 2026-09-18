@@ -65,6 +65,31 @@ src/
 Prettier 负责格式（无分号、单引号、尾逗号、100 字符宽），ESLint 负责代码质量。
 两者通过 `eslint-plugin-prettier` 打通，`pnpm lint` 会一并报告格式问题。
 
+### WebGPU 类型
+
+TypeScript 6.0 内置的 `lib.dom` 已经包含 `GPUDevice`、`GPUCanvasContext`、`GPUQueue` 等 WebGPU 接口，
+但缺 `canvas.getContext('webgpu')` 重载和 `GPUBufferUsage` 这类常量对象。
+这些缺口统一在 `src/ts/types/webgpu.d.ts` 里补齐，因此**不需要**安装 `@webgpu/types`，
+将来 TypeScript 补全这些声明后该文件可以直接删除。
+
+```ts
+const canvas = document.querySelector<HTMLCanvasElement>('canvas')
+const context = canvas?.getContext('webgpu') // GPUCanvasContext | null
+
+const vertexBuffer = device.createBuffer({
+  size: vertices.byteLength,
+  usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+})
+```
+
+引擎代码在 `strict` 下开发（见 `tsconfig.app.json`），可空值必须显式收窄后再使用。
+
+WGSL 着色器文件通过 Vite 的 `?raw` 以字符串引入，类型由 `vite/client` 提供：
+
+```ts
+import baseShader from '@/wgsl/tools/base.wgsl?raw'
+```
+
 ## 编辑器
 
 项目内置 `.vscode/settings.json`，保存时自动格式化并执行 ESLint 修复；
