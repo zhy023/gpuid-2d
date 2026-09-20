@@ -1,7 +1,6 @@
 import {
   disposePipeInstances,
   renderAllVisiblePipes,
-  renderAllVisiblePipesForPick,
 } from '@/business/pid_schematic/pipe_instances';
 import { createPipeRenderResources } from '@/business/pid_schematic/pipe_pipeline';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
@@ -70,26 +69,6 @@ export function renderPipes(
     visibleItems,
     pipeTemplateVertexBuffer,
     pipeTemplateVertexCount,
-    pixelsPerWorldUnit,
-  );
-}
-
-/**
- * 拾取通路入口，WebGpuPicker回调内调用
- */
-export function renderPipesForPick(
-  passEncoder: GPURenderPassEncoder,
-  viewProj: Float32Array,
-  visibleItems: QuadItem[],
-  pixelsPerWorldUnit: number,
-): void {
-  if (!pipeRes || !gpuDevice) return;
-  renderAllVisiblePipesForPick(
-    passEncoder,
-    gpuDevice,
-    pipeRes,
-    viewProj,
-    visibleItems,
     pixelsPerWorldUnit,
   );
 }

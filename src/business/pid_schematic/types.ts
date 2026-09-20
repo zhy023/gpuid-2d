@@ -26,10 +26,9 @@ export interface PidSchematicInstanceData {
   pad: number;
 }
 
-/** 管线渲染资源：主渲染 + 拾取两条 pipeline 共用一套绑定 */
+/** 管线渲染资源（管线拾取不做，所以只有主渲染一条 pipeline） */
 export interface PipeRenderResources {
   pipeline: GPURenderPipeline;
-  pickPipeline: GPURenderPipeline;
   uniformBuffer: GPUBuffer;
   bindGroupLayout: GPUBindGroupLayout;
 }

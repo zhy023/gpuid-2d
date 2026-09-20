@@ -1,7 +1,6 @@
 import {
   createPipeBindGroup,
   drawPipeInstanced,
-  drawPipePickInstanced,
   updatePipeUniform,
 } from '@/business/pid_schematic/pipe_pipeline';
 import {
@@ -282,59 +281,4 @@ export function renderAllVisiblePipes(
   if (!bindGroup) return;
 
   drawPipeInstanced(pass, pipeRes, bindGroup, pipeTemplateVb, templateVertexCount, validCount);
-}
-
-/**
- * 【拾取通路】绘制管线包围盒做离屏拾取
- * shader内部@builtin(vertex_index)生成quad，不需要外部vertexBuffer
- * draw(6, instanceCount)
- * @param pass 拾取RenderPass
- * @param device gpu设备
- * @param pipeRes 管线资源(包含pickPipeline)
- * @param viewProj 相机正交矩阵
- * @param visibleItems 四叉树可见图元
- * @param pixelsPerWorldUnit 当前相机缩放，用于把管线像素粗细折算成世界宽度
- */
-export function renderAllVisiblePipesForPick(
-  pass: GPURenderPassEncoder,
-  device: GPUDevice,
-  pipeRes: PipeRenderResources,
-  viewProj: Float32Array,
-  visibleItems: readonly QuadItem[],
-  pixelsPerWorldUnit: number,
-): void {
-  const storage = getPipeStorageBuffers(device);
-  if (!storage || !pipeRes.pickPipeline) return;
-
-  const validCount = packPipeInstanceItems(visibleItems, pixelsPerWorldUnit);
-  if (validCount <= 0) return;
-
-  device.queue.writeBuffer(
-    storage.instanceBuffer,
-    0,
-    instanceCpuBuffer,
-    0,
-    validCount * INSTANCE_FLOAT_COUNT,
-  );
-  device.queue.writeBuffer(
-    storage.pidBuffer,
-    0,
-    pidDataCpuBuffer,
-    0,
-    validCount * PID_DATA_FLOAT_COUNT,
-  );
-
-  // 拾取通路只用到投影矩阵，流动参数写默认值即可（pick 着色器不读）
-  updatePipeUniform(device, pipeRes, {
-    projection: viewProj,
-    timeSeconds: 0,
-    flowPeriodWorld: PIPE_FLOW_PERIOD_PX / Math.max(pixelsPerWorldUnit, 1e-6),
-    flowCyclesPerSec: 0,
-    flowDashDuty: PIPE_FLOW_DASH_DUTY,
-  });
-
-  const bindGroup = getPipeBindGroup(device, pipeRes);
-  if (!bindGroup) return;
-
-  drawPipePickInstanced(pass, pipeRes, bindGroup, validCount);
 }

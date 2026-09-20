@@ -4,7 +4,6 @@
  * @param canvasFormat 画布纹理格式
  */
 
-import pipePickWgsl from '@/business/pid_schematic/shader/pipeline_pick.wgsl?raw';
 import pipeWgsl from '@/business/pid_schematic/shader/pipeline_render.wgsl?raw';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
 import { ALPHA_BLEND_STATE, CANVAS_SAMPLE_COUNT } from '@/core/gpu/render_state';
@@ -20,7 +19,6 @@ export async function createPipeRenderResources(
   });
 
   const shaderModule = device.createShaderModule({ code: pipeWgsl });
-  const pickShaderModule = device.createShaderModule({ code: pipePickWgsl });
 
   // 显式 layout：主渲染与拾取两条 pipeline 共用同一套绑定，
   // 这样 createPipeBindGroup 生成的 bindGroup 可以同时用于两者
@@ -77,27 +75,8 @@ export async function createPipeRenderResources(
     multisample: { count: CANVAS_SAMPLE_COUNT },
   });
 
-  // 拾取pipeline：拾取shader内部生成quad，无vertex buffer输入
-  const pickPipeline = await device.createRenderPipelineAsync({
-    layout: pipelineLayout,
-    vertex: {
-      module: pickShaderModule,
-      entryPoint: 'vertexMain',
-      buffers: [],
-    },
-    fragment: {
-      module: pickShaderModule,
-      entryPoint: 'fragmentMain',
-      targets: [{ format: 'rgba32uint' }],
-    },
-    primitive: {
-      topology: 'triangle-list',
-    },
-  });
-
   return {
     pipeline,
-    pickPipeline,
     uniformBuffer,
     bindGroupLayout,
   };
@@ -174,19 +153,4 @@ export function drawPipeInstanced(
   pass.setBindGroup(0, bindGroup);
   pass.setVertexBuffer(0, vertexBuffer);
   pass.draw(vertexCount, instanceCount);
-}
-
-/**
- * 拾取通路绘制管线：pickPipeline，无外部vertexBuffer，shader内部生成quad
- */
-export function drawPipePickInstanced(
-  pass: GPURenderPassEncoder,
-  pipeRes: PipeRenderResources,
-  bindGroup: GPUBindGroup,
-  instanceCount: number,
-) {
-  pass.setPipeline(pipeRes.pickPipeline);
-  pass.setBindGroup(0, bindGroup);
-  // pick shader内部 6个顶点组成quad
-  pass.draw(6, instanceCount);
 }
