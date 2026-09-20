@@ -82,6 +82,16 @@ export async function runApp() {
   const spriteBitmap = await createImageBitmap(await spriteResponse.blob());
   const spriteTexture = createTextureFromBitmap(device, spriteBitmap, 'valve-sprite');
   const spriteSampler = createTextureSampler(device, 'valve-sprite-sampler');
+  // 阀门开启态贴图：缺失时退化为关闭态贴图，保证应用仍能启动
+  let valveOnTexture: ReturnType<typeof createTextureFromBitmap> | null = null;
+  try {
+    const valveOnBitmap = await createImageBitmap(
+      await (await fetch('/assets/famen_on@2x.png')).blob(),
+    );
+    valveOnTexture = createTextureFromBitmap(device, valveOnBitmap, 'valve-sprite-on');
+  } catch {
+    console.warn('[gpuid] 未找到 /assets/famen_on@2x.png，阀门开启态暂用关闭态贴图');
+  }
   await initValves(
     device,
     format,
@@ -276,22 +286,30 @@ export async function runApp() {
     // 阀门贴图精灵：@2x 资源按一半尺寸落地（64px → 32px），缩放后屏幕尺寸恒定
     const valveSpriteWorldWidth = spriteBitmap.width / 2 / camera.scale;
     const valveSpriteWorldHeight = spriteBitmap.height / 2 / camera.scale;
-    const spriteInstances: RectInstance[] = visibleValves.map((valve) => ({
-      tx: valve.tx,
-      ty: valve.ty,
-      sx: valveSpriteWorldWidth,
-      sy: valveSpriteWorldHeight,
-      beta: 0,
-      selected: 0,
-      u0: 0,
-      v0: 0,
-      u1: 1,
-      v1: 1,
-      colorR: 1,
-      colorG: 1,
-      colorB: 1,
-      colorA: 1,
-    }));
+    // 按开关态分两组，贴在实例缓冲里各自连续，便于分别绑定两张贴图绘制
+    const closedSprites: RectInstance[] = [];
+    const openSprites: RectInstance[] = [];
+    for (const valve of visibleValves) {
+      const instance: RectInstance = {
+        tx: valve.tx,
+        ty: valve.ty,
+        sx: valveSpriteWorldWidth,
+        sy: valveSpriteWorldHeight,
+        beta: 0,
+        selected: 0,
+        u0: 0,
+        v0: 0,
+        u1: 1,
+        v1: 1,
+        colorR: 1,
+        colorG: 1,
+        colorB: 1,
+        colorA: 1,
+      };
+      if (valve.valveOpen > 0.5) openSprites.push(instance);
+      else closedSprites.push(instance);
+    }
+    const spriteInstances: RectInstance[] = [...closedSprites, ...openSprites];
     const extraInstances = [...textInstances, ...spriteInstances];
     if (extraInstances.length > 0) {
       renderer.setInstances([...instanceList, ...extraInstances]);
@@ -336,7 +354,16 @@ export async function runApp() {
         spriteTexture.view,
         spriteSampler,
         instanceList.length + textInstances.length,
-        spriteInstances.length,
+        closedSprites.length,
+      );
+      // 开启态阀门用另一张贴图（同一批实例缓冲，只是换绑纹理）
+      // 开启态：有独立贴图就用它，否则沿用关闭态贴图
+      renderer.drawTextureBatch(
+        pass,
+        (valveOnTexture ?? spriteTexture).view,
+        spriteSampler,
+        instanceList.length + textInstances.length + closedSprites.length,
+        openSprites.length,
       );
     });
   }
