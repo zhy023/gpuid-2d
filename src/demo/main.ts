@@ -1,12 +1,7 @@
 import type { RectInstance } from '@/core/types';
-import { Camera2d } from '@/core/camera';
-import { initWebGPU } from '@/core/gpu/device';
-import { createRectVertexBuffer } from '@/core/geometry/geometry';
-import { Renderer2D } from '@/core/gpu/renderer';
-import { createRendererPicker } from '@/core/gpu/picker';
+import { createRendererContext } from '@/core/gpu/context';
 import { createFrameRunner } from '@/demo/frame';
 import { bindDemoInput } from '@/demo/input';
-import { CanvasSurface } from '@/core/gpu/surface';
 import { createDemoScene } from '@/demo/scene';
 import { getValvesPicker, initValves, disposeValves } from '@/business/pid_schematic/valve_manager';
 import type { ValveItem } from '@/business/pid_schematic/types';
@@ -19,32 +14,9 @@ export async function runApp() {
   const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
   if (!canvas) throw new Error('找不到 #canvas');
 
-  // 1.初始化webgpu环境
-  const { device, context, format } = await initWebGPU(canvas);
-
-  // 2.创建顶点几何体
-  const { vertexBuffer, vertexCount } = createRectVertexBuffer(device);
-
-  // ✅【PID业务buffer预留，压测阶段先不传，后续阀门管线打开】
-  // const pidInstanceStorageBuffer = device.createBuffer({
-  //   size: 100000 * 16,
-  //   usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
-  // });
-
-  // 3.初始化渲染器，第二参数pid buffer可选
-  const renderer = new Renderer2D(
-    device,
-    context,
-    format,
-    vertexBuffer,
-    vertexCount,
-    // , pidInstanceStorageBuffer // 后续P&ID业务打开这里
-  );
-  // 着色器由内核自带，这里不再注入 WGSL
-  await renderer.initPipeline();
-
-  // 矩形拾取：复用渲染器的绑定布局与顶点布局（胶水在 core 的 createRendererPicker）
-  const picker = await createRendererPicker(device, renderer, canvas.width, canvas.height);
+  // 初始化：设备/上下文/渲染器/默认拾取器/画布表面/相机（装配顺序由 core 保证）
+  const { device, context, format, renderer, picker, surface, camera } =
+    await createRendererContext(canvas);
 
   // -----------------------------------------------------------
 
@@ -76,9 +48,6 @@ export async function runApp() {
 
   // -----------------------------------------------------------
 
-  // 相机
-  const camera = new Camera2d(canvas);
-
   // 压测初始化：生成的图元直接作为 GPU 实例绘制，并覆盖整个初始视野。
   // 场景数据（设备图元 / 管线 / 阀门链与拓扑）统一由 demo/scene 提供
   const scene = await createDemoScene(device, format);
@@ -108,15 +77,6 @@ export async function runApp() {
   updateVisibleInstances();
 
   // 输入与尺寸处理：点击拾取（设备优先 → 矩形）与 resize 同步
-  // 画布表面：尺寸变化时统一重配上下文并重建 MSAA / 拾取纹理
-  const surface = new CanvasSurface({
-    canvas,
-    device,
-    context,
-    format,
-    resizeTargets: [renderer, picker, valvePicker],
-  });
-
   bindDemoInput({
     canvas,
     context,
