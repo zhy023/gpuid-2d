@@ -6,9 +6,6 @@ import { Renderer2D } from '@/core/gpu/renderer';
 import { createRendererPicker } from '@/core/gpu/picker';
 import { createFrameRunner } from '@/demo/frame';
 import { bindDemoInput } from '@/demo/input';
-import { createPipeFlowCase } from '@/demo/cases/pipe_flow';
-import { createDeviceStressCase } from '@/demo/cases/device_stress';
-import { createValveToggleCase } from '@/demo/cases/valve_toggle';
 import { CanvasSurface } from '@/core/gpu/surface';
 import { createDemoScene } from '@/demo/scene';
 import { getValvesPicker, initValves, disposeValves } from '@/business/pid_schematic/valve_manager';
@@ -81,35 +78,6 @@ export async function runApp() {
 
   // 相机
   const camera = new Camera2d(canvas);
-
-  // ?case=<name>：只跑单个功能测试（demo 目录按能力拆分，每个都能独立验证）
-  const requestedCase = new URLSearchParams(window.location.search).get('case');
-  if (requestedCase) {
-    const demoCases = [createPipeFlowCase(), createDeviceStressCase(), createValveToggleCase()];
-    const matched = demoCases.find((item) => item.name === requestedCase);
-    if (!matched) throw new Error(`未知的功能测试：${requestedCase}`);
-
-    const caseCtx = { device, canvas, format, renderer, camera };
-    await matched.create(caseCtx);
-
-    let running = true;
-    const tick = () => {
-      if (!running) return;
-      requestAnimationFrame(tick);
-      matched.frame?.(caseCtx);
-    };
-    window.addEventListener(
-      'pagehide',
-      () => {
-        running = false;
-        matched.dispose?.();
-        renderer.dispose();
-      },
-      { once: true },
-    );
-    tick();
-    return;
-  }
 
   // 压测初始化：生成的图元直接作为 GPU 实例绘制，并覆盖整个初始视野。
   // 场景数据（设备图元 / 管线 / 阀门链与拓扑）统一由 demo/scene 提供
