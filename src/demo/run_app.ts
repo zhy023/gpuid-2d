@@ -22,6 +22,7 @@ import type { ValveItem } from '@/business/pid_schematic/types';
 import { QuadTree } from '@/core/geometry/quad_tree';
 import { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { layoutText } from '@/core/text/text_batch';
+import { createTextureFromBitmap, createTextureSampler } from '@/core/gpu/texture';
 
 // test 压测
 import { DeviceStressTester } from '@/business/pid_schematic/device_stress_test';
@@ -75,6 +76,11 @@ export async function runApp() {
   const glyphAtlas = new GlyphAtlas(device, { fontSizePx: 18 });
   // 醒目示例文字：单独用大字号图集，画在阀门链上方，便于肉眼直接看效果
   const titleAtlas = new GlyphAtlas(device, { fontSizePx: 32 });
+  // 材质贴图测试：加载阀门图片（@2x，绘制时按半尺寸），走与文字同一套图集批次通路
+  const spriteResponse = await fetch('/assets/famen_off@2x.png');
+  const spriteBitmap = await createImageBitmap(await spriteResponse.blob());
+  const spriteTexture = createTextureFromBitmap(device, spriteBitmap, 'valve-sprite');
+  const spriteSampler = createTextureSampler(device, 'valve-sprite-sampler');
   await initValves(
     device,
     format,
@@ -255,11 +261,33 @@ export async function runApp() {
         }).instances,
     );
     const textInstances = [...titleInstances, ...tagInstances];
-    if (textInstances.length > 0) {
-      renderer.setInstances([...instanceList, ...textInstances]);
+    // 贴图精灵：@2x 资源按一半尺寸落地，缩放后尺寸恒定（像素口径）
+    const spriteWorldWidth = spriteBitmap.width / 2 / camera.scale;
+    const spriteWorldHeight = spriteBitmap.height / 2 / camera.scale;
+    const spriteInstances: RectInstance[] = [
+      {
+        tx: 300 + spriteWorldWidth / 2,
+        ty: -900 + spriteWorldHeight / 2,
+        sx: spriteWorldWidth,
+        sy: spriteWorldHeight,
+        beta: 0,
+        selected: 0,
+        u0: 0,
+        v0: 0,
+        u1: 1,
+        v1: 1,
+        colorR: 1,
+        colorG: 1,
+        colorB: 1,
+        colorA: 1,
+      },
+    ];
+    const extraInstances = [...textInstances, ...spriteInstances];
+    if (extraInstances.length > 0) {
+      renderer.setInstances([...instanceList, ...extraInstances]);
       renderer.uploadInstances();
-      // 上传完把绘制数量恢复成矩形数量：文字实例留在缓冲末尾，
-      // 只由 drawTextureBatch 用字形图集绘制，避免被白纹理批次画成方块
+      // 上传完把绘制数量恢复成矩形数量：文字/贴图实例留在缓冲末尾，
+      // 只由 drawTextureBatch 用自己的纹理绘制，避免被白纹理批次画成方块
       renderer.setInstances(instanceList);
     }
     const visibleDemoPipes = getVisibleDemoPipes();
@@ -296,6 +324,13 @@ export async function runApp() {
         glyphAtlas.sampler,
         instanceList.length + titleInstances.length,
         tagInstances.length,
+      );
+      renderer.drawTextureBatch(
+        pass,
+        spriteTexture.view,
+        spriteSampler,
+        instanceList.length + textInstances.length,
+        spriteInstances.length,
       );
     });
   }
