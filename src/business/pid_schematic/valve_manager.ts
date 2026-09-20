@@ -1,8 +1,11 @@
 /**
  * 设备图元（阀门）模块入口：初始化、逐帧渲染、对外暴露拾取所需的绑定与 layout。
  */
-import { getValveBindGroup, renderVisibleValves } from '@/business/pid_schematic/valve_instances';
-import { disposeValveInstances } from '@/business/pid_schematic/valve_instances';
+import {
+  disposeValveInstances,
+  getValveBindGroup,
+  renderVisibleValves,
+} from '@/business/pid_schematic/valve_instances';
 import { createValveRenderResources } from '@/business/pid_schematic/valve_pipeline';
 import type { ValveItem, ValveRenderResources } from '@/business/pid_schematic/types';
 
