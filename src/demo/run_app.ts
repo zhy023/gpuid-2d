@@ -258,6 +258,9 @@ export async function runApp() {
     if (textInstances.length > 0) {
       renderer.setInstances([...instanceList, ...textInstances]);
       renderer.uploadInstances();
+      // 上传完把绘制数量恢复成矩形数量：文字实例留在缓冲末尾，
+      // 只由 drawTextureBatch 用字形图集绘制，避免被白纹理批次画成方块
+      renderer.setInstances(instanceList);
     }
     const visibleDemoPipes = getVisibleDemoPipes();
     const projMat = camera.getCameraProjectionMatrix();
