@@ -11,6 +11,50 @@ export interface PickLayoutSource {
   getVertexLayout(): GPUVertexBufferLayout;
 }
 
+/** 一次拾取候选：拾取器与其对应的绑定/顶点/实例范围 */
+export interface PickCandidate {
+  picker: WebGpuPicker;
+  bindGroup: GPUBindGroup;
+  vertexBuffer: GPUBuffer;
+  vertexCount: number;
+  instanceCount: number;
+  /** 命中后回传给调用方的标记，用于区分是哪一层命中（如 'valve' / 'rect'） */
+  label?: string;
+}
+
+export interface PickHit {
+  candidate: PickCandidate;
+  /** 命中的实例下标（对应候选自身的实例数组） */
+  index: number;
+}
+
+/**
+ * 按顺序依次拾取，返回第一个命中的候选。
+ *
+ * 多图层场景（设备符号压在管线上、图元压在背景上）都要写这段「按优先级试到命中为止」，
+ * 所以收进内核；具体顺序由调用方给出的候选数组决定。
+ */
+export async function pickFirst(
+  canvas: HTMLCanvasElement,
+  clientX: number,
+  clientY: number,
+  candidates: readonly PickCandidate[],
+): Promise<PickHit | null> {
+  for (const candidate of candidates) {
+    const index = await candidate.picker.pickAt(
+      canvas,
+      clientX,
+      clientY,
+      candidate.bindGroup,
+      candidate.vertexBuffer,
+      candidate.vertexCount,
+      candidate.instanceCount,
+    );
+    if (index !== null) return { candidate, index };
+  }
+  return null;
+}
+
 /**
  * 用渲染器的布局创建拾取器。
  *

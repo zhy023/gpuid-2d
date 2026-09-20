@@ -1,12 +1,14 @@
 /**
  * 输入与尺寸处理：画布点击拾取（设备图元优先 → 矩形图元）与窗口 resize 同步。
- * 运行期状态通过 context 传入，这里不持有 demo 的变量。
+ *
+ * 拾取机制都在 core（屏幕坐标换算 `pickAt`、按候选顺序试到命中 `pickFirst`），
+ * 这里只声明「优先级顺序」与「命中后的业务动作」。
  */
-import { getValvesBindGroup } from '@/business/pid_schematic/valve_manager';
-import { toggleValve, type ValveDemoScene } from '@/business/pid_schematic/valve_demo';
 import type { ValveItem } from '@/business/pid_schematic/types';
+import { toggleValve, type ValveDemoScene } from '@/business/pid_schematic/valve_demo';
+import { getValvesBindGroup } from '@/business/pid_schematic/valve_manager';
 import type { Camera2d } from '@/core/camera';
-import type { WebGpuPicker } from '@/core/gpu/picker';
+import { pickFirst, type PickCandidate, type WebGpuPicker } from '@/core/gpu/picker';
 import type { Renderer2D } from '@/core/gpu/renderer';
 import type { CanvasSurface } from '@/core/gpu/surface';
 import type { RectInstance } from '@/core/types';
@@ -37,55 +39,67 @@ export interface DemoInputContext {
   refresh: () => void;
 }
 
+const VALVE_LABEL = 'valve';
+const RECT_LABEL = 'rect';
+
 /** 绑定画布点击与窗口 resize；返回解绑函数 */
 export function bindDemoInput(ctx: DemoInputContext): () => void {
   const { canvas, renderer, picker, valvePicker, valveScene } = ctx;
 
+  /** 候选顺序即拾取优先级：设备符号压在管线与图元之上 */
+  function buildCandidates(): PickCandidate[] {
+    const candidates: PickCandidate[] = [];
+    const valveBindGroup = getValvesBindGroup();
+
+    if (valveBindGroup) {
+      candidates.push({
+        picker: valvePicker,
+        bindGroup: valveBindGroup,
+        vertexBuffer: renderer.vertexBuffer,
+        vertexCount: renderer.vertexCount,
+        instanceCount: ctx.getVisibleValves().length,
+        label: VALVE_LABEL,
+      });
+    }
+    candidates.push({
+      picker,
+      bindGroup: renderer.bindGroup,
+      vertexBuffer: renderer.vertexBuffer,
+      vertexCount: renderer.vertexCount,
+      instanceCount: ctx.getInstanceList().length,
+      label: RECT_LABEL,
+    });
+
+    return candidates;
+  }
+
   async function onMouseDown(event: MouseEvent) {
     event.stopPropagation();
 
-    // 设备图元优先：阀门符号压在管线之上，命中就切换开闭并广播下游管线
-    const valveBindGroup = getValvesBindGroup();
     const visibleValves = ctx.getVisibleValves();
-    if (valveBindGroup) {
-      // 屏幕坐标 → 画布像素由 picker 内部换算
-      const hitValveIndex = await valvePicker.pickAt(
-        canvas,
-        event.clientX,
-        event.clientY,
-        valveBindGroup,
-        renderer.vertexBuffer,
-        renderer.vertexCount,
-        visibleValves.length,
+    const hit = await pickFirst(canvas, event.clientX, event.clientY, buildCandidates());
+
+    // 设备图元命中：切换开闭并广播下游管线样式
+    if (hit?.candidate.label === VALVE_LABEL) {
+      const hitValve = visibleValves[hit.index];
+      if (!hitValve) return;
+
+      const toggled = toggleValve(valveScene, hitValve.id);
+      if (!toggled) return;
+      console.log(
+        `阀门 ${toggled.id}：${
+          toggled.valveOpen > 0.5 ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'
+        }`,
       );
-      const hitValve = hitValveIndex === null ? undefined : visibleValves[hitValveIndex];
-      const toggled = hitValve ? toggleValve(valveScene, hitValve.id) : null;
-      if (toggled) {
-        console.log(
-          `阀门 ${toggled.id}：${
-            toggled.valveOpen > 0.5 ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'
-          }`,
-        );
-        return;
-      }
+      return;
     }
 
-    // 矩形图元拾取：先把全部选中清掉，再按命中下标选中
-    const hitIndex = await picker.pickAt(
-      canvas,
-      event.clientX,
-      event.clientY,
-      renderer.bindGroup,
-      renderer.vertexBuffer,
-      renderer.vertexCount,
-      ctx.getInstanceList().length,
-    );
+    // 矩形图元：先清空全部选中，再按命中下标选中
     ctx.clearSelection();
-
-    if (hitIndex === null) {
+    if (!hit) {
       console.log('❌空白，未选中图形');
     } else {
-      ctx.selectByVisibleIndex(hitIndex);
+      ctx.selectByVisibleIndex(hit.index);
     }
     ctx.refresh();
   }
