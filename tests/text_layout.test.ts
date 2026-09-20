@@ -12,10 +12,9 @@ function makeFakeAtlas(characters: string): GlyphAtlas {
   const glyphs = new Map<string, GlyphEntry>();
   [...characters].forEach((char, index) => {
     glyphs.set(char, {
-      u0: index * 0.1,
-      v0: 0,
-      u1: (index + 1) * 0.1,
-      v1: 0.2,
+      // 条目存像素矩形；uv 由 layoutText 按图集尺寸换算
+      x: index * 10,
+      y: 0,
       advance: 8,
       cellWidth: 10,
       cellHeight: 12,
@@ -25,6 +24,8 @@ function makeFakeAtlas(characters: string): GlyphAtlas {
     glyphs,
     lineHeight: 12,
     fontSizePx: 10,
+    // 图集纹理尺寸：100×20，于是第 n 个格子的 u 区间仍是 [n/10, (n+1)/10]
+    texture: { width: 100, height: 20 },
     getGlyph: (char: string) => glyphs.get(char),
   } as unknown as GlyphAtlas;
 }

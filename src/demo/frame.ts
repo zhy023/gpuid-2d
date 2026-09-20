@@ -11,6 +11,8 @@ import { getValveResources } from '@/business/pid_schematic/valve_manager';
 import { PIPE_LINE_WIDTH_MAX_PX, pipeLineWidthToWorld } from '@/business/pid_schematic/pipe_style';
 import type { ValveItem } from '@/business/pid_schematic/types';
 import { layoutText } from '@/core/text/text_batch';
+import { buildValveSpriteInstances } from '@/business/pid_schematic/valve_instances';
+import { buildValveLabelInstances } from '@/business/pid_schematic/valve_labels';
 import type { Camera2d } from '@/core/camera';
 import { expandAABB } from '@/core/geometry/aabb';
 import { QuadTree } from '@/core/geometry/quad_tree';
@@ -66,49 +68,18 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
       pixelsPerWorldUnit,
       color: [1.0, 0.78, 0.25, 1],
     }).instances;
-    const tagInstances = valves.flatMap(
-      (valve) =>
-        layoutText(glyphAtlas, `${TITLE} ${valve.id % 1000}`, {
-          x: valve.tx - 60,
-          y: valve.ty + 100,
-          pixelsPerWorldUnit,
-          color: [0.55, 0.85, 1.0, 1],
-        }).instances,
-    );
+    // 位号文案/颜色/偏移是业务表现，交给业务层
+    const tagInstances = buildValveLabelInstances(glyphAtlas, valves, { pixelsPerWorldUnit });
     return { titleInstances, tagInstances };
   }
 
-  /** 阀门精灵：按开关态分两组，便于分别绑定两张贴图 */
-  // TODO(归位)：这里与 business/pid_schematic/valve_instances.buildValveSpriteInstances()
-  // 和 valve_labels.buildValveLabelInstances() 重复，应改为调用业务层实现，demo 只保留标题文案。
+  /** 阀门精灵：口径（开关态分组、@2x 一半尺寸）由业务层决定 */
   function buildValveSprites(valves: readonly ValveItem[]) {
-    // @2x 资源按一半尺寸落地，屏幕尺寸随缩放保持恒定
-    const worldWidth = resources.valveTextureWidth / 2 / camera.scale;
-    const worldHeight = resources.valveTextureHeight / 2 / camera.scale;
-    const closed: RectInstance[] = [];
-    const open: RectInstance[] = [];
-
-    for (const valve of valves) {
-      const instance: RectInstance = {
-        tx: valve.tx,
-        ty: valve.ty,
-        sx: worldWidth,
-        sy: worldHeight,
-        beta: 0,
-        selected: 0,
-        u0: 0,
-        v0: 0,
-        u1: 1,
-        v1: 1,
-        colorR: 1,
-        colorG: 1,
-        colorB: 1,
-        colorA: 1,
-      };
-      if (valve.valveOpen > 0.5) open.push(instance);
-      else closed.push(instance);
-    }
-    return { closed, open };
+    return buildValveSpriteInstances(valves, {
+      textureWidth: resources.valveTextureWidth,
+      textureHeight: resources.valveTextureHeight,
+      pixelsPerWorldUnit: camera.scale,
+    });
   }
 
   function frame() {

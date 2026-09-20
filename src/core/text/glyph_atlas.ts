@@ -12,11 +12,9 @@ import { createTextureFromBitmap, type Texture2d } from '@/core/gpu/texture';
 import { createTextureSampler } from '@/core/gpu/texture';
 
 export interface GlyphEntry {
-  /** 图集 uv 矩形 */
-  u0: number;
-  v0: number;
-  u1: number;
-  v1: number;
+  /** 图集内的像素矩形；uv 在排版时按当前图集尺寸换算，扩容后依然正确 */
+  x: number;
+  y: number;
   /** 字形步进（像素） */
   advance: number;
   /** 格子尺寸（像素），绘制端据此换算世界尺寸 */
@@ -57,14 +55,16 @@ export const DEFAULT_FONT_FAMILY =
   "'SimHei', 'Heiti SC', 'Microsoft YaHei', 'PingFang SC', sans-serif";
 
 export class GlyphAtlas {
-  readonly texture: Texture2d;
+  /** 纹理会在扩容时重建，因此非只读 */
+  texture: Texture2d;
   readonly sampler: GPUSampler;
   readonly fontSizePx: number;
   readonly lineHeight: number;
 
   private readonly device: GPUDevice;
-  private readonly ctx: CanvasRenderingContext2D;
-  private readonly canvas: HTMLCanvasElement | OffscreenCanvas;
+  private readonly font: string;
+  private ctx: CanvasRenderingContext2D;
+  private canvas: HTMLCanvasElement | OffscreenCanvas;
   private readonly paddingPx: number;
   private readonly glyphs = new Map<string, GlyphEntry>();
   // shelf 打包游标
@@ -85,6 +85,7 @@ export class GlyphAtlas {
     this.fontSizePx = fontSizePx;
     this.lineHeight = Math.ceil(fontSizePx * 1.25);
     this.paddingPx = paddingPx;
+    this.font = `${fontSizePx}px ${fontFamily}`;
     this.canvas =
       typeof OffscreenCanvas === 'undefined'
         ? document.createElement('canvas')
@@ -96,7 +97,7 @@ export class GlyphAtlas {
     const ctx = this.canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('无法创建 2D 上下文，字形图集光栅化失败');
     this.ctx = ctx as unknown as CanvasRenderingContext2D;
-    this.ctx.font = `${fontSizePx}px ${fontFamily}`;
+    this.ctx.font = this.font;
     this.ctx.textAlign = 'left';
     this.ctx.textBaseline = 'alphabetic';
     this.ctx.fillStyle = '#ffffff';
@@ -117,7 +118,12 @@ export class GlyphAtlas {
     const cellWidth = Math.ceil(advance) + this.paddingPx * 2;
     const cellHeight = ascent + descent + this.paddingPx * 2;
 
-    const slot = this.allocate(cellWidth, cellHeight);
+    // 图集满：扩容一页（尺寸翻倍、保留已烘焙字形），再重新分配
+    let slot = this.allocate(cellWidth, cellHeight);
+    if (!slot) {
+      this.grow();
+      slot = this.allocate(cellWidth, cellHeight);
+    }
     if (!slot) return undefined;
 
     // 画进格子：基线 = 顶部 padding + ascent
@@ -132,10 +138,8 @@ export class GlyphAtlas {
     );
 
     const entry: GlyphEntry = {
-      u0: slot.x / this.texture.width,
-      v0: slot.y / this.texture.height,
-      u1: (slot.x + cellWidth) / this.texture.width,
-      v1: (slot.y + cellHeight) / this.texture.height,
+      x: slot.x,
+      y: slot.y,
       advance,
       cellWidth,
       cellHeight,
@@ -162,6 +166,34 @@ export class GlyphAtlas {
     this.cursorX += width;
     this.shelfHeight = Math.max(this.shelfHeight, height);
     return slot;
+  }
+
+  /**
+   * 扩容：画布尺寸翻倍，把已有字形原样拷到左上角，再重建纹理。
+   * 条目不存 uv（只存像素矩形），所以旧字形的 uv 会随新尺寸自动正确。
+   */
+  private grow() {
+    const nextWidth = this.canvas.width * 2;
+    const nextHeight = this.canvas.height * 2;
+    const nextCanvas =
+      typeof OffscreenCanvas === 'undefined'
+        ? document.createElement('canvas')
+        : new OffscreenCanvas(nextWidth, nextHeight);
+    nextCanvas.width = nextWidth;
+    nextCanvas.height = nextHeight;
+
+    const nextCtx = nextCanvas.getContext('2d', { willReadFrequently: true });
+    if (!nextCtx) throw new Error('字形图集扩容失败：无法创建 2D 上下文');
+    nextCtx.drawImage(this.canvas, 0, 0);
+
+    this.texture.texture.destroy();
+    this.canvas = nextCanvas;
+    this.ctx = nextCtx as unknown as CanvasRenderingContext2D;
+    this.ctx.font = this.font;
+    this.ctx.textAlign = 'left';
+    this.ctx.textBaseline = 'alphabetic';
+    this.ctx.fillStyle = '#ffffff';
+    this.texture = createTextureFromBitmap(this.device, nextCanvas, 'glyph-atlas');
   }
 }
 
