@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { runApp } from '@/demo/main';
+// import { runApp } from '@/demo/main';
+import { runDrawioApp } from '@/demo/drawio_main';
 
 function App() {
   const started = useRef(false);
@@ -9,7 +10,7 @@ function App() {
     if (started.current) return;
     started.current = true;
 
-    runApp();
+    runDrawioApp();
   }, []);
 
   return (

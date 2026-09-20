@@ -69,6 +69,8 @@ export class Renderer2D {
   private instanceList: RectInstance[] = [];
   // MSAA 颜色目标：渲染到它，再 resolve 到画布纹理
   private msaaTexture: GPUTexture | null = null;
+  // 背景色：默认很淡的灰，工业图纸长时间观看更舒服
+  private clearColor: GPUColor = { r: 0.96, g: 0.96, b: 0.96, a: 1 };
   // 默认纹理绑定：不贴图的图元采样到白色，外观不变
   private defaultTexture!: Texture2d;
   private defaultSampler!: GPUSampler;
@@ -194,6 +196,11 @@ export class Renderer2D {
   /** 画布尺寸变化时同步重建，否则多重采样附件与画布尺寸不一致 */
   resize(width: number, height: number) {
     this.createMsaaTexture(width, height);
+  }
+
+  /** 设置背景色（每帧清屏用） */
+  setClearColor(color: GPUColor) {
+    this.clearColor = color;
   }
 
   /**
@@ -339,7 +346,7 @@ export class Renderer2D {
           // 多重采样渲染到 MSAA 纹理，再 resolve 到画布纹理
           view: this.msaaTexture!.createView(),
           resolveTarget: this.context.getCurrentTexture().createView(),
-          clearValue: { r: 0.05, g: 0.05, b: 0.08, a: 1 },
+          clearValue: this.clearColor,
           loadOp: 'clear',
           storeOp: 'discard',
         },
