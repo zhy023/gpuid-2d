@@ -20,6 +20,15 @@ export interface TextLayoutOptions {
   pixelsPerWorldUnit: number;
   /** 字距（像素） */
   letterSpacingPx?: number;
+  /** 文字颜色 (r,g,b,a)，默认近白，避免与灰色图元糊在一起 */
+  color?: readonly [number, number, number, number];
+  /**
+   * 文字底板（可选）：在文字下方铺一块半透明矩形。
+   * 默认关闭；需要保证压在浅色图元上也能看清时再传颜色开启。
+   */
+  backdrop?: readonly [number, number, number, number] | false;
+  /** 底板相对文字的外扩（像素） */
+  backdropPaddingPx?: number;
 }
 
 export interface TextLayoutResult {
@@ -39,11 +48,21 @@ export function layoutText(
   text: string,
   options: TextLayoutOptions,
 ): TextLayoutResult {
-  const { x, y, pixelsPerWorldUnit, letterSpacingPx = 0 } = options;
+  const {
+    x,
+    y,
+    pixelsPerWorldUnit,
+    letterSpacingPx = 0,
+    color = [0.93, 0.95, 0.98, 1] as const,
+    backdrop = false as const,
+    backdropPaddingPx = 3,
+  } = options;
   const worldPerPixel = 1 / Math.max(pixelsPerWorldUnit, 1e-6);
   const instances: RectInstance[] = [];
   const missing: string[] = [];
 
+  // 底板：宽度先用排版结果算，等排完再插到最前面（保证文字压在底板上）
+  const backdropInstances: RectInstance[] = [];
   let cursorX = x;
   for (const grapheme of splitGraphemes(text)) {
     const glyph = atlas.getGlyph(grapheme);
@@ -66,9 +85,36 @@ export function layoutText(
       v0: glyph.v0,
       u1: glyph.u1,
       v1: glyph.v1,
+      colorR: color[0],
+      colorG: color[1],
+      colorB: color[2],
+      colorA: color[3],
     });
     cursorX += (glyph.advance + letterSpacingPx) * worldPerPixel;
   }
 
-  return { instances, width: cursorX - x, missing };
+  const width = cursorX - x;
+  if (backdrop && instances.length > 0) {
+    const padWorld = backdropPaddingPx * worldPerPixel;
+    const heightWorld = atlas.lineHeight * worldPerPixel + padWorld * 2;
+    backdropInstances.push({
+      tx: x + width / 2,
+      ty: y + atlas.lineHeight * worldPerPixel * 0.5,
+      sx: width + padWorld * 2,
+      sy: heightWorld,
+      beta: 0,
+      selected: 0,
+      // 整张纹理（白）→ 颜色完全由逐实例颜色决定
+      u0: 0,
+      v0: 0,
+      u1: 1,
+      v1: 1,
+      colorR: backdrop[0],
+      colorG: backdrop[1],
+      colorB: backdrop[2],
+      colorA: backdrop[3],
+    });
+  }
+
+  return { instances: [...backdropInstances, ...instances], width, missing };
 }

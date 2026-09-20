@@ -18,6 +18,7 @@ struct VertexOutput {
     @location(0) localUv: vec2f,
     @location(1) isInstanceSelected: f32,
     @location(2) atlasUvRect: vec4f,
+    @location(3) instanceColor: vec4f,
 };
 
 @vertex
@@ -32,6 +33,7 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> 
     out.localUv = input.localPos;
     out.isInstanceSelected = inst.isSelected;
     out.atlasUvRect = inst.atlasUvRect;
+    out.instanceColor = inst.color;
     return out;
 }
 
@@ -45,5 +47,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let localUv = input.localUv + vec2f(0.5, 0.5);
     let uv = mix(input.atlasUvRect.xy, input.atlasUvRect.zw, localUv);
     let texel = textureSample(atlasTexture, atlasSampler, uv);
-    return vec4f(color.rgb * texel.rgb, color.a * texel.a);
+    // 逐实例颜色：alpha > 0.5 表示该实例显式指定颜色（文字/位号），否则用默认灰/选中色
+    let hasInstanceColor = input.instanceColor.a > 0.5;
+    let rgb = select(color.rgb, input.instanceColor.rgb, hasInstanceColor);
+    let alpha = color.a * texel.a * select(1.0, input.instanceColor.a, hasInstanceColor);
+    return vec4f(rgb * texel.rgb, alpha);
 }

@@ -16,7 +16,7 @@ import type { QuadItem } from '@/core/types';
 // 最大管线实例数量，压测可按需调大（管线按段展开，直角拐点还要各加一个方块实例）
 const MAX_PIPE_INSTANCE = 8192;
 // InstanceTransform：8 个基字段 + 图集 uv 矩形(4) → 12 × f32 = 48B，与 WGSL 结构一致
-const INSTANCE_FLOAT_COUNT = 12;
+const INSTANCE_FLOAT_COUNT = 16;
 // PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float
 const PID_DATA_FLOAT_COUNT = 4;
 
@@ -111,6 +111,11 @@ function writeInstanceTransform(
   instanceCpuBuffer[offset + 9] = 0;
   instanceCpuBuffer[offset + 10] = 1;
   instanceCpuBuffer[offset + 11] = 1;
+  // 逐实例颜色：默认 0（沿用着色器默认色）
+  instanceCpuBuffer[offset + 12] = 0;
+  instanceCpuBuffer[offset + 13] = 0;
+  instanceCpuBuffer[offset + 14] = 0;
+  instanceCpuBuffer[offset + 15] = 0;
 }
 
 /** 写入单个实例的 PidSchematicInstanceData（4 × f32） */

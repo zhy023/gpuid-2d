@@ -86,6 +86,36 @@ export class Renderer2D {
     this.instanceStorageBuffer.destroy();
   }
 
+  /**
+   * 用指定纹理绘制一段实例。
+   * 文字/符号图集与普通图元共用同一个实例缓冲与 pipeline，只是换绑纹理，
+   * firstInstance 让 @builtin(instance_index) 继续指向缓冲里正确的实例。
+   */
+  drawTextureBatch(
+    pass: GPURenderPassEncoder,
+    textureView: GPUTextureView,
+    sampler: GPUSampler,
+    firstInstance: number,
+    instanceCount: number,
+  ) {
+    if (instanceCount <= 0) return;
+
+    const bindGroup = this.device.createBindGroup({
+      layout: this.bindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.projectionBuffer } },
+        { binding: 1, resource: { buffer: this.instanceStorageBuffer } },
+        { binding: 3, resource: textureView },
+        { binding: 4, resource: sampler },
+      ],
+    });
+
+    pass.setPipeline(this.pipeline);
+    pass.setBindGroup(0, bindGroup);
+    pass.setVertexBuffer(0, this.vertexBuffer);
+    pass.draw(this.vertexCount, instanceCount, 0, firstInstance);
+  }
+
   /** 画布尺寸变化时同步重建，否则多重采样附件与画布尺寸不一致 */
   resize(width: number, height: number) {
     this.createMsaaTexture(width, height);
@@ -178,12 +208,12 @@ export class Renderer2D {
 
   uploadInstances() {
     const count = this.instanceList.length;
-    // InstanceTransform 12个f32：sx,sy,beta,tx,ty,selected,pad0,pad1,u0,v0,u1,v1
-    const arr = new Float32Array(count * 12);
+    // InstanceTransform 16个f32：sx,sy,beta,tx,ty,selected,pad0,pad1,u0,v0,u1,v1,r,g,b,a
+    const arr = new Float32Array(count * 16);
 
     for (let i = 0; i < count; i++) {
       const inst = this.instanceList[i];
-      const offset = i * 12;
+      const offset = i * 16;
       arr[offset] = inst.sx;
       arr[offset + 1] = inst.sy;
       arr[offset + 2] = inst.beta;
@@ -197,6 +227,11 @@ export class Renderer2D {
       arr[offset + 9] = inst.v0;
       arr[offset + 10] = inst.u1;
       arr[offset + 11] = inst.v1;
+      // 逐实例颜色：默认 0（沿用着色器默认色）
+      arr[offset + 12] = inst.colorR;
+      arr[offset + 13] = inst.colorG;
+      arr[offset + 14] = inst.colorB;
+      arr[offset + 15] = inst.colorA;
     }
 
     this.device.queue.writeBuffer(this.instanceStorageBuffer, 0, arr);

@@ -9,6 +9,7 @@
  * 注意：canvas 纹理是预乘 alpha，绘制端把采样结果直接乘到颜色上即可（白色字形 = 取 alpha）。
  */
 import { createTextureFromBitmap, type Texture2d } from '@/core/gpu/texture';
+import { createTextureSampler } from '@/core/gpu/texture';
 
 export interface GlyphEntry {
   /** 图集 uv 矩形 */
@@ -33,8 +34,16 @@ export interface GlyphAtlasOptions {
   paddingPx?: number;
 }
 
+/**
+ * 默认字体：黑体系。
+ * 用回退链覆盖各平台（macOS 黑体 Heiti SC / 苹方 PingFang SC，Windows SimHei/雅黑，Linux 落到 sans-serif）。
+ */
+export const DEFAULT_FONT_FAMILY =
+  "'SimHei', 'Heiti SC', 'Microsoft YaHei', 'PingFang SC', sans-serif";
+
 export class GlyphAtlas {
   readonly texture: Texture2d;
+  readonly sampler: GPUSampler;
   readonly fontSizePx: number;
   readonly lineHeight: number;
 
@@ -50,7 +59,7 @@ export class GlyphAtlas {
 
   constructor(device: GPUDevice, options: GlyphAtlasOptions = {}) {
     const {
-      fontFamily = 'sans-serif',
+      fontFamily = DEFAULT_FONT_FAMILY,
       fontSizePx = 16,
       textureWidthPx = 512,
       textureHeightPx = 512,
@@ -78,6 +87,7 @@ export class GlyphAtlas {
     this.ctx.fillStyle = '#ffffff';
 
     this.texture = createTextureFromBitmap(device, this.canvas, 'glyph-atlas');
+    this.sampler = createTextureSampler(device, 'glyph-atlas-sampler');
   }
 
   /** 取字形；首次访问才烘焙。图集满时返回 undefined（调用方可换新图集实例） */

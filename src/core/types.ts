@@ -10,6 +10,11 @@ export interface RectInstance {
   v0: number;
   u1: number;
   v1: number;
+  /** 逐实例颜色 (r,g,b,a)；a = 0 表示沿用着色器默认颜色 */
+  colorR: number;
+  colorG: number;
+  colorB: number;
+  colorA: number;
 }
 
 // 基础AABB包围盒

@@ -73,6 +73,8 @@ export async function runApp() {
   const valveScene = createValveDemoScene();
   // 位号文字：按需字形图集（中文/西文同一路径）
   const glyphAtlas = new GlyphAtlas(device, { fontSizePx: 18 });
+  // 醒目示例文字：单独用大字号图集，画在阀门链上方，便于肉眼直接看效果
+  const titleAtlas = new GlyphAtlas(device, { fontSizePx: 32 });
   await initValves(
     device,
     format,
@@ -236,16 +238,25 @@ export async function runApp() {
     const visiblePipes = updateVisiblePipes();
     visibleValves = updateVisibleValves();
     // 阀门位号：每字一个实例，图集 uv 写在实例里，与矩形共用一次实例化绘制
+    const titleInstances = layoutText(titleAtlas, '你好', {
+      x: -260,
+      y: -900,
+      pixelsPerWorldUnit: camera.scale,
+      // 文字自带颜色，格子其余部分保持透明（不铺底板）
+      color: [1.0, 0.78, 0.25, 1],
+    }).instances;
     const tagInstances = visibleValves.flatMap(
       (valve) =>
         layoutText(glyphAtlas, `你好 ${valve.id % 1000}`, {
           x: valve.tx - 60,
           y: valve.ty + 100,
           pixelsPerWorldUnit: camera.scale,
+          color: [0.55, 0.85, 1.0, 1],
         }).instances,
     );
-    if (tagInstances.length > 0) {
-      renderer.setInstances([...instanceList, ...tagInstances]);
+    const textInstances = [...titleInstances, ...tagInstances];
+    if (textInstances.length > 0) {
+      renderer.setInstances([...instanceList, ...textInstances]);
       renderer.uploadInstances();
     }
     const visibleDemoPipes = getVisibleDemoPipes();
@@ -268,6 +279,21 @@ export async function runApp() {
     // 矩形、管线、设备图元共用同一个 render pass，避免多开 pass 与多余 submit
     renderer.render((pass) => {
       for (const item of sortRenderLayerDraws(layerDraws)) item.draw(pass);
+      // 文字批次：同一实例缓冲，换成字形图集纹理绘制（两段区间各用自己的图集）
+      renderer.drawTextureBatch(
+        pass,
+        titleAtlas.texture.view,
+        titleAtlas.sampler,
+        instanceList.length,
+        titleInstances.length,
+      );
+      renderer.drawTextureBatch(
+        pass,
+        glyphAtlas.texture.view,
+        glyphAtlas.sampler,
+        instanceList.length + titleInstances.length,
+        tagInstances.length,
+      );
     });
   }
 

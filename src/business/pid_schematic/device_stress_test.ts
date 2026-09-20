@@ -84,6 +84,10 @@ export class DeviceStressTester {
       v0: 0,
       u1: 1,
       v1: 1,
+      colorR: 0,
+      colorG: 0,
+      colorB: 0,
+      colorA: 0,
     }));
   }
 

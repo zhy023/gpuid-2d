@@ -13,7 +13,7 @@ import type { ValveItem, ValveRenderResources } from '@/business/pid_schematic/t
 // 设备符号数量上限，压测可按需调大
 const MAX_VALVE_INSTANCE = 4096;
 // InstanceTransform：8 个基字段 + 图集 uv 矩形(4) → 12 × f32 = 48B，与 WGSL 结构一致
-const INSTANCE_FLOAT_COUNT = 12;
+const INSTANCE_FLOAT_COUNT = 16;
 // PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float
 const BUSINESS_FLOAT_COUNT = 4;
 
@@ -107,6 +107,11 @@ function packValveInstances(valves: readonly ValveItem[], pixelsPerWorldUnit: nu
     instanceCpuBuffer[instanceOffset + 9] = 0;
     instanceCpuBuffer[instanceOffset + 10] = 1;
     instanceCpuBuffer[instanceOffset + 11] = 1;
+    // 逐实例颜色：默认 0（沿用着色器默认色）
+    instanceCpuBuffer[instanceOffset + 12] = 0;
+    instanceCpuBuffer[instanceOffset + 13] = 0;
+    instanceCpuBuffer[instanceOffset + 14] = 0;
+    instanceCpuBuffer[instanceOffset + 15] = 0;
 
     const businessOffset = writeIdx * BUSINESS_FLOAT_COUNT;
     businessCpuBuffer[businessOffset + 0] = valve.valveOpen > 0.5 ? 1 : 0;
