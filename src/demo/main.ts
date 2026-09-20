@@ -1,19 +1,17 @@
-import shaderCode from '@/core/shader/core_render/primitive_render.wgsl?raw';
-import pickShaderCode from '@/core/shader/core_render/primitive_pick.wgsl?raw';
-import type { AABB, RectInstance } from '@/core/types';
+import type { RectInstance } from '@/core/types';
 import { Camera2d } from '@/core/camera';
 import { initWebGPU } from '@/core/gpu/device';
 import { createRectVertexBuffer } from '@/core/geometry/geometry';
 import { expandAABB } from '@/core/geometry/aabb';
 import { Renderer2D } from '@/core/gpu/renderer';
 import { RENDER_LAYER, sortRenderLayerDraws, type RenderLayerDraw } from '@/core/gpu/render_layer';
-import { WebGpuPicker } from '@/core/gpu/picker';
+import { createRendererPicker } from '@/core/gpu/picker';
 import { PIPE_LINE_WIDTH_MAX_PX, pipeLineWidthToWorld } from '@/business/pid_schematic/pipe_style';
-import valvePickShaderCode from '@/business/pid_schematic/shader/valve_pick.wgsl?raw';
-import { createValveDemoScene, toggleValve } from '@/business/pid_schematic/valve_demo';
+import { bindDemoInput } from '@/demo/input';
+import { CanvasSurface } from '@/core/gpu/surface';
+import { createDemoScene } from '@/demo/scene';
 import {
-  getValvesBindGroup,
-  getValvesBindGroupLayout,
+  getValvesPicker,
   initValves,
   disposeValves,
   getValveResources,
@@ -21,19 +19,15 @@ import {
 import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import type { ValveItem } from '@/business/pid_schematic/types';
 import { QuadTree } from '@/core/geometry/quad_tree';
-import { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { layoutText } from '@/core/text/text_batch';
-import { createTextureFromBitmap, createTextureSampler } from '@/core/gpu/texture';
+import { createDemoResources } from '@/demo/resources';
 
 // test 压测
-import { DeviceStressTester } from '@/business/pid_schematic/device_stress_test';
-import { PipeStressTester } from '@/business/pid_schematic/pipe_stress_test';
 import { disposePipes, renderPipes } from '@/business/pid_schematic/pipe_manager';
 
 export async function runApp() {
   const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
   if (!canvas) throw new Error('找不到 #canvas');
-  const canvasElement = canvas;
 
   // 1.初始化webgpu环境
   const { device, context, format } = await initWebGPU(canvas);
@@ -56,61 +50,39 @@ export async function runApp() {
     vertexCount,
     // , pidInstanceStorageBuffer // 后续P&ID业务打开这里
   );
-  await renderer.initPipeline(shaderCode);
+  // 着色器由内核自带，这里不再注入 WGSL
+  await renderer.initPipeline();
 
-  // ---------------------- 初始化拾取模块 ----------------------
-  const picker = new WebGpuPicker(device);
-  await picker.init(canvas.width, canvas.height, pickShaderCode);
-  // 拾取复用渲染器同一个 bindGroupLayout
-  const pickPipelineLayout = device.createPipelineLayout({
-    bindGroupLayouts: [renderer.bindGroupLayout],
-  });
-  picker.setPipelineLayout(pickPipelineLayout);
-  picker.createPipeline(renderer.getVertexLayout());
+  // 矩形拾取：复用渲染器的绑定布局与顶点布局（胶水在 core 的 createRendererPicker）
+  const picker = await createRendererPicker(device, renderer, canvas.width, canvas.height);
 
   // -----------------------------------------------------------
 
   // ------------------ 设备图元（阀门）示例 ------------------
   // 一条「阀门—管线—阀门」链 + 拓扑：关闭阀门会把下游管线切回默认样式
-  const valveScene = createValveDemoScene();
-  // 位号文字：按需字形图集（中文/西文同一路径）
-  const glyphAtlas = new GlyphAtlas(device, { fontSizePx: 18 });
-  // 醒目示例文字：单独用大字号图集，画在阀门链上方，便于肉眼直接看效果
-  const titleAtlas = new GlyphAtlas(device, { fontSizePx: 32 });
-  // 材质贴图测试：加载阀门图片（@2x，绘制时按半尺寸），走与文字同一套图集批次通路
-  const spriteResponse = await fetch('/assets/famen_off@2x.png');
-  const spriteBitmap = await createImageBitmap(await spriteResponse.blob());
-  const spriteTexture = createTextureFromBitmap(device, spriteBitmap, 'valve-sprite');
-  const spriteSampler = createTextureSampler(device, 'valve-sprite-sampler');
-  // 阀门开启态贴图：缺失时退化为关闭态贴图，保证应用仍能启动
-  let valveOnTexture: ReturnType<typeof createTextureFromBitmap> | null = null;
-  try {
-    const valveOnBitmap = await createImageBitmap(
-      await (await fetch('/assets/famen_on@2x.png')).blob(),
-    );
-    valveOnTexture = createTextureFromBitmap(device, valveOnBitmap, 'valve-sprite-on');
-  } catch {
-    console.warn('[gpuid] 未找到 /assets/famen_on@2x.png，阀门开启态暂用关闭态贴图');
-  }
+  // 示例 GPU 资源：字形图集 + 阀门开关贴图
+  const {
+    glyphAtlas,
+    titleAtlas,
+    valveOffTexture: spriteTexture,
+    valveOnTexture,
+    valveSampler: spriteSampler,
+    valveTextureWidth,
+    valveTextureHeight,
+  } = await createDemoResources(device);
   await initValves(
     device,
     format,
     renderer.getVertexLayout(),
     renderer.vertexBuffer,
     renderer.vertexCount,
+    // 交给业务模块托管阀门拾取器（含拾取纹理与管线）
+    { width: canvas.width, height: canvas.height },
   );
 
-  // 阀门拾取独立一个 picker：自带拾取纹理，pipeline layout 用阀门自己的绑定
-  const valvePicker = new WebGpuPicker(device);
-  await valvePicker.init(canvas.width, canvas.height, valvePickShaderCode);
-  const valveBindGroupLayout = getValvesBindGroupLayout();
-  if (valveBindGroupLayout) {
-    valvePicker.setPipelineLayout(
-      device.createPipelineLayout({ bindGroupLayouts: [valveBindGroupLayout] }),
-    );
-    // 阀门拾取着色器用 vertex_index 生成 quad，不需要顶点缓冲
-    valvePicker.createPipeline();
-  }
+  // 阀门拾取器由业务模块创建并持有
+  const valvePicker = getValvesPicker();
+  if (!valvePicker) throw new Error('阀门拾取器未初始化（initValves 需要传入画布尺寸）');
 
   // -----------------------------------------------------------
 
@@ -118,113 +90,69 @@ export async function runApp() {
   const camera = new Camera2d(canvas);
 
   // 压测初始化：生成的图元直接作为 GPU 实例绘制，并覆盖整个初始视野。
-  const worldBounds: AABB = { minX: -20000, minY: -20000, maxX: 20000, maxY: 20000 };
-  const pidTester = new DeviceStressTester(worldBounds, 0.002);
-  pidTester.generate(50000);
+  // 场景数据（设备图元 / 管线 / 阀门链与拓扑）统一由 demo/scene 提供
+  const scene = await createDemoScene(device, format);
+  const { deviceTester: pidTester, pipeTester, valveScene } = scene;
   camera.scale = 0.1;
 
   let instanceList: RectInstance[] = [];
   let visibleItemsSnapshot: ReturnType<typeof pidTester.tick>['visibleItems'] = [];
   let visibleValves: ValveItem[] = [];
 
-  function updateVisibleInstances() {
+  /** 更新矩形可见集与实例缓冲；返回当前矩形实例列表（frame 阶段要在其后追加文字/贴图实例） */
+  function updateVisibleInstances(): readonly RectInstance[] {
     const result = pidTester.tick(camera.getViewportAABB(), camera.isDrag);
-    if (!result) return;
+    if (!result) return instanceList;
     visibleItemsSnapshot = result.visibleItems;
 
-    if (!result.changed) return;
+    if (!result.changed) return instanceList;
 
     // ✅直接调用tester提供的转换方法，自带每个item.selected状态
     instanceList = pidTester.buildRectInstanceList(visibleItemsSnapshot);
     renderer.setInstances(instanceList);
     renderer.uploadInstances();
     console.log(`视口剔除：${result.visibleItems.length} / 50000 个图元`);
+    return instanceList;
   }
 
   updateVisibleInstances();
 
-  // ✅鼠标点击：GPU拾取
-  async function onMouseDown(e: MouseEvent) {
-    e.stopPropagation();
-
-    const rect = canvasElement.getBoundingClientRect();
-    const pixelScaleX = canvasElement.width / rect.width;
-    const pixelScaleY = canvasElement.height / rect.height;
-    const pixelX = (e.clientX - rect.left) * pixelScaleX;
-    const pixelY = (e.clientY - rect.top) * pixelScaleY;
-
-    // 设备图元优先：阀门符号压在管线之上，命中就切换开闭并广播到下游管线
-    const valveBindGroup = getValvesBindGroup();
-    if (valveBindGroup) {
-      const hitValveIndex = await valvePicker.pick(
-        pixelX,
-        pixelY,
-        valveBindGroup,
-        renderer.vertexBuffer,
-        renderer.vertexCount,
-        visibleValves.length,
-      );
-      const hitValve = hitValveIndex === null ? undefined : visibleValves[hitValveIndex];
-      const toggled = hitValve ? toggleValve(valveScene, hitValve.id) : null;
-      if (toggled) {
-        console.log(
-          `阀门 ${toggled.id}：${
-            toggled.valveOpen > 0.5 ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'
-          }`,
-        );
-        return;
-      }
-    }
-
-    const hitVisibleIdx = await picker.pick(
-      pixelX,
-      pixelY,
-      renderer.bindGroup,
-      renderer.vertexBuffer,
-      renderer.vertexCount,
-      instanceList.length,
-    );
-
-    // 1：清空全部选中状态，修改全局itemMap，不是临时数组
-    for (const item of pidTester.itemMap.values()) {
-      pidTester.setItemSelected(item.id, false);
-    }
-
-    if (hitVisibleIdx !== null) {
-      // ⚠️hitVisibleIdx 是【当前可见数组的下标】，不是全局id！
-      const hitItem = visibleItemsSnapshot[hitVisibleIdx];
-      if (hitItem) {
-        pidTester.setItemSelected(hitItem.id, true);
-        console.log('✅GPU拾取，全局图元ID：', hitItem.id, '可见数组下标', hitVisibleIdx);
-      }
-    } else {
-      console.log('❌空白，未选中图形');
-    }
-    updateVisibleInstances(); // 刷新实例数组+上传buffer
-  }
-
-  canvas.removeEventListener('mousedown', onMouseDown);
-  canvas.addEventListener('mousedown', onMouseDown);
-
-  // 窗口resize同步canvas尺寸 + 相机 + 拾取纹理
-  window.addEventListener('resize', () => {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    // 重点：WebGPU上下文重新配置，防止画面拉伸模糊
-    context.configure({
-      device,
-      format,
-      alphaMode: 'opaque',
-    });
-    camera.resize(canvas.width, canvas.height);
-    picker.resize(canvas.width, canvas.height);
-    valvePicker.resize(canvas.width, canvas.height);
-    // MSAA 颜色目标同步重建
-    renderer.resize(canvas.width, canvas.height);
+  // 输入与尺寸处理：点击拾取（设备优先 → 矩形）与 resize 同步
+  // 画布表面：尺寸变化时统一重配上下文并重建 MSAA / 拾取纹理
+  const surface = new CanvasSurface({
+    canvas,
+    device,
+    context,
+    format,
+    resizeTargets: [renderer, picker, valvePicker],
   });
 
-  const pipeTester = new PipeStressTester(worldBounds, 0.001);
-  await pipeTester.generate(800, device, format);
+  bindDemoInput({
+    canvas,
+    context,
+    device,
+    format,
+    camera,
+    surface,
+    renderer,
+    picker,
+    valvePicker,
+    valveScene,
+    getVisibleValves: () => visibleValves,
+    getInstanceList: () => instanceList,
+    clearSelection: () => {
+      for (const item of pidTester.itemMap.values()) {
+        pidTester.setItemSelected(item.id, false);
+      }
+    },
+    selectByVisibleIndex: (index: number) => {
+      const hitItem = visibleItemsSnapshot[index];
+      if (!hitItem) return;
+      pidTester.setItemSelected(hitItem.id, true);
+      console.log('✅GPU拾取，全局图元ID：', hitItem.id, '可见数组下标', index);
+    },
+    refresh: updateVisibleInstances,
+  });
 
   /**
    * 管线可见性随相机移动变化，每帧按视口剔除一次。
@@ -284,8 +212,8 @@ export async function runApp() {
     );
     const textInstances = [...titleInstances, ...tagInstances];
     // 阀门贴图精灵：@2x 资源按一半尺寸落地（64px → 32px），缩放后屏幕尺寸恒定
-    const valveSpriteWorldWidth = spriteBitmap.width / 2 / camera.scale;
-    const valveSpriteWorldHeight = spriteBitmap.height / 2 / camera.scale;
+    const valveSpriteWorldWidth = valveTextureWidth / 2 / camera.scale;
+    const valveSpriteWorldHeight = valveTextureHeight / 2 / camera.scale;
     // 按开关态分两组，贴在实例缓冲里各自连续，便于分别绑定两张贴图绘制
     const closedSprites: RectInstance[] = [];
     const openSprites: RectInstance[] = [];

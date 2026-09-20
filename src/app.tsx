@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { runApp } from '@/demo/run_app';
+import { runApp } from '@/demo/main';
 
 function App() {
   const started = useRef(false);

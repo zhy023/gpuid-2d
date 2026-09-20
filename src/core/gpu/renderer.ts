@@ -5,6 +5,14 @@ import {
   type Texture2d,
 } from '@/core/gpu/texture';
 import type { RectInstance } from '@/core/types';
+import defaultRenderWgsl from '@/core/shader/core_render/primitive_render.wgsl?raw';
+
+/** 一次纹理批次：绑定纹理与采样器，绘制紧随矩形批次之后的连续实例区间 */
+export interface TextureBatch {
+  textureView: GPUTextureView;
+  sampler: GPUSampler;
+  instanceCount: number;
+}
 
 export class Renderer2D {
   public device: GPUDevice;
@@ -121,7 +129,11 @@ export class Renderer2D {
     this.createMsaaTexture(width, height);
   }
 
-  async initPipeline(shaderCode: string) {
+  /**
+   * 初始化渲染管线：默认用内核自带的矩形着色器，传入 shaderCode 可覆盖。
+   * 着色器属于内核资产，使用方不必再 import WGSL。
+   */
+  async initPipeline(shaderCode: string = defaultRenderWgsl) {
     const device = this.device;
 
     const bindGroupLayoutEntries: GPUBindGroupLayoutEntry[] = [
@@ -245,7 +257,10 @@ export class Renderer2D {
    * 主渲染：先按实例提交矩形，再允许调用方在同一个 render pass 内追加绘制（如管线）
    * @param drawOverlay 追加绘制回调，在 pass.end() 之前调用
    */
-  render(drawOverlay?: (pass: GPURenderPassEncoder) => void) {
+  render(
+    drawOverlay?: (pass: GPURenderPassEncoder) => void,
+    textureBatches: readonly TextureBatch[] = [],
+  ) {
     if (!this.msaaTexture) {
       this.createMsaaTexture(this.context.canvas.width, this.context.canvas.height);
     }
@@ -270,6 +285,20 @@ export class Renderer2D {
     renderPass.draw(this.vertexCount, this.instanceList.length);
 
     drawOverlay?.(renderPass);
+
+    // 纹理批次（文字/贴图）紧跟矩形实例之后，区间偏移在这里累加，调用方不必手算
+    let firstInstance = this.instanceList.length;
+    for (const batch of textureBatches) {
+      if (batch.instanceCount <= 0) continue;
+      this.drawTextureBatch(
+        renderPass,
+        batch.textureView,
+        batch.sampler,
+        firstInstance,
+        batch.instanceCount,
+      );
+      firstInstance += batch.instanceCount;
+    }
 
     renderPass.end();
 

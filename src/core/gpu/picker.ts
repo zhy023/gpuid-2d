@@ -3,6 +3,35 @@
  * 仅点击时执行，不占用主渲染循环
  */
 
+import defaultPickWgsl from '@/core/shader/core_render/primitive_pick.wgsl?raw';
+
+/** 拾取管线需要复用的布局来源（Renderer2D 满足这个结构） */
+export interface PickLayoutSource {
+  bindGroupLayout: GPUBindGroupLayout;
+  getVertexLayout(): GPUVertexBufferLayout;
+}
+
+/**
+ * 用渲染器的布局创建拾取器。
+ *
+ * 拾取着色器读取的正是渲染器上传的实例数据，所以必须复用它的 bindGroupLayout
+ * 与顶点布局；这套胶水收在内核里，使用方只需给设备、布局来源与画布尺寸。
+ */
+export async function createRendererPicker(
+  device: GPUDevice,
+  source: PickLayoutSource,
+  width: number,
+  height: number,
+): Promise<WebGpuPicker> {
+  const picker = new WebGpuPicker(device);
+  await picker.init(width, height);
+  picker.setPipelineLayout(
+    device.createPipelineLayout({ bindGroupLayouts: [source.bindGroupLayout] }),
+  );
+  picker.createPipeline(source.getVertexLayout());
+  return picker;
+}
+
 export class WebGpuPicker {
   private device: GPUDevice;
 
@@ -20,7 +49,10 @@ export class WebGpuPicker {
     this.device = device;
   }
 
-  async init(w: number, h: number, pickShaderCode: string) {
+  /**
+   * 初始化拾取资源：默认用内核自带的拾取着色器，业务设备（阀门等）可传入自己的着色器。
+   */
+  async init(w: number, h: number, pickShaderCode: string = defaultPickWgsl) {
     const device = this.device;
 
     this.pickTexture = device.createTexture({
@@ -91,6 +123,25 @@ export class WebGpuPicker {
       format: 'depth24plus',
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
+  }
+
+  /**
+   * 用客户端坐标拾取：屏幕坐标 → 画布像素的换算在内部完成，
+   * 使用方（demo/业务）不必再写一遍 getBoundingClientRect 那套换算。
+   */
+  async pickAt(
+    canvas: HTMLCanvasElement,
+    clientX: number,
+    clientY: number,
+    bindGroup: GPUBindGroup,
+    vertexBuffer: GPUBuffer,
+    vertexCount: number,
+    instanceCount: number,
+  ): Promise<number | null> {
+    const rect = canvas.getBoundingClientRect();
+    const pixelX = ((clientX - rect.left) * canvas.width) / rect.width;
+    const pixelY = ((clientY - rect.top) * canvas.height) / rect.height;
+    return this.pick(pixelX, pixelY, bindGroup, vertexBuffer, vertexCount, instanceCount);
   }
 
   /**

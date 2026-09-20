@@ -9,6 +9,8 @@ import {
 } from '@/business/pid_schematic/valve_pipeline';
 import { minDeviceSymbolWorldSize } from '@/business/pid_schematic/device_style';
 import type { ValveItem, ValveRenderResources } from '@/business/pid_schematic/types';
+import { spriteInstance } from '@/core/geometry/instance_sprite';
+import type { RectInstance } from '@/core/types';
 
 // 设备符号数量上限，压测可按需调大
 const MAX_VALVE_INSTANCE = 4096;
@@ -78,6 +80,38 @@ export function disposeValveInstances(): void {
   valveInstanceStorageBuffer = null;
   valveBusinessStorageBuffer = null;
   valveBindGroup = null;
+}
+
+/**
+ * 构建阀门精灵实例：按开关态分成两组（关闭 / 开启），
+ * 便于绘制时分别绑定 `famen_off` / `famen_on` 两张贴图（同一实例缓冲，只是换纹理）。
+ *
+ * 尺寸口径：贴图按 @2x 的一半落地，屏幕尺寸与相机缩放无关。
+ * 这属于业务表现（用哪张图、多大），所以放业务层；像素↔世界的换算用核心的 spriteInstance。
+ */
+export function buildValveSpriteInstances(
+  valves: readonly ValveItem[],
+  options: { textureWidth: number; textureHeight: number; pixelsPerWorldUnit: number },
+): { closed: RectInstance[]; open: RectInstance[] } {
+  const { textureWidth, textureHeight, pixelsPerWorldUnit } = options;
+  const widthPx = textureWidth / 2;
+  const heightPx = textureHeight / 2;
+  const closed: RectInstance[] = [];
+  const open: RectInstance[] = [];
+
+  for (const valve of valves) {
+    const instance = spriteInstance({
+      tx: valve.tx,
+      ty: valve.ty,
+      widthPx,
+      heightPx,
+      pixelsPerWorldUnit,
+    });
+    if (valve.valveOpen > 0.5) open.push(instance);
+    else closed.push(instance);
+  }
+
+  return { closed, open };
 }
 
 /**
