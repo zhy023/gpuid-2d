@@ -37,60 +37,6 @@ export interface DemoInputContext {
   refresh: () => void;
 }
 
-export interface ValvePickBinding {
-  canvas: HTMLCanvasElement;
-  renderer: Renderer2D;
-  valvePicker: WebGpuPicker;
-  valveScene: ValveDemoScene;
-  /** 当前帧可见阀门（拾取下标 = 数组下标） */
-  getVisibleValves: () => readonly ValveItem[];
-  /** 命中并切换后的回调；不传则打印状态 */
-  onToggled?: (valve: ValveItem) => void;
-}
-
-/**
- * 只绑定「设备图元（阀门）拾取」：命中即切换开闭并广播下游管线样式。
- * 功能测试（demo/cases）只关心阀门交互时用它；全量演示用 bindDemoInput（设备优先 → 矩形）。
- * @returns 解绑函数
- */
-export function bindValvePick(options: ValvePickBinding): () => void {
-  const { canvas, renderer, valvePicker, valveScene, getVisibleValves, onToggled } = options;
-
-  async function onMouseDown(event: MouseEvent) {
-    event.stopPropagation();
-
-    const valveBindGroup = getValvesBindGroup();
-    if (!valveBindGroup) return;
-
-    const visibleValves = getVisibleValves();
-    const hitIndex = await valvePicker.pickAt(
-      canvas,
-      event.clientX,
-      event.clientY,
-      valveBindGroup,
-      renderer.vertexBuffer,
-      renderer.vertexCount,
-      visibleValves.length,
-    );
-    const hitValve = hitIndex === null ? undefined : visibleValves[hitIndex];
-    const toggled = hitValve ? toggleValve(valveScene, hitValve.id) : null;
-    if (!toggled) return;
-
-    if (onToggled) {
-      onToggled(toggled);
-    } else {
-      console.log(
-        `阀门 ${toggled.id}：${
-          toggled.valveOpen > 0.5 ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'
-        }`,
-      );
-    }
-  }
-
-  canvas.addEventListener('mousedown', onMouseDown);
-  return () => canvas.removeEventListener('mousedown', onMouseDown);
-}
-
 /** 绑定画布点击与窗口 resize；返回解绑函数 */
 export function bindDemoInput(ctx: DemoInputContext): () => void {
   const { canvas, renderer, picker, valvePicker, valveScene } = ctx;
