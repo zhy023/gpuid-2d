@@ -33,7 +33,8 @@
 ## 下一步（已确认的顺序）
 
 1. `drawio/to_pid_scene.ts`：顶点 → 设备矩形；`edge=1` → 管线折线（端点取 source/target 中心 + 折点）；样式翻译（`strokeWidth` → 宽度档位、颜色 → 实例颜色、`shape` → 类型）；`value` → 位号文字
-2. `core/gpu/texture.ts` 增加 `createTextureFromDataUrl`（内联 base64 图标 → 纹理）
+2. 图标：**不需要新增 API**——mxCell 里的内联 base64 直接喂 `loadTextureFromUrl()`
+   （实测 `fetch(dataURL)` 与 `blob()` 均正常，唯一失败点是 Node 缺 `createImageBitmap`，页面里没这个问题）
 3. `demo/scene.ts` 增加 `createDrawioScene(device)`（fetch XML → DOMParser → 翻译 → `PidScene`），`frame.ts` 出图，`main.ts` 切换场景
 4. 验证：`pnpm run check` + CDP 冒烟（图元数、剔除数、拖动帧率）后提交
 
