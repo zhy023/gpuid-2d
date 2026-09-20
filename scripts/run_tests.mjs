@@ -45,7 +45,7 @@ const child = spawn(
   process.execPath,
   ['--test', ...bundles.map((name) => path.join(outDir, name))],
   {
-    cwd: outDir,
+    cwd: projectRoot,
     stdio: 'inherit',
   },
 );
