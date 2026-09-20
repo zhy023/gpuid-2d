@@ -11,6 +11,7 @@ import {
 import { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { renderDrawioFrame } from '@/demo/drawio_frame';
 import { createDrawioScene } from '@/demo/scene';
+import { initPipe } from '@/business/pid_schematic/pipe_manager';
 
 /** 位号字号（图集按字号划分，这里固定一档） */
 const LABEL_FONT_SIZE_PX = 12;
@@ -28,7 +29,10 @@ export async function runDrawioApp(): Promise<void> {
   let unbindResize: (() => void) | null = null;
 
   async function start(ctx: RendererContext) {
-    const { device, renderer, camera, surface } = ctx;
+    const { device, format, renderer, camera, surface } = ctx;
+
+    // 管线模块要先初始化（管线 pipeline + 三角带模板顶点），否则 renderPipes 会直接返回
+    await initPipe(device, format);
     const { pidScene, labels } = await createDrawioScene();
     const labelAtlas = new GlyphAtlas(device, { fontSizePx: LABEL_FONT_SIZE_PX });
 
