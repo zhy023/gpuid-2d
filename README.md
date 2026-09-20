@@ -39,58 +39,74 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 
 ### 当前已完成
 
-- WebGPU 设备、Canvas 上下文和基础渲染管线初始化
-- 正交相机、平移、缩放和世界坐标转换
-- 矩形模板的 GPU 实例化渲染
-- 实例状态 StorageBuffer 与选中高亮
-- `rgba32uint` 离屏 GPU 拾取和实例 ID 读回
-- AABB 工具、旋转矩形/折线包围盒和四叉树空间索引
-- 视口剔除：5 万测试图元中仅提交当前视口内实例
-- 管线多段线膨胀几何的基础实现
-- 管线按「每段一个实例」批量绘制：段中点/方向角/段长现算，拐点流动相位连续；管线之间只有粗细不同（2~10px、步长 2px 的屏幕像素档位，不随缩放变化），条纹周期/速度/配色全局统一
-- 管线支持「流动 / 默认」两种样式：`flowSpeed > 0` 为流动条纹，`0` 恢复默认（纯管身色），供阀门开关按拓扑驱动
-- 画布通路开启 4x MSAA（渲染到多重采样目标再 resolve 到画布）与标准 alpha 混合，核心与业务 pipeline 统一取 `core/gpu/render_state.ts`
-- WGSL 自动校验和 TypeScript/ESLint/Prettier 检查脚本
+**内核（core，业务无关）**
+
+- 装配与生命周期：`createRendererContext`（device/renderer/picker/surface/camera 一次装配）、`CanvasSurface`（resize 统一重配上下文 + 重建 MSAA/拾取纹理）、`dispose` 链路、`device.lost` 监听 + 自动重建（`recreateRendererContext`，重连必须重新 `requestAdapter`）
+- 渲染：实例化绘制（16×f32 实例：变换 + 图集 uv + 逐实例颜色）、`renderComposite`（基础批次 + 多纹理批次 + 覆盖层，偏移内部累加）、4x MSAA + 标准 alpha 混合、层契约 `RENDER_LAYER`
+- 拾取：`rgba32uint` 离屏拾取（`pick` / `pickAt`）、`createRendererPicker`（复用渲染器布局）、`pickFirst`（多图层按优先级试到命中）
+- 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
+- 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容）、`layoutText`（字素簇排版、逐实例颜色、可选底板与描边 halo）、`splitGraphemes`
+- 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB/折线膨胀、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）、`spriteInstance`
+- 着色器工程：自研 `#include`（`@/` 别名、构建期由 vite 插件展开）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
+
+**业务（business/pid_schematic）**
+
+- 管线：按「每段一个实例」批量绘制（段中点/方向角/段长现算、拐点补方块、流动相位连续）、屏幕像素粗细档位（2~10px、步长 2px、不随缩放变化）、「流动 / 默认」两种样式由 `flowSpeed` 驱动
+- 阀门：开关两态贴图精灵、拾取器由业务模块托管、点击切换开闭
+- 拓扑：`applyValveFlowState` 把阀门状态广播到下游管线（含环路保护）
+- 场景：`PidScene` 统一增删改（`upsertDevice` / `upsertPipe` / `upsertValve` / `remove`）与视口可见集
+
+**质量保障**
+
+- `tests/` 20 个用例（几何等价性、四叉树一致性、QuadTreeStore、PidScene、拓扑广播、文字排版与字素切分）
+- `pnpm run check`（lint + 文件名 + WGSL + 用例 + format + build）与 `pnpm run check:device`（掉设备探针：destroy → lost → 新适配器 → 建管线并渲染一帧）
+- GitHub Actions：`check` job 跑完整检查，`device` job 单独跑掉设备用例（不阻塞）
+- 性能基线：5 万设备图元 + 800 管线，拖动渲染中位 16.7ms、p95 17.7ms
 
 ### 近期开发顺序
 
-1. **实例图元扩展**：加入阀门、泵、仪表等符号模板，以及阀门开关状态的 shader 分支。
-2. **管线拾取补齐**：主渲染已按段实例化 + 视口剔除，拾取通路还需接入管线并区分图元 ID 空间。
-3. **阀门状态驱动流动**：两种样式与 `flowSpeed` 开关已就绪，待接入阀门开关状态的广播。
-4. **业务拓扑管理**：维护管线的 source-target 关系，阀门关闭时把下游管线切回默认样式。
-5. **状态更新优化**：将实例状态变更与几何变更分开，避免无变化时重复上传 StorageBuffer。
+1. **符号图集与状态变体**：泵/仪表/接线端等符号进同一张图集，按状态切换 uv（阀门已用两张贴图验证通路）。
+2. **图集淘汰与显存上限**：字形图集目前按需扩容，需要 LRU 或页数上限，保证长跑不涨内存。
+3. **文字 LOD**：大图缩小时隐藏位号或切换字号。
+4. **数据接入**：DXF/XML 或后端图纸 JSON 接入 `PidScene`。
+5. **性能面板**：draw call / 实例数 / 剔除数 / 帧时间。
 
 ### 后续扩展
 
-- P&ID 位号、设备编号和文字渲染
 - 框选、多选、悬浮预览和更细粒度的拾取层级
 - DXF/XML 图纸解析与导入
 - 图元数量、draw call、GPU 时间等性能面板
 - 图纸快照导出和在线 Demo
 
+> 定位是**工业可视化底座**，不追求通用引擎能力：粒子、网格（Mesh）、九宫格、滤镜/遮罩、
+> 富文本排版、场景图父子变换、WebGL 后端、Worker 离屏渲染都不在计划内。
+
 ### 目标架构
 
 ```text
 src/
-├─ core/                        # 引擎内核：业务无关，不知道 P&ID 的存在
-│  ├─ gpu/                      # 设备、渲染器、拾取
-│  ├─ geometry/                 # 顶点几何、AABB、四叉树、折线膨胀
-│  ├─ shader/                   # 通用 WGSL：core_include（可被 #include 复用）+ core_render
+├─ core/                        # 引擎内核：业务无关
+│  ├─ gpu/                      # device / context（装配与重建）/ renderer / picker / surface / texture / render_state / render_layer
+│  ├─ geometry/                 # 顶点几何、AABB、四叉树、折线膨胀、2D 变换、精灵实例
+│  ├─ scene/                    # QuadTreeStore：图元索引与视口查询
+│  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText
+│  ├─ shader/                   # core_include + core_render
 │  ├─ camera.ts                 # 正交相机
-│  └─ types.ts                  # 引擎数据类型（AABB / 实例图元 / RectInstance）
-├─ business/pid_schematic/      # P&ID 业务层：管线、阀门等设备图元、拓扑与状态
-│  ├─ shader/                   # 业务着色器（管线渲染/拾取、阀门渲染/拾取）
-│  ├─ pipe_style.ts             # 管线视觉规格：粗细档位、流动条纹、配色口径
-│  ├─ pipe_line.ts              # 管线图元、几何缓存、流动样式开关
-│  ├─ pipe_instances.ts         # 按段展开实例 + 两套 StorageBuffer + 绘制通路
-│  ├─ pipe_pipeline.ts          # 管线 pipeline / bindGroupLayout
-│  ├─ pipe_manager.ts           # 管线模块入口（初始化、逐帧渲染、拾取通路）
-│  ├─ pipe_stress_test.ts       # 管线压测数据
-│  ├─ device_stress_test.ts     # 设备图元压测数据
-│  ├─ topology.ts               # 管线-设备拓扑关系
-│  └─ element_state.ts          # 设备状态
-├─ demo/run_app.ts              # 示例运行入口（唯一同时依赖 core 与 business 的地方）
-├─ scene/                       # 通用场景图，与业务无关
+│  └─ types.ts                  # AABB / QuadItem / RectInstance（16×f32 实例契约）
+├─ business/pid_schematic/      # P&ID 业务层
+│  ├─ shader/                   # 管线渲染、阀门渲染/拾取着色器
+│  ├─ pid_scene.ts              # 设备/管线/阀门统一增删改与可见集
+│  ├─ pipe_*.ts                 # 样式、图元、实例化、pipeline、模块入口、压测数据
+│  ├─ valve_*.ts                # 阀门 pipeline、实例/精灵、模块入口、位号口径、示例链
+│  ├─ topology.ts               # 管线-设备拓扑与下游样式广播
+│  └─ device_stress_test.ts     # 设备图元压测数据
+├─ demo/                        # 示例组装（唯一同时依赖 core 与 business 的地方）
+│  ├─ main.ts                   # 入口：装配 → 资源 → 场景 → 输入 → 帧循环 → 卸载；掉设备自动重建
+│  ├─ scene.ts / resources.ts   # 示例场景数据 / 示例所需 GPU 资源
+│  ├─ input.ts                  # 拾取优先级（设备优先 → 矩形）
+│  └─ frame.ts                  # 每帧批次与层序提交
+├─ tests/                       # Node 用例（tests/*.test.ts）
+├─ scripts/                     # 文件名、WGSL、测试运行器、掉设备检查
 └─ app.tsx                      # React 示例入口
 ```
 
@@ -102,24 +118,27 @@ src/
 - AABB/四叉树用于快速筛选候选对象，精确几何命中检测作为后续补充。
 - 业务拓扑不进入渲染底层，通过状态字段驱动管线显示和流动效果。
 - 分层：`core` 不下沉业务概念，管线/阀门等业务代码与其着色器全部在 `business/pid_schematic`；
-  `core` 与 `business` 通过通用图元契约（`QuadItem` + `InstanceTransform`）对接，示例入口 `demo/run_app.ts` 负责组装。
+  `core` 与 `business` 通过通用图元契约（`QuadItem` + `InstanceTransform`）对接，示例入口 `demo/main.ts` 负责组装。
 - WGSL 支持自研 `#include`：构建期由 vite 插件展开，`pnpm lint:wgsl` 用同一套逻辑校验展开后的代码。
 
 ## 脚本
 
-| 命令                | 说明            |
-| ------------------- | --------------- |
-| `pnpm install`      | 安装依赖        |
-| `pnpm dev`          | 启动开发服务器  |
-| `pnpm build`        | 类型检查并打包  |
-| `pnpm preview`      | 预览构建产物    |
-| `pnpm lint`         | ESLint 检查     |
-| `pnpm lint:fix`     | ESLint 自动修复 |
-| `pnpm lint:names`   | 文件名规范校验  |
-| `pnpm lint:wgsl`    | WGSL 编译校验   |
-| `pnpm format`       | Prettier 写入   |
-| `pnpm format:check` | Prettier 校验   |
-| `pnpm check`        | 完整检查        |
+| 命令                | 说明                                                 |
+| ------------------- | ---------------------------------------------------- |
+| `pnpm install`      | 安装依赖                                             |
+| `pnpm dev`          | 启动开发服务器                                       |
+| `pnpm build`        | 类型检查并打包                                       |
+| `pnpm preview`      | 预览构建产物                                         |
+| `pnpm lint`         | ESLint 检查                                          |
+| `pnpm lint:fix`     | ESLint 自动修复                                      |
+| `pnpm lint:names`   | 文件名规范校验                                       |
+| `pnpm lint:wgsl`    | WGSL 编译校验                                        |
+| `pnpm test`         | Node 用例（20 个）                                   |
+| `pnpm check`        | 完整检查：lint + 命名 + WGSL + 用例 + format + build |
+| `pnpm check:device` | 掉设备重建检查（需真实 WebGPU）                      |
+| `pnpm format`       | Prettier 写入                                        |
+| `pnpm format:check` | Prettier 校验                                        |
+| `pnpm check`        | 完整检查                                             |
 
 ## 代码约定
 
