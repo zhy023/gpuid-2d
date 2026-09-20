@@ -1,4 +1,4 @@
-import type { AABB } from '@/engine/types';
+import type { AABB } from '@/core/types';
 
 export interface SceneElement {
   readonly id: number;

@@ -10,6 +10,15 @@ gpuid-2d 是**自研的 2D 底层 WebGPU 引擎**，直接基于 WebGPU API 实�
 - 引擎内核不得依赖第三方渲染/框架库；确需引入其他依赖时必须先确认
 - 引擎代码应保持与 UI 解耦，可在无 React 环境下独立使用
 
+分层约定（管线、阀门等设备图元属于上层业务，必须与内核分离）：
+
+- `src/core/`：业务无关的引擎内核（设备、渲染器、拾取、相机、几何、通用 `InstanceTransform` 与通用着色器）
+- `src/business/pid_schematic/`：P&ID 业务层（管线、阀门等设备图元、拓扑、状态），含业务着色器
+- `src/demo/`：示例运行入口，是唯一允许同时依赖 core 与 business 的地方
+- **`src/core/` 严禁 import `src/business/` 或 `src/demo/`**；自查：`rg -n "@/business|@/demo" src/core` 应无输出
+- 通用着色器放 `src/core/shader/`，业务着色器放 `src/business/pid_schematic/shader/`
+- WGSL 的 `#include` 支持 `@/` 别名（构建期由 vite 插件展开），跨目录 include 用 `@/...`，不要写 `../../`
+
 本文件是项目的强制约定。**任何代码改动都必须严格遵守，不得例外**；
 提交前必须通过 `pnpm run check`。
 

@@ -16,7 +16,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 示例与调试界面：React，仅承载演示页面与调试面板，不参与引擎内核
 
 项目定位为面向半导体工艺流程图（P&ID）的自研底层 2D 工业可视化引擎，重点支持大规模图纸、
-设备符号、管线、仪表状态和交互拾取。当前使用 `engine` 目录承载引擎核心，React 只用于示例页面。
+设备符号、管线、仪表状态和交互拾取。当前使用 `core` 目录承载引擎核心，React 只用于示例页面。
 
 引擎直接使用 WebGPU API 和 WGSL 构建设备管理、GPU Buffer、RenderPipeline、实例化绘制、
 离屏拾取与空间剔除能力，不依赖 three.js、pixi.js、babylon.js 等第三方渲染引擎。
@@ -47,14 +47,17 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - AABB 工具、旋转矩形/折线包围盒和四叉树空间索引
 - 视口剔除：5 万测试图元中仅提交当前视口内实例
 - 管线多段线膨胀几何的基础实现
+- 管线按「每段一个实例」批量绘制：段中点/方向角/段长现算，拐点流动相位连续；管线之间只有粗细不同（2~10px、步长 2px 的屏幕像素档位，不随缩放变化），条纹周期/速度/配色全局统一
+- 管线支持「流动 / 默认」两种样式：`flowSpeed > 0` 为流动条纹，`0` 恢复默认（纯管身色），供阀门开关按拓扑驱动
+- 画布通路开启 4x MSAA（渲染到多重采样目标再 resolve 到画布）与标准 alpha 混合，核心与业务 pipeline 统一取 `core/gpu/render_state.ts`
 - WGSL 自动校验和 TypeScript/ESLint/Prettier 检查脚本
 
 ### 近期开发顺序
 
 1. **实例图元扩展**：加入阀门、泵、仪表等符号模板，以及阀门开关状态的 shader 分支。
-2. **管线批次完善**：将多段线几何组织为独立批次，补齐管线拾取和视口剔除。
-3. **介质流动动画**：预计算管线 UV，通过时间 Uniform 和 `fract(uv.x + time * speed)` 实现流动。
-4. **业务拓扑管理**：维护管线的 source-target 关系，根据阀门状态控制 `flowEnable`。
+2. **管线拾取补齐**：主渲染已按段实例化 + 视口剔除，拾取通路还需接入管线并区分图元 ID 空间。
+3. **阀门状态驱动流动**：两种样式与 `flowSpeed` 开关已就绪，待接入阀门开关状态的广播。
+4. **业务拓扑管理**：维护管线的 source-target 关系，阀门关闭时把下游管线切回默认样式。
 5. **状态更新优化**：将实例状态变更与几何变更分开，避免无变化时重复上传 StorageBuffer。
 
 ### 后续扩展
@@ -69,16 +72,26 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 
 ```text
 src/
-├─ engine/               # WebGPU 引擎核心
-│  ├─ gpu/               # 设备、渲染器、拾取和 GPU 管线
-│  ├─ geometry/           # 顶点几何、AABB、四叉树和多段线
-│  ├─ shader/             # WGSL 着色器
-│  ├─ camera.ts           # 正交相机
-│  ├─ types.ts            # 引擎数据类型
-│  └─ engine.ts           # 引擎示例运行入口
-├─ scene/                # 场景、实例和管线图元
-├─ business/             # P&ID 拓扑与设备状态
-└─ app.tsx               # React 示例入口
+├─ core/                        # 引擎内核：业务无关，不知道 P&ID 的存在
+│  ├─ gpu/                      # 设备、渲染器、拾取
+│  ├─ geometry/                 # 顶点几何、AABB、四叉树、折线膨胀
+│  ├─ shader/                   # 通用 WGSL：core_include（可被 #include 复用）+ core_render
+│  ├─ camera.ts                 # 正交相机
+│  └─ types.ts                  # 引擎数据类型（AABB / 实例图元 / RectInstance）
+├─ business/pid_schematic/      # P&ID 业务层：管线、阀门等设备图元、拓扑与状态
+│  ├─ shader/                   # 业务着色器（管线渲染/拾取、阀门渲染/拾取）
+│  ├─ pipe_style.ts             # 管线视觉规格：粗细档位、流动条纹、配色口径
+│  ├─ pipe_line.ts              # 管线图元、几何缓存、流动样式开关
+│  ├─ pipe_instances.ts         # 按段展开实例 + 两套 StorageBuffer + 绘制通路
+│  ├─ pipe_pipeline.ts          # 管线 pipeline / bindGroupLayout
+│  ├─ pipe_manager.ts           # 管线模块入口（初始化、逐帧渲染、拾取通路）
+│  ├─ pipe_stress_test.ts       # 管线压测数据
+│  ├─ device_stress_test.ts     # 设备图元压测数据
+│  ├─ topology.ts               # 管线-设备拓扑关系
+│  └─ element_state.ts          # 设备状态
+├─ demo/run_app.ts              # 示例运行入口（唯一同时依赖 core 与 business 的地方）
+├─ scene/                       # 通用场景图，与业务无关
+└─ app.tsx                      # React 示例入口
 ```
 
 ### 底层工程技术要点
@@ -88,6 +101,9 @@ src/
 - GPU 拾取通过离屏整数纹理输出实例 ID，避免 CPU 遍历全部图元。
 - AABB/四叉树用于快速筛选候选对象，精确几何命中检测作为后续补充。
 - 业务拓扑不进入渲染底层，通过状态字段驱动管线显示和流动效果。
+- 分层：`core` 不下沉业务概念，管线/阀门等业务代码与其着色器全部在 `business/pid_schematic`；
+  `core` 与 `business` 通过通用图元契约（`QuadItem` + `InstanceTransform`）对接，示例入口 `demo/run_app.ts` 负责组装。
+- WGSL 支持自研 `#include`：构建期由 vite 插件展开，`pnpm lint:wgsl` 用同一套逻辑校验展开后的代码。
 
 ## 脚本
 
@@ -158,7 +174,7 @@ const vertexBuffer = device.createBuffer({
 WGSL 着色器文件通过 Vite 的 `?raw` 以字符串引入，类型由 `vite/client` 提供：
 
 ```ts
-import shaderCode from '@/engine/shader/shader.wgsl?raw';
+import shaderCode from '@/core/shader/shader.wgsl?raw';
 ```
 
 ## 编辑器

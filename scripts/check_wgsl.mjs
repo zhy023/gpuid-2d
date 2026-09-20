@@ -1,20 +1,24 @@
 /**
- * 用真实 WGSL 编译器（Chrome / Chromium 内置的 Tint）校验 src/engine/shader 下的着色器。
+ * 用真实 WGSL 编译器（Chrome / Chromium 内置的 Tint）校验 src 下所有 WGSL 着色器。
  *
  * 用法：
  *   node scripts/check_wgsl.mjs
  *   WGSL_CHECK_CHROME=/path/to/chrome node scripts/check_wgsl.mjs   # 指定浏览器
  *   WGSL_CHECK_SKIP=1 node scripts/check_wgsl.mjs                    # 跳过校验
+ *
+ * 校验前会先展开 `#include`（与 vite 插件同一套逻辑），保证校验对象
+ * 就是运行期真正送进 createShaderModule 的代码。
  */
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { resolveWgslIncludes } from './wgsl_include.mjs';
 
-const TARGET_DIR = 'src/engine/shader';
+const TARGET_DIR = 'src';
 const SHADER_SUFFIX = '.wgsl';
 const TIMEOUT_MS = 90_000;
 
@@ -38,7 +42,10 @@ function findChrome() {
   return CHROME_CANDIDATES.find((candidate) => existsSync(candidate)) ?? null;
 }
 
-/** 收集 src/engine/shader 下所有 .wgsl 文件。 */
+/**
+ * 收集 src 下所有 .wgsl 文件，并展开各自的 `#include`（支持 `@/` 别名）。
+ * 展开结果与 vite 插件送给 GPU 的代码一致，校验才有意义。
+ */
 async function collectShaders(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
   const shaders = [];
@@ -48,7 +55,8 @@ async function collectShaders(dir) {
     if (entry.isDirectory()) {
       shaders.push(...(await collectShaders(fullPath)));
     } else if (entry.isFile() && entry.name.endsWith(SHADER_SUFFIX)) {
-      shaders.push({ file: fullPath, code: await readFile(fullPath, 'utf8') });
+      const { code } = await resolveWgslIncludes(fullPath);
+      shaders.push({ file: fullPath, code });
     }
   }
 
@@ -204,7 +212,14 @@ async function compileShaders(chromePath, shaders) {
   });
 }
 
-const shaders = await collectShaders(TARGET_DIR);
+let shaders;
+try {
+  shaders = await collectShaders(TARGET_DIR);
+} catch (error) {
+  console.error(`WGSL 预处理失败：#include 展开不成功`);
+  console.error(`  ${error.message}`);
+  process.exit(1);
+}
 
 if (shaders.length === 0) {
   console.log(`未发现 ${SHADER_SUFFIX} 着色器，跳过 WGSL 校验`);
