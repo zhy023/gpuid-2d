@@ -79,6 +79,8 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
   }
 
   /** 阀门精灵：按开关态分两组，便于分别绑定两张贴图 */
+  // TODO(归位)：这里与 business/pid_schematic/valve_instances.buildValveSpriteInstances()
+  // 和 valve_labels.buildValveLabelInstances() 重复，应改为调用业务层实现，demo 只保留标题文案。
   function buildValveSprites(valves: readonly ValveItem[]) {
     // @2x 资源按一半尺寸落地，屏幕尺寸随缩放保持恒定
     const worldWidth = resources.valveTextureWidth / 2 / camera.scale;
