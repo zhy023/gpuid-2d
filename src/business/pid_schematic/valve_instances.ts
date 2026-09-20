@@ -168,3 +168,38 @@ export function renderVisibleValves(
 
   drawValveInstanced(pass, valveRes, bindGroup, vertexBuffer, vertexCount, instanceCount);
 }
+
+/**
+ * 只上传阀门实例数据 + 投影 UBO，不做绘制。
+ * 阀门显示改走核心实例批次（贴图精灵）后，拾取通路仍然依赖这两套 storage buffer
+ * 与最新投影矩阵，所以每帧依旧要调用它。
+ */
+export function uploadValveInstances(
+  device: GPUDevice,
+  valveRes: ValveRenderResources,
+  viewProj: Float32Array,
+  visibleValves: readonly ValveItem[],
+  pixelsPerWorldUnit: number,
+): void {
+  const storage = getValveStorage(device);
+  if (!storage) return;
+
+  const instanceCount = packValveInstances(visibleValves, pixelsPerWorldUnit);
+  if (instanceCount <= 0) return;
+
+  device.queue.writeBuffer(
+    storage.instanceBuffer,
+    0,
+    instanceCpuBuffer,
+    0,
+    instanceCount * INSTANCE_FLOAT_COUNT,
+  );
+  device.queue.writeBuffer(
+    storage.businessBuffer,
+    0,
+    businessCpuBuffer,
+    0,
+    instanceCount * BUSINESS_FLOAT_COUNT,
+  );
+  updateValveUniform(device, valveRes, viewProj);
+}

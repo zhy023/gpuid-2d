@@ -15,9 +15,10 @@ import {
   getValvesBindGroup,
   getValvesBindGroupLayout,
   initValves,
-  renderValves,
   disposeValves,
+  getValveResources,
 } from '@/business/pid_schematic/valve_manager';
+import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import type { ValveItem } from '@/business/pid_schematic/types';
 import { QuadTree } from '@/core/geometry/quad_tree';
 import { GlyphAtlas } from '@/core/text/glyph_atlas';
@@ -243,6 +244,17 @@ export async function runApp() {
     updateVisibleInstances();
     const visiblePipes = updateVisiblePipes();
     visibleValves = updateVisibleValves();
+    // 阀门显示走下面的贴图精灵，但拾取仍需要最新的实例数据与投影矩阵
+    const valveRes = getValveResources();
+    if (valveRes) {
+      uploadValveInstances(
+        device,
+        valveRes,
+        camera.getCameraProjectionMatrix(),
+        visibleValves,
+        camera.scale,
+      );
+    }
     // 阀门位号：每字一个实例，图集 uv 写在实例里，与矩形共用一次实例化绘制
     const titleInstances = layoutText(titleAtlas, '你好', {
       x: -260,
@@ -261,27 +273,25 @@ export async function runApp() {
         }).instances,
     );
     const textInstances = [...titleInstances, ...tagInstances];
-    // 贴图精灵：@2x 资源按一半尺寸落地，缩放后尺寸恒定（像素口径）
-    const spriteWorldWidth = spriteBitmap.width / 2 / camera.scale;
-    const spriteWorldHeight = spriteBitmap.height / 2 / camera.scale;
-    const spriteInstances: RectInstance[] = [
-      {
-        tx: 300 + spriteWorldWidth / 2,
-        ty: -900 + spriteWorldHeight / 2,
-        sx: spriteWorldWidth,
-        sy: spriteWorldHeight,
-        beta: 0,
-        selected: 0,
-        u0: 0,
-        v0: 0,
-        u1: 1,
-        v1: 1,
-        colorR: 1,
-        colorG: 1,
-        colorB: 1,
-        colorA: 1,
-      },
-    ];
+    // 阀门贴图精灵：@2x 资源按一半尺寸落地（64px → 32px），缩放后屏幕尺寸恒定
+    const valveSpriteWorldWidth = spriteBitmap.width / 2 / camera.scale;
+    const valveSpriteWorldHeight = spriteBitmap.height / 2 / camera.scale;
+    const spriteInstances: RectInstance[] = visibleValves.map((valve) => ({
+      tx: valve.tx,
+      ty: valve.ty,
+      sx: valveSpriteWorldWidth,
+      sy: valveSpriteWorldHeight,
+      beta: 0,
+      selected: 0,
+      u0: 0,
+      v0: 0,
+      u1: 1,
+      v1: 1,
+      colorR: 1,
+      colorG: 1,
+      colorB: 1,
+      colorA: 1,
+    }));
     const extraInstances = [...textInstances, ...spriteInstances];
     if (extraInstances.length > 0) {
       renderer.setInstances([...instanceList, ...extraInstances]);
@@ -300,10 +310,6 @@ export async function runApp() {
         // 压测管线与阀门示例管线共用一次实例化绘制
         draw: (pass) =>
           renderPipes(pass, projMat, [...visiblePipes, ...visibleDemoPipes], camera.scale),
-      },
-      {
-        layer: RENDER_LAYER.device,
-        draw: (pass) => renderValves(pass, projMat, visibleValves, camera.scale),
       },
     ];
 
