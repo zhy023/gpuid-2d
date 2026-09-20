@@ -15,12 +15,6 @@ export interface PidVisibleItems {
   valves: ValveItem[];
 }
 
-export interface PidDirtyIds {
-  devices: number[];
-  pipes: number[];
-  valves: number[];
-}
-
 export class PidScene {
   readonly devices: QuadTreeStore<StressTestItem>;
   readonly pipes: QuadTreeStore<PipePolylineItem>;
@@ -60,15 +54,6 @@ export class PidScene {
       devices: this.devices.query(viewport),
       pipes: this.pipes.query(viewport),
       valves: this.valves.query(viewport),
-    };
-  }
-
-  /** 取出并清空脏 id（调用方据此重建实例数据） */
-  takeDirty(): PidDirtyIds {
-    return {
-      devices: this.devices.takeDirtyIds(),
-      pipes: this.pipes.takeDirtyIds(),
-      valves: this.valves.takeDirtyIds(),
     };
   }
 

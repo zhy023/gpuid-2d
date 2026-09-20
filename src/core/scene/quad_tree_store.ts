@@ -1,9 +1,8 @@
 /**
  * 图元集合的内存索引：四叉树 + 脏标记（业务无关的机制层）。
  *
- * 解决两件事：
- *   1. 增删改的统一入口——外部只需 add/update/remove，不必自己操作四叉树；
- *   2. 增量更新——只有变更过的图元进脏集合，避免每帧全量扫描找 dirty。
+ * 只负责空间索引：增删改的统一入口 + 视口剔除。
+ * 「哪些图元需要重画」属于渲染侧语义，由业务层自己维护脏集合，这里不掺和。
  */
 import { QuadTree } from '@/core/geometry/quad_tree';
 import type { AABB, QuadTreeItem } from '@/core/types';
@@ -12,7 +11,6 @@ export class QuadTreeStore<T extends QuadTreeItem> {
   private readonly worldBounds: AABB;
   private tree: QuadTree;
   private readonly items = new Map<number, T>();
-  private readonly dirtyIds = new Set<number>();
 
   constructor(worldBounds: AABB) {
     // 注意：项目开启 erasableSyntaxOnly，不能用构造参数属性
@@ -24,7 +22,6 @@ export class QuadTreeStore<T extends QuadTreeItem> {
   add(item: T): void {
     this.items.set(item.id, item);
     this.tree.insert(item);
-    this.dirtyIds.add(item.id);
   }
 
   /** 新增或更新（位置/尺寸/状态变化后调用） */
@@ -35,14 +32,12 @@ export class QuadTreeStore<T extends QuadTreeItem> {
     }
     this.items.set(item.id, item);
     this.tree.updateItem(item);
-    this.dirtyIds.add(item.id);
   }
 
   /** 删除图元 */
   remove(id: number): void {
     if (!this.items.delete(id)) return;
     this.tree.remove(id);
-    this.dirtyIds.delete(id);
   }
 
   get(id: number): T | undefined {
@@ -67,16 +62,8 @@ export class QuadTreeStore<T extends QuadTreeItem> {
     return result;
   }
 
-  /** 取出并清空脏图元 id（调用方据此重建实例数据） */
-  takeDirtyIds(): number[] {
-    const ids = [...this.dirtyIds];
-    this.dirtyIds.clear();
-    return ids;
-  }
-
   clear(): void {
     this.items.clear();
-    this.dirtyIds.clear();
     this.tree = new QuadTree(this.worldBounds);
   }
 }

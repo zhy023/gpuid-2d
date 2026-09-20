@@ -78,33 +78,6 @@ describe('PidScene', () => {
     scene.remove(999); // 不存在的 id 不应抛错
   });
 
-  it('takeDirty 只返回变更过的 id，取出后清空', () => {
-    const scene = new PidScene(BOUNDS);
-    scene.upsertDevice(makeDevice(1, 0, 0));
-    scene.upsertPipe(
-      createPipeItem(
-        11,
-        [
-          { x: 0, y: 0 },
-          { x: 10, y: 0 },
-        ],
-        2,
-      ),
-    );
-    scene.upsertValve(makeValve(21, 0, 0));
-
-    const first = scene.takeDirty();
-    assert.deepEqual(first.devices, [1]);
-    assert.deepEqual(first.pipes, [11]);
-    assert.deepEqual(first.valves, [21]);
-    assert.deepEqual(scene.takeDirty(), { devices: [], pipes: [], valves: [] });
-
-    scene.upsertValve(makeValve(21, 100, 0));
-    const second = scene.takeDirty();
-    assert.deepEqual(second.valves, [21], '只有被更新的阀门重新变脏');
-    assert.deepEqual(second.devices, []);
-  });
-
   it('clear 清空三类图元', () => {
     const scene = new PidScene(BOUNDS);
     scene.upsertDevice(makeDevice(1, 0, 0));

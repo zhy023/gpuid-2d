@@ -66,23 +66,6 @@ describe('QuadTreeStore', () => {
     for (const id of removed) assert.equal(store.get(id), undefined);
   });
 
-  it('脏集合只收变更项，取出后即清空', () => {
-    const store = new QuadTreeStore<QuadTreeItem>(BOUNDS);
-    store.add(makeItem(1, 0, 0));
-    store.add(makeItem(2, 100, 100));
-    assert.deepEqual(
-      store.takeDirtyIds().sort((a, b) => a - b),
-      [1, 2],
-    );
-    assert.deepEqual(store.takeDirtyIds(), [], '取过一次后应为空');
-
-    store.update(makeItem(2, 200, 200));
-    assert.deepEqual(store.takeDirtyIds(), [2], '只有被更新的图元重新变脏');
-
-    store.remove(1);
-    assert.deepEqual(store.takeDirtyIds(), [], '删除不计入脏集合');
-  });
-
   it('clear 之后索引与数据都清空', () => {
     const store = new QuadTreeStore<QuadTreeItem>(BOUNDS);
     store.add(makeItem(1, 0, 0));
