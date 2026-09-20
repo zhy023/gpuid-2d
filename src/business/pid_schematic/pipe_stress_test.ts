@@ -5,14 +5,15 @@ import {
 } from '@/business/pid_schematic/pipe_line';
 import { initPipe } from '@/business/pid_schematic/pipe_manager';
 import { PIPE_LINE_WIDTH_STEPS } from '@/business/pid_schematic/pipe_style';
-import { QuadTree } from '@/core/geometry/quad_tree';
+import { PidScene } from '@/business/pid_schematic/pid_scene';
 import type { AABB } from '@/core/types';
 
 export type PipeTestItem = ReturnType<typeof createPipeItem>;
 
 export class PipeStressTester {
   public readonly itemMap = new Map<number, PipeTestItem>();
-  public quadTree: QuadTree;
+  /** 空间索引走 PidScene；本类只维护「哪些管线需要重建几何」 */
+  public readonly scene: PidScene;
   public worldBounds: AABB;
   public moveRatio: number;
 
@@ -22,7 +23,7 @@ export class PipeStressTester {
 
   constructor(worldBounds: AABB, moveRatio = 0.001) {
     this.worldBounds = worldBounds;
-    this.quadTree = new QuadTree(worldBounds);
+    this.scene = new PidScene(worldBounds);
     this.moveRatio = moveRatio;
   }
 
@@ -36,7 +37,7 @@ export class PipeStressTester {
     const h = this.worldBounds.maxY - this.worldBounds.minY;
 
     this.itemMap.clear();
-    this.quadTree = new QuadTree(this.worldBounds);
+    this.scene.clear();
 
     // 起点内缩，保证整条直角折线（含最长走线）仍落在世界范围内，不会被四叉树丢弃
     const margin = 2000;
@@ -70,13 +71,14 @@ export class PipeStressTester {
       pipeItem.worldAABB = computePipeAABB(pipeItem);
 
       this.itemMap.set(i, pipeItem);
-      this.quadTree.insert(pipeItem);
+      this.scene.upsertPipe(pipeItem);
     }
 
     console.log(`✅ PipeStressTester: 生成 ${count} 根测试管线`);
   }
 
   tick(viewport: AABB, isDrag = false) {
+    let geometryChanged = false;
     if (!isDrag) {
       // 非拖动：随机扰动管线顶点
       for (const item of this.itemMap.values()) {
@@ -85,29 +87,20 @@ export class PipeStressTester {
             pt.x += (Math.random() - 0.5) * 6;
             pt.y += (Math.random() - 0.5) * 6;
           }
-          item.dirty = true;
+          // 几何变了：重建膨胀缓存与包围盒，并更新空间索引
+          rebuildPipeGeometry(item);
+          item.worldAABB = computePipeAABB(item);
+          this.scene.upsertPipe(item);
+          item.dirty = false;
+          geometryChanged = true;
         }
       }
-      // 脏管线重建几何，更新四叉树
-      for (const item of this.itemMap.values()) {
-        if (!item.dirty) continue;
-        rebuildPipeGeometry(item);
-        item.worldAABB = computePipeAABB(item);
-        this.quadTree.updateItem(item);
-        item.dirty = false;
-      }
     }
 
-    const candidates = this.quadTree.queryViewport(viewport);
-    const visibleItems: PipeTestItem[] = [];
-    for (const c of candidates) {
-      const it = this.itemMap.get(c.id);
-      if (it) {
-        visibleItems.push(it);
-      }
-    }
+    // 视口剔除：索引层已按 AABB 相交过滤
+    const visibleItems = this.scene.getVisible(viewport).pipes;
 
-    let changed = false;
+    let changed = geometryChanged;
     if (visibleItems.length !== this.prevSize) {
       changed = true;
     } else {
@@ -132,6 +125,6 @@ export class PipeStressTester {
     this.itemMap.clear();
     this.prevVisibleItems = [];
     this.prevSize = 0;
-    this.quadTree = new QuadTree(this.worldBounds);
+    this.scene.clear();
   }
 }
