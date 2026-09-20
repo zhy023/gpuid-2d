@@ -13,7 +13,8 @@
     "lint:wgsl": "node scripts/check_wgsl.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm run lint && pnpm run lint:names && pnpm run lint:wgsl && pnpm run format:check && pnpm run build",
+    "test": "node scripts/run_tests.mjs",
+    "check": "pnpm run lint && pnpm run lint:names && pnpm run lint:wgsl && pnpm run test && pnpm run format:check && pnpm run build",
     "preview": "vite preview"
   },
   "dependencies": {

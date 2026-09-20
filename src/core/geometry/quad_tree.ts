@@ -46,32 +46,39 @@ class QuadTreeNode {
 
     this.divided = true;
 
-    for (const it of this.items) {
+    // 先取出再清空：跨界的图元会被重新放回 this.items，边遍历边插入会漏项/死循环
+    const pending = [...this.items];
+    this.items.length = 0;
+    for (const it of pending) {
       this.insert(it, nodeIndex);
     }
-    this.items.length = 0;
   }
 
   insert(item: QuadTreeItem, nodeIndex: Map<number, QuadTreeNode>): boolean {
     if (!this.contains(item)) return false;
 
-    if (this.items.length < this.capacity) {
-      this.items.push(item);
-      // 记录归属节点：删除/更新时直接定位，无需全树遍历
-      nodeIndex.set(item.id, this);
-      return true;
-    }
-
     if (!this.divided) {
+      if (this.items.length < this.capacity) {
+        this.items.push(item);
+        // 记录归属节点：删除/更新时直接定位，无需全树遍历
+        nodeIndex.set(item.id, this);
+        return true;
+      }
       this.subdivide(nodeIndex);
     }
 
-    return (
+    const inserted =
       this.nw!.insert(item, nodeIndex) ||
       this.ne!.insert(item, nodeIndex) ||
       this.sw!.insert(item, nodeIndex) ||
-      this.se!.insert(item, nodeIndex)
-    );
+      this.se!.insert(item, nodeIndex);
+    if (inserted) return true;
+
+    // 图元跨象限边界：没有子节点能完整容纳它，留在本节点（允许超出容量），
+    // 否则这个图元会被四叉树丢掉，导致剔除/拾取漏图元
+    this.items.push(item);
+    nodeIndex.set(item.id, this);
+    return true;
   }
 
   /** 从本节点的 items 中摘除指定 id（调用方已通过索引定位到本节点） */
