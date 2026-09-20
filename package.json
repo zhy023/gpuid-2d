@@ -14,6 +14,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node scripts/run_tests.mjs",
+    "check:device": "node scripts/check_device_lost.mjs",
     "check": "pnpm run lint && pnpm run lint:names && pnpm run lint:wgsl && pnpm run test && pnpm run format:check && pnpm run build",
     "preview": "vite preview"
   },

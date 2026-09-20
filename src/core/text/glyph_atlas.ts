@@ -35,6 +35,21 @@ export interface GlyphAtlasOptions {
 }
 
 /**
+ * 字形光栅化接口：默认实现基于 canvas；测试可注入假实现，
+ * 从而在 Node 环境下验证 uv 分配、图集满处理等纯逻辑。
+ */
+export interface GlyphRasterizer {
+  readonly width: number;
+  readonly height: number;
+  /** 量取字形度量（像素） */
+  measure(char: string): { advance: number; ascent: number; descent: number };
+  /** 以基线为原点绘制字形 */
+  draw(char: string, x: number, baselineY: number): void;
+  /** 读取一块像素（RGBA，未预乘） */
+  read(x: number, y: number, width: number, height: number): Uint8ClampedArray;
+}
+
+/**
  * 默认字体：黑体系。
  * 用回退链覆盖各平台（macOS 黑体 Heiti SC / 苹方 PingFang SC，Windows SimHei/雅黑，Linux 落到 sans-serif）。
  */
