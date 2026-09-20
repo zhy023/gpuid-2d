@@ -5,17 +5,13 @@
 import { createPipeItem } from '@/business/pid_schematic/pipe_line';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { applyValveFlowState, Topology } from '@/business/pid_schematic/topology';
-import type { PipePolylineItem, ValveItem } from '@/business/pid_schematic/types';
+import type { ValveItem } from '@/business/pid_schematic/types';
 import { computeRotatedAABB } from '@/core/geometry/aabb';
 import type { AABB } from '@/core/types';
 
 export interface ValveDemoScene {
   /** 阀门与连接管线的空间索引：增删改、视口剔除都走它 */
   scene: PidScene;
-  /** 与 scene 同源的引用数组，方便演示代码直接遍历 */
-  valves: ValveItem[];
-  pipes: PipePolylineItem[];
-  pipeMap: Map<number, PipePolylineItem>;
   topology: Topology;
 }
 
@@ -56,8 +52,6 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
   };
   const scene = new PidScene(bounds);
   const valves: ValveItem[] = [];
-  const pipes: PipePolylineItem[] = [];
-  const pipeMap = new Map<number, PipePolylineItem>();
   const topology = new Topology();
 
   for (let index = 0; index < valveCount; index += 1) {
@@ -90,8 +84,6 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
       ],
       pipeWidthPx,
     );
-    pipes.push(pipe);
-    pipeMap.set(pipe.id, pipe);
     scene.upsertPipe(pipe);
     topology.setLink({
       pipelineId: pipe.id,
@@ -105,7 +97,7 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
   }
   applyValveFlowState(topology, scene.valves.values(), scene.pipes);
 
-  return { scene, valves, pipes, pipeMap, topology };
+  return { scene, topology };
 }
 
 /** 切换阀门开闭，并把下游管线切到对应样式 */

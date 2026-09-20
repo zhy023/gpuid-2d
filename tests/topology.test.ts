@@ -33,28 +33,28 @@ describe('applyValveFlowState', () => {
   it('关闭阀门只影响其下游管线', () => {
     const scene = createValveDemoScene({ valveCount: 6, initialClosedIndex: 2 });
     // 阀门 2 关闭 → 管线 2、3、4 默认样式，管线 0、1 仍流动
-    assert.equal(flowPattern(scene.pipes), '11000');
+    assert.equal(flowPattern([...scene.scene.pipes.values()]), '11000');
   });
 
   it('关闭更上游的阀门会覆盖下游的流动状态', () => {
     const scene = createValveDemoScene({ valveCount: 6, initialClosedIndex: 2 });
-    toggleValve(scene, scene.valves[0].id);
-    assert.equal(flowPattern(scene.pipes), '00000');
+    toggleValve(scene, 200000);
+    assert.equal(flowPattern([...scene.scene.pipes.values()]), '00000');
   });
 
   it('只打开下游阀门、上游仍关闭时不会恢复流动', () => {
     const scene = createValveDemoScene({ valveCount: 6, initialClosedIndex: 2 });
-    toggleValve(scene, scene.valves[0].id);
-    toggleValve(scene, scene.valves[2].id);
-    assert.equal(flowPattern(scene.pipes), '00000');
+    toggleValve(scene, 200000);
+    toggleValve(scene, 200002);
+    assert.equal(flowPattern([...scene.scene.pipes.values()]), '00000');
   });
 
   it('上游阀门重新打开后整条链恢复流动', () => {
     const scene = createValveDemoScene({ valveCount: 6, initialClosedIndex: 2 });
-    toggleValve(scene, scene.valves[0].id);
-    toggleValve(scene, scene.valves[2].id);
-    toggleValve(scene, scene.valves[0].id);
-    assert.equal(flowPattern(scene.pipes), '11111');
+    toggleValve(scene, 200000);
+    toggleValve(scene, 200002);
+    toggleValve(scene, 200000);
+    assert.equal(flowPattern([...scene.scene.pipes.values()]), '11111');
   });
 
   it('环路拓扑不会死循环，且下游全部切为默认样式', () => {
@@ -97,8 +97,8 @@ describe('applyValveFlowState', () => {
       ],
       4,
     );
-    scene.pipeMap.set(loose.id, loose);
-    applyValveFlowState(scene.topology, scene.valves, scene.pipeMap);
+    scene.scene.upsertPipe(loose);
+    applyValveFlowState(scene.topology, scene.scene.valves.values(), scene.scene.pipes);
     // loose 不在拓扑里，仍按「先全部恢复流动」保持流动
     assert.equal(loose.flowSpeed > 0, true);
   });
