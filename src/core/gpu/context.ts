@@ -5,7 +5,7 @@
  * 每个使用方都会重复写一遍，收进内核；业务要额外登记 resize 目标时用 options 传入。
  */
 import { Camera2d } from '@/core/camera';
-import { initWebGPU } from '@/core/gpu/device';
+import { initWebGPU, type InitWebGpuOptions } from '@/core/gpu/device';
 import { createRendererPicker, type WebGpuPicker } from '@/core/gpu/picker';
 import { Renderer2D } from '@/core/gpu/renderer';
 import { CanvasSurface, type ResizableTarget } from '@/core/gpu/surface';
@@ -29,13 +29,17 @@ export interface RendererContext {
 export interface RendererContextOptions {
   /** 额外跟随画布尺寸重建的对象（例如业务设备拾取器） */
   resizeTargets?: readonly ResizableTarget[];
+  /** 设备丢失回调；接上它就能做自动重连 */
+  onDeviceLost?: InitWebGpuOptions['onDeviceLost'];
 }
 
 export async function createRendererContext(
   canvas: HTMLCanvasElement,
   options: RendererContextOptions = {},
 ): Promise<RendererContext> {
-  const { device, context, format } = await initWebGPU(canvas);
+  const { device, context, format } = await initWebGPU(canvas, {
+    onDeviceLost: options.onDeviceLost,
+  });
 
   const { vertexBuffer, vertexCount } = createRectVertexBuffer(device);
   const renderer = new Renderer2D(device, context, format, vertexBuffer, vertexCount);
@@ -62,4 +66,24 @@ export async function createRendererContext(
     vertexBuffer,
     vertexCount,
   };
+}
+
+/**
+ * 设备丢失后重建整条链路。
+ *
+ * 顺序很重要：先释放旧资源（renderer.dispose()，业务模块由调用方自行 dispose），
+ * 再重新走 createRendererContext——内部会重新 `requestAdapter()`，
+ * 因为适配器被旧设备消费过就不能再用。
+ *
+ * @param canvas 画布
+ * @param previous 旧上下文（会被释放）
+ * @param options 与首次创建一致（业务 resize 目标、设备丢失回调等）
+ */
+export async function recreateRendererContext(
+  canvas: HTMLCanvasElement,
+  previous: RendererContext,
+  options: RendererContextOptions = {},
+): Promise<RendererContext> {
+  previous.renderer.dispose();
+  return createRendererContext(canvas, options);
 }
