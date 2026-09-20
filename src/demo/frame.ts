@@ -132,64 +132,48 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
     }
 
     const { titleInstances, tagInstances } = buildTextInstances(visibleValves);
-    const textInstances = [...titleInstances, ...tagInstances];
     const { closed, open } = buildValveSprites(visibleValves);
-    const spriteInstances = [...closed, ...open];
-    const extraInstances = [...textInstances, ...spriteInstances];
-
-    if (extraInstances.length > 0) {
-      renderer.setInstances([...instanceList, ...extraInstances]);
-      renderer.uploadInstances();
-      // 上传完把绘制数量恢复成矩形数量：文字/贴图实例留在缓冲末尾，
-      // 只由 drawTextureBatch 用自己的纹理绘制，避免被白纹理批次画成方块
-      renderer.setInstances([...instanceList]);
-    }
-
     const projMat = camera.getCameraProjectionMatrix();
     renderer.uploadProjectionMatrix(projMat);
 
-    const layerDraws: RenderLayerDraw[] = [
-      {
-        layer: RENDER_LAYER.pipe,
-        // 压测管线与阀门示例管线共用一次实例化绘制
-        draw: (pass) =>
-          renderPipes(pass, projMat, [...visiblePipes(), ...visibleDemoPipes()], camera.scale),
+    // 整帧提交：基础矩形批次 + 文字/贴图批次（拼接与偏移由 core 内部完成）
+    renderer.renderComposite({
+      rectInstances: instanceList,
+      extraBatches: [
+        {
+          instances: titleInstances,
+          textureView: titleAtlas.texture.view,
+          sampler: titleAtlas.sampler,
+        },
+        {
+          instances: tagInstances,
+          textureView: glyphAtlas.texture.view,
+          sampler: glyphAtlas.sampler,
+        },
+        { instances: closed, textureView: valveOffTexture.view, sampler: valveSampler },
+        {
+          // 开启态：有独立贴图就用它，否则沿用关闭态贴图
+          instances: open,
+          textureView: (valveOnTexture ?? valveOffTexture).view,
+          sampler: valveSampler,
+        },
+      ],
+      drawOverlay: (pass) => {
+        const layerDraws: RenderLayerDraw[] = [
+          {
+            layer: RENDER_LAYER.pipe,
+            // 压测管线与阀门示例管线共用一次实例化绘制
+            draw: (overlayPass) =>
+              renderPipes(
+                overlayPass,
+                projMat,
+                [...visiblePipes(), ...visibleDemoPipes()],
+                camera.scale,
+              ),
+          },
+        ];
+        for (const item of sortRenderLayerDraws(layerDraws)) item.draw(pass);
       },
-    ];
-
-    const textStart = instanceList.length;
-    renderer.render((pass) => {
-      for (const item of sortRenderLayerDraws(layerDraws)) item.draw(pass);
-      // 文字与贴图各自换绑纹理，实例区间紧跟矩形批次
-      renderer.drawTextureBatch(
-        pass,
-        titleAtlas.texture.view,
-        titleAtlas.sampler,
-        textStart,
-        titleInstances.length,
-      );
-      renderer.drawTextureBatch(
-        pass,
-        glyphAtlas.texture.view,
-        glyphAtlas.sampler,
-        textStart + titleInstances.length,
-        tagInstances.length,
-      );
-      renderer.drawTextureBatch(
-        pass,
-        valveOffTexture.view,
-        valveSampler,
-        textStart + textInstances.length,
-        closed.length,
-      );
-      // 开启态：有独立贴图就用它，否则沿用关闭态贴图
-      renderer.drawTextureBatch(
-        pass,
-        (valveOnTexture ?? valveOffTexture).view,
-        valveSampler,
-        textStart + textInstances.length + closed.length,
-        open.length,
-      );
     });
   }
 

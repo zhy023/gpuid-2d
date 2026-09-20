@@ -14,6 +14,39 @@ export interface TextureBatch {
   instanceCount: number;
 }
 
+/** 自带纹理的实例批次（文字图集、贴图符号等） */
+export interface InstanceTextureBatch {
+  instances: readonly RectInstance[];
+  textureView: GPUTextureView;
+  sampler: GPUSampler;
+}
+
+/** 把实例列表打包成 GPU 缓冲格式（16 × f32/实例） */
+export function packRectInstances(list: readonly RectInstance[]): Float32Array {
+  const data = new Float32Array(list.length * 16);
+  for (let i = 0; i < list.length; i += 1) {
+    const instance = list[i];
+    const offset = i * 16;
+    data[offset] = instance.sx;
+    data[offset + 1] = instance.sy;
+    data[offset + 2] = instance.beta;
+    data[offset + 3] = instance.tx;
+    data[offset + 4] = instance.ty;
+    data[offset + 5] = instance.selected ?? 0;
+    data[offset + 6] = 0;
+    data[offset + 7] = 0;
+    data[offset + 8] = instance.u0;
+    data[offset + 9] = instance.v0;
+    data[offset + 10] = instance.u1;
+    data[offset + 11] = instance.v1;
+    data[offset + 12] = instance.colorR;
+    data[offset + 13] = instance.colorG;
+    data[offset + 14] = instance.colorB;
+    data[offset + 15] = instance.colorA;
+  }
+  return data;
+}
+
 export class Renderer2D {
   public device: GPUDevice;
   public context: GPUCanvasContext;
@@ -92,6 +125,40 @@ export class Renderer2D {
     this.defaultTexture.texture.destroy();
     this.projectionBuffer.destroy();
     this.instanceStorageBuffer.destroy();
+  }
+
+  /**
+   * 一次性提交整帧：基础矩形批次 + 若干「自带纹理的实例批次」（文字、贴图符号）。
+   *
+   * 调用方只按顺序给出批次，实例缓冲的拼接与绘制偏移都在内部完成：
+   * 缓冲里存放「矩形 + 各批次依次拼接」，但**绘制数量只按基础批次算**，
+   * 额外批次由各自的纹理批次绘制。
+   * （历史 bug：额外实例被基础批次用默认白纹理也画了一遍，文字于是成了实色方块。）
+   */
+  renderComposite(options: {
+    rectInstances: readonly RectInstance[];
+    extraBatches?: readonly InstanceTextureBatch[];
+    drawOverlay?: (pass: GPURenderPassEncoder) => void;
+  }) {
+    const { rectInstances, extraBatches = [], drawOverlay } = options;
+    const batches = extraBatches.filter((batch) => batch.instances.length > 0);
+
+    const all: RectInstance[] = [...rectInstances];
+    for (const batch of batches) all.push(...batch.instances);
+    if (all.length > 0) {
+      this.device.queue.writeBuffer(this.instanceStorageBuffer, 0, packRectInstances(all));
+    }
+
+    // 绘制数量只看基础批次
+    this.instanceList = [...rectInstances];
+    this.render(
+      drawOverlay,
+      batches.map((batch) => ({
+        textureView: batch.textureView,
+        sampler: batch.sampler,
+        instanceCount: batch.instances.length,
+      })),
+    );
   }
 
   /**

@@ -55,6 +55,24 @@ export function createDefaultWhiteTexture(device: GPUDevice): Texture2d {
   return { texture, view: texture.createView(), width: 1, height: 1 };
 }
 
+/**
+ * 从 URL 加载纹理：fetch → createImageBitmap → 上传为可采样纹理。
+ * 任何使用方都要写这一串，所以收进内核；失败时抛错，由调用方决定是否降级。
+ */
+export async function loadTextureFromUrl(
+  device: GPUDevice,
+  url: string,
+  label = 'texture',
+): Promise<Texture2d> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`加载纹理失败：${url}（HTTP ${response.status}）`);
+
+  const bitmap = await createImageBitmap(await response.blob());
+  const result = createTextureFromBitmap(device, bitmap, label);
+  bitmap.close();
+  return result;
+}
+
 /** 线性采样、边缘夹取：2D 图元与文字最常用的组合 */
 export function createTextureSampler(device: GPUDevice, label = 'texture-sampler'): GPUSampler {
   return device.createSampler({
