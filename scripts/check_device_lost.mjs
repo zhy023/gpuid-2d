@@ -25,6 +25,45 @@ async function run() {
   device2.queue.writeBuffer(buffer, 0, new Float32Array(64));
   device2.queue.writeTexture({ texture }, new Uint8Array(64), { bytesPerRow: 16 }, [4, 4]);
   result.rebuildOk = !!buffer && !!texture;
+
+  // 重建后还要能建管线并真的渲染一帧（不只是能建 buffer/纹理）
+  const module = device2.createShaderModule({
+    code: \`
+      @vertex fn vs_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
+        return vec4f(0.0, 0.0, 0.0, 1.0);
+      }
+      @fragment fn fs_main() -> @location(0) vec4f {
+        return vec4f(0.1, 0.2, 0.3, 1.0);
+      }
+    \`,
+  });
+  const pipeline = device2.createRenderPipeline({
+    layout: 'auto',
+    vertex: { module, entryPoint: 'vs_main' },
+    fragment: { module, entryPoint: 'fs_main', targets: [{ format: 'rgba8unorm' }] },
+  });
+  const target = device2.createTexture({
+    size: [4, 4],
+    format: 'rgba8unorm',
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
+  });
+  const encoder = device2.createCommandEncoder();
+  const pass = encoder.beginRenderPass({
+    colorAttachments: [
+      {
+        view: target.createView(),
+        clearValue: { r: 0, g: 0, b: 0, a: 1 },
+        loadOp: 'clear',
+        storeOp: 'store',
+      },
+    ],
+  });
+  pass.setPipeline(pipeline);
+  pass.draw(3);
+  pass.end();
+  device2.queue.submit([encoder.finish()]);
+  await device2.queue.onSubmittedWorkDone();
+  result.renderAfterRebuild = true;
   document.getElementById('out').textContent = JSON.stringify(result);
   await fetch('/result', { method: 'POST', body: JSON.stringify(result) }).catch(() => {});
 }
