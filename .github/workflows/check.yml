@@ -1,0 +1,48 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # lint + 文件名 + WGSL(Tint) + 用例 + format + build
+      # WGSL 校验会在 runner 上起 headless Chrome；Linux runner 无 GPU 时
+      # Chrome 会退回 SwiftShader 软件渲染，仍能拿到 Tint 的编译诊断。
+      - run: pnpm run check
+
+  # 需要真实 WebGPU 的检查（掉设备重建）单独跑，失败不阻塞主流程。
+  device:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.3
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run check:device

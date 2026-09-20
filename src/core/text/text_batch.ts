@@ -29,6 +29,11 @@ export interface TextLayoutOptions {
   backdrop?: readonly [number, number, number, number] | false;
   /** 底板相对文字的外扩（像素） */
   backdropPaddingPx?: number;
+  /**
+   * 文字描边（label halo）：先按四个方向偏移画描边色，再画主色。
+   * 压在任意图元上都可读，且比底板更贴合字形。默认关闭。
+   */
+  outline?: { color: readonly [number, number, number, number]; widthPx?: number } | false;
 }
 
 export interface TextLayoutResult {
@@ -56,6 +61,7 @@ export function layoutText(
     color = [0.93, 0.95, 0.98, 1] as const,
     backdrop = false as const,
     backdropPaddingPx = 3,
+    outline = false as const,
   } = options;
   const worldPerPixel = 1 / Math.max(pixelsPerWorldUnit, 1e-6);
   const instances: RectInstance[] = [];
@@ -63,6 +69,7 @@ export function layoutText(
 
   // 底板：宽度先用排版结果算，等排完再插到最前面（保证文字压在底板上）
   const backdropInstances: RectInstance[] = [];
+  const outlineInstances: RectInstance[] = [];
   let cursorX = x;
   for (const grapheme of splitGraphemes(text)) {
     const glyph = atlas.getGlyph(grapheme);
@@ -95,6 +102,30 @@ export function layoutText(
   }
 
   const width = cursorX - x;
+
+  // 描边：把主色字形按上下左右各偏一点、用描边色先画一遍
+  if (outline && instances.length > 0) {
+    const offset = (outline.widthPx ?? 1) / Math.max(pixelsPerWorldUnit, 1e-6);
+    const offsets: ReadonlyArray<readonly [number, number]> = [
+      [-offset, 0],
+      [offset, 0],
+      [0, -offset],
+      [0, offset],
+    ];
+    for (const instance of instances) {
+      for (const [dx, dy] of offsets) {
+        outlineInstances.push({
+          ...instance,
+          tx: instance.tx + dx,
+          ty: instance.ty + dy,
+          colorR: outline.color[0],
+          colorG: outline.color[1],
+          colorB: outline.color[2],
+          colorA: outline.color[3],
+        });
+      }
+    }
+  }
   if (backdrop && instances.length > 0) {
     const padWorld = backdropPaddingPx * worldPerPixel;
     const heightWorld = atlas.lineHeight * worldPerPixel + padWorld * 2;
@@ -117,5 +148,9 @@ export function layoutText(
     });
   }
 
-  return { instances: [...backdropInstances, ...instances], width, missing };
+  return {
+    instances: [...backdropInstances, ...outlineInstances, ...instances],
+    width,
+    missing,
+  };
 }
