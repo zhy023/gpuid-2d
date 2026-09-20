@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="zh‑CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>WebGPU 2D正交相机‑平移缩放</title>
+    <style>
+      canvas {
+        border: 1px solid #333;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas width="800" height="600"></canvas>
+    <script>
+      async function main() {
+        const canvas = document.querySelector('canvas');
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+        const context = canvas.getContext('webgpu');
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        context.configure({ device, format });
+
+        // ---------------------- 1、顶点数据（固定矩形，不变）
+        // prettier-ignore
+        const vertices = new Float32Array([
+            -80,-50,  80,-50,  80,50,
+            -80,-50,  80,50,   -80,50
+        ]);
+        const vertexBuffer = device.createBuffer({
+          size: vertices.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        device.queue.writeBuffer(vertexBuffer, 0, vertices);
+
+        // ---------------------- 2、Uniform缓冲：存放MVP矩阵(4x4 f32 =16个float)
+        const mvpBuffer = device.createBuffer({
+          size: 16 * 4,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        // ---------------------- 3、BindGroupLayout + BindGroup
+        const bindGroupLayout = device.createBindGroupLayout({
+          entries: [{ binding: 0, visibility: GPUShaderStage.VERTEX, buffer: {} }],
+        });
+        const bindGroup = device.createBindGroup({
+          layout: bindGroupLayout,
+          entries: [{ binding: 0, resource: { buffer: mvpBuffer } }],
+        });
+
+        // ---------------------- 4、PipelineLayout + ShaderModule + RenderPipeline
+        const pipelineLayout = device.createPipelineLayout({
+          bindGroupLayouts: [bindGroupLayout],
+        });
+        const shaderCode = `
+            @group(0) @binding(0) var<uniform> mvp: mat4x4<f32>;
+            @vertex
+            fn vs_main(@location(0) pos: vec2<f32>) -> @builtin(position) vec4<f32>{
+                return mvp * vec4(pos,0.0,1.0);
+            }
+            @fragment
+            fn fs_main() -> @location(0) vec4<f32>{
+                return vec4(0.2,0.6,0.9,1.0);
+            }
+        `;
+        const shaderModule = device.createShaderModule({ code: shaderCode });
+        const pipeline = device.createRenderPipeline({
+          layout: pipelineLayout,
+          vertex: {
+            module: shaderModule,
+            entryPoint: 'vs_main',
+            buffers: [
+              {
+                arrayStride: 2 * 4,
+                attributes: [{ shaderLocation: 0, offset: 0, format: 'float32x2' }],
+              },
+            ],
+          },
+          fragment: {
+            module: shaderModule,
+            entryPoint: 'fs_main',
+            targets: [{ format }],
+          },
+        });
+
+        //=============================【新增：相机状态】=============================
+        const camera = {
+          centerX: 0,
+          centerY: 0,
+          scale: 1.0,
+        };
+        let isDrag = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        // 鼠标拖拽
+        canvas.addEventListener('mousedown', (e) => {
+          isDrag = true;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        window.addEventListener('mousemove', (e) => {
+          if (!isDrag) return;
+          const dx = e.clientX - lastMouseX;
+          const dy = e.clientY - lastMouseY;
+          // 屏幕像素偏移转世界坐标偏移：除以缩放
+          camera.centerX -= dx / camera.scale;
+          camera.centerY += dy / camera.scale;
+          lastMouseX = e.clientX;
+          lastMouseY = e.clientY;
+        });
+        window.addEventListener('mouseup', () => (isDrag = false));
+
+        // 滚轮缩放
+        canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const factor = e.deltaY > 0 ? 0.92 : 1.08;
+          camera.scale *= factor;
+          camera.scale = Math.max(0.05, Math.min(50, camera.scale));
+        });
+
+        // 构造正交投影矩阵(2D)
+        function buildOrthoMatrix(left, right, bottom, top) {
+          const m = new Float32Array(16);
+          m[0] = 2 / (right - left);
+          m[4] = 0;
+          m[8] = 0;
+          m[12] = -(right + left) / (right - left);
+          m[1] = 0;
+          m[5] = 2 / (top - bottom);
+          m[9] = 0;
+          m[13] = -(top + bottom) / (top - bottom);
+          m[2] = 0;
+          m[6] = 0;
+          m[10] = 1;
+          m[14] = 0;
+          m[3] = 0;
+          m[7] = 0;
+          m[11] = 0;
+          m[15] = 1;
+          return m;
+        }
+
+        //============================= 渲染循环 =============================
+        function render() {
+          // 根据相机计算可视范围
+          const viewW = canvas.width / camera.scale;
+          const viewH = canvas.height / camera.scale;
+          const left = camera.centerX - viewW * 0.5;
+          const right = camera.centerX + viewW * 0.5;
+          const bottom = camera.centerY - viewH * 0.5;
+          const top = camera.centerY + viewH * 0.5;
+
+          const projMat = buildOrthoMatrix(left, right, bottom, top);
+          // 本demo物体model是单位矩阵；MVP直接等于投影矩阵
+          const mvp = projMat;
+          device.queue.writeBuffer(mvpBuffer, 0, mvp);
+
+          const encoder = device.createCommandEncoder();
+          const pass = encoder.beginRenderPass({
+            colorAttachments: [
+              {
+                view: context.getCurrentTexture().createView(),
+                clearValue: { r: 0.05, g: 0.05, b: 0.08, a: 1 },
+                loadOp: 'clear',
+                storeOp: 'store',
+              },
+            ],
+          });
+          pass.setPipeline(pipeline);
+          pass.setVertexBuffer(0, vertexBuffer);
+          pass.setBindGroup(0, bindGroup);
+          pass.draw(6);
+          pass.end();
+          const cmdBuf = encoder.finish();
+          device.queue.submit([cmdBuf]);
+          requestAnimationFrame(render);
+        }
+        render();
+      }
+      main();
+    </script>
+  </body>
+</html>

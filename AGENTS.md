@@ -34,10 +34,10 @@ gpuid-2d 是**自研的 2D 底层 WebGPU 引擎**，直接基于 WebGPU API 实�
 已在 `vite.config.ts` 与 `tsconfig.app.json` 中配置，两端必须保持一致。
 
 ```ts
-import App from '@/app.tsx'
-import UserCard from '@/components/user_card'
-import '@/index.css'
-import heroImg from '@/assets/hero.png'
+import App from '@/app.tsx';
+import UserCard from '@/components/user_card';
+import '@/index.css';
+import heroImg from '@/assets/hero.png';
 ```
 
 - 跨目录引用一律使用 `@/...`
@@ -47,7 +47,7 @@ import heroImg from '@/assets/hero.png'
 
 ## 3. 代码风格
 
-- Prettier：无分号、单引号、尾逗号、100 字符宽、2 空格缩进
+- Prettier：分号、单引号、尾逗号、100 字符宽、2 空格缩进
 - ESLint（flat config）负责代码质量，`eslint-plugin-prettier` 已打通，格式问题会在 lint 中报告
 - 使用函数式组件 + Hooks，遵循 `react-hooks` 规则
 - TypeScript 严格类型，避免 `any`；无法确定类型时使用 `unknown` 并做收窄
@@ -62,17 +62,18 @@ import heroImg from '@/assets/hero.png'
 
 ## 5. 常用命令
 
-| 命令                | 说明                                      |
-| ------------------- | ----------------------------------------- |
-| `pnpm install`      | 安装依赖                                  |
-| `pnpm dev`          | 启动开发服务器                            |
-| `pnpm build`        | 类型检查并打包                            |
-| `pnpm lint`         | ESLint 检查                               |
-| `pnpm lint:fix`     | ESLint 自动修复                           |
-| `pnpm format`       | Prettier 写入                             |
-| `pnpm format:check` | Prettier 校验                             |
-| `pnpm lint:names`   | 文件名规范校验                            |
-| `pnpm check`        | 完整检查：lint + 文件名规范 + 格式 + 构建 |
+| 命令                | 说明                                         |
+| ------------------- | -------------------------------------------- |
+| `pnpm install`      | 安装依赖                                     |
+| `pnpm dev`          | 启动开发服务器                               |
+| `pnpm build`        | 类型检查并打包                               |
+| `pnpm lint`         | ESLint 检查                                  |
+| `pnpm lint:fix`     | ESLint 自动修复                              |
+| `pnpm format`       | Prettier 写入                                |
+| `pnpm format:check` | Prettier 校验                                |
+| `pnpm lint:names`   | 文件名规范校验                               |
+| `pnpm lint:wgsl`    | WGSL 着色器编译校验                          |
+| `pnpm check`        | 完整检查：lint + 文件名 + WGSL + 格式 + 构建 |
 
 ## 6. 完成前自查
 

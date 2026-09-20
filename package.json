@@ -10,14 +10,16 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:names": "node scripts/check_file_names.mjs",
+    "lint:wgsl": "node scripts/check_wgsl.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm run lint && pnpm run lint:names && pnpm run format:check && pnpm run build",
+    "check": "pnpm run lint && pnpm run lint:names && pnpm run lint:wgsl && pnpm run format:check && pnpm run build",
     "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "wgpu-matrix": "^3.4.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -25,6 +27,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "@webgpu/types": "^0.1.74",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",

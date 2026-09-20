@@ -1,0 +1,268 @@
+/**
+ * 用真实 WGSL 编译器（Chrome / Chromium 内置的 Tint）校验 src/engine/shader 下的着色器。
+ *
+ * 用法：
+ *   node scripts/check_wgsl.mjs
+ *   WGSL_CHECK_CHROME=/path/to/chrome node scripts/check_wgsl.mjs   # 指定浏览器
+ *   WGSL_CHECK_SKIP=1 node scripts/check_wgsl.mjs                    # 跳过校验
+ */
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
+
+const TARGET_DIR = 'src/engine/shader';
+const SHADER_SUFFIX = '.wgsl';
+const TIMEOUT_MS = 90_000;
+
+const CHROME_CANDIDATES = [
+  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+  '/Applications/Chromium.app/Contents/MacOS/Chromium',
+  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
+  '/usr/bin/google-chrome',
+  '/usr/bin/chromium',
+  '/usr/bin/chromium-browser',
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+];
+
+/** 找到可用的 Chrome，找不到返回 null。 */
+function findChrome() {
+  const fromEnv = process.env.WGSL_CHECK_CHROME;
+  if (fromEnv) {
+    return existsSync(fromEnv) ? fromEnv : null;
+  }
+  return CHROME_CANDIDATES.find((candidate) => existsSync(candidate)) ?? null;
+}
+
+/** 收集 src/engine/shader 下所有 .wgsl 文件。 */
+async function collectShaders(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const shaders = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      shaders.push(...(await collectShaders(fullPath)));
+    } else if (entry.isFile() && entry.name.endsWith(SHADER_SUFFIX)) {
+      shaders.push({ file: fullPath, code: await readFile(fullPath, 'utf8') });
+    }
+  }
+
+  return shaders.sort((a, b) => a.file.localeCompare(b.file));
+}
+
+/** 构造在浏览器里逐个编译着色器、再把诊断回传的页面。 */
+function buildPage(shaders) {
+  const payload = JSON.stringify(shaders.map(({ file, code }) => ({ file, code })));
+
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>wgsl check</title>
+  </head>
+  <body>
+    <pre id="out">PENDING</pre>
+    <script type="module">
+      const SHADERS = ${payload};
+
+      async function requestAdapter() {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (adapter) return adapter;
+        return navigator.gpu.requestAdapter({ forceFallbackAdapter: true });
+      }
+
+      async function run() {
+        const result = { ok: false, reason: '', shaders: [] };
+        try {
+          if (!navigator.gpu) throw new Error('navigator.gpu 不可用');
+          const adapter = await requestAdapter();
+          if (!adapter) throw new Error('没有拿到 GPUAdapter');
+          const device = await adapter.requestDevice();
+
+          for (const shader of SHADERS) {
+            const module = device.createShaderModule({ code: shader.code });
+            const info = await module.getCompilationInfo();
+            result.shaders.push({
+              file: shader.file,
+              messages: info.messages.map((message) => ({
+                type: message.type,
+                line: message.lineNum,
+                pos: message.linePos,
+                message: message.message,
+              })),
+            });
+          }
+          result.ok = true;
+        } catch (error) {
+          result.reason = String(error && error.message ? error.message : error);
+        }
+
+        document.getElementById('out').textContent = JSON.stringify(result, null, 2);
+        await fetch('/result', { method: 'POST', body: JSON.stringify(result) }).catch(() => {});
+      }
+
+      run();
+    </script>
+  </body>
+</html>
+`;
+}
+
+/** 启动 Chrome，编译全部着色器，返回诊断结果。 */
+async function compileShaders(chromePath, shaders) {
+  const userDataDir = await mkdtemp(path.join(os.tmpdir(), 'gpuid-wgsl-check-'));
+
+  return await new Promise((resolve, reject) => {
+    const server = createServer((request, response) => {
+      if (request.method === 'POST' && request.url === '/result') {
+        let body = '';
+        request.on('data', (chunk) => {
+          body += chunk;
+        });
+        request.on('end', () => {
+          response.writeHead(200, { 'content-type': 'text/plain' });
+          response.end('ok');
+          cleanup();
+          try {
+            resolve(JSON.parse(body));
+          } catch {
+            reject(new Error('浏览器回传的结果不是合法 JSON'));
+          }
+        });
+        return;
+      }
+
+      response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      response.end(buildPage(shaders));
+    });
+
+    const pageUrl = new URL('http://127.0.0.1/');
+    let chrome;
+    let timer;
+    let settled = false;
+    const chromeStderr = [];
+
+    function cleanup() {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      server.close();
+      if (chrome?.pid) {
+        try {
+          process.kill(-chrome.pid, 'SIGKILL');
+        } catch {
+          chrome.kill('SIGKILL');
+        }
+      }
+      void rm(userDataDir, { recursive: true, force: true });
+    }
+
+    function fail(error) {
+      cleanup();
+      reject(error);
+    }
+
+    server.on('error', fail);
+
+    server.listen(0, '127.0.0.1', () => {
+      pageUrl.port = String(server.address().port);
+
+      const args = [
+        '--headless=new',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-extensions',
+        '--enable-unsafe-webgpu',
+        `--user-data-dir=${userDataDir}`,
+        pageUrl.href,
+      ];
+      // 以 root 运行时（常见于容器 / CI）需要额外放开沙箱
+      if (process.getuid?.() === 0) {
+        args.unshift('--no-sandbox');
+      }
+
+      chrome = spawn(chromePath, args, { detached: true, stdio: ['ignore', 'ignore', 'pipe'] });
+      chrome.stderr.on('data', (chunk) => {
+        if (chromeStderr.length < 20) chromeStderr.push(String(chunk).trim());
+      });
+      chrome.on('error', fail);
+      chrome.on('exit', (code) => {
+        if (!settled) {
+          fail(new Error(`浏览器提前退出（code=${code}）\n${chromeStderr.join('\n')}`));
+        }
+      });
+
+      timer = setTimeout(() => {
+        fail(new Error(`等待浏览器编译着色器超时（${TIMEOUT_MS / 1000}s）`));
+      }, TIMEOUT_MS);
+    });
+  });
+}
+
+const shaders = await collectShaders(TARGET_DIR);
+
+if (shaders.length === 0) {
+  console.log(`未发现 ${SHADER_SUFFIX} 着色器，跳过 WGSL 校验`);
+  process.exit(0);
+}
+
+if (process.env.WGSL_CHECK_SKIP === '1') {
+  console.log(`已跳过 WGSL 校验（${shaders.length} 个着色器）`);
+  process.exit(0);
+}
+
+const chromePath = findChrome();
+
+if (!chromePath) {
+  console.error('未找到 Chrome / Chromium，无法校验 WGSL。');
+  console.error('  · 用 WGSL_CHECK_CHROME=/path/to/chrome 指定浏览器');
+  console.error('  · 或设置 WGSL_CHECK_SKIP=1 临时跳过');
+  process.exit(1);
+}
+
+let outcome;
+try {
+  outcome = await compileShaders(chromePath, shaders);
+} catch (error) {
+  console.error(`WGSL 校验无法完成：${error.message}`);
+  console.error('  · 若当前环境不支持 headless WebGPU，可设置 WGSL_CHECK_SKIP=1 跳过');
+  process.exit(1);
+}
+
+if (!outcome.ok) {
+  console.error(`WGSL 校验无法完成：${outcome.reason}`);
+  console.error('  · 若当前环境不支持 headless WebGPU，可设置 WGSL_CHECK_SKIP=1 跳过');
+  process.exit(1);
+}
+
+let errorCount = 0;
+
+for (const shader of outcome.shaders) {
+  const errors = shader.messages.filter((message) => message.type === 'error');
+  const warnings = shader.messages.filter((message) => message.type !== 'error');
+  errorCount += errors.length;
+
+  if (errors.length > 0) {
+    console.error(`${shader.file}`);
+  }
+  for (const message of errors) {
+    console.error(`  L${message.line}:${message.pos} error: ${message.message}`);
+  }
+  for (const message of warnings) {
+    console.warn(
+      `  ${shader.file} L${message.line}:${message.pos} ${message.type}: ${message.message}`,
+    );
+  }
+}
+
+if (errorCount > 0) {
+  console.error(`\nWGSL 校验失败：${errorCount} 个错误`);
+  process.exit(1);
+}
+
+console.log(`WGSL 检查通过（${shaders.length} 个着色器）`);
