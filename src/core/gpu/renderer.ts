@@ -346,10 +346,13 @@ export class Renderer2D {
       ],
     });
 
-    renderPass.setPipeline(this.pipeline);
-    renderPass.setBindGroup(0, this.bindGroup);
-    renderPass.setVertexBuffer(0, this.vertexBuffer);
-    renderPass.draw(this.vertexCount, this.instanceList.length);
+    // 基础批次为空时跳过（例如某个功能测试只画管线/文字），避免 0 实例的无效绘制
+    if (this.instanceList.length > 0) {
+      renderPass.setPipeline(this.pipeline);
+      renderPass.setBindGroup(0, this.bindGroup);
+      renderPass.setVertexBuffer(0, this.vertexBuffer);
+      renderPass.draw(this.vertexCount, this.instanceList.length);
+    }
 
     drawOverlay?.(renderPass);
 
