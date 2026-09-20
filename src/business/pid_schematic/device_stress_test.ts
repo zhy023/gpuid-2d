@@ -20,6 +20,26 @@ export interface StressTestItem extends QuadTreeItem {
   selected: number; // 0=未选中，1=选中，float32对齐shader
 }
 
+/** 设备图元 → 实例化绘制数据（几何 + 选中态；uv 用整张纹理、颜色沿用默认） */
+export function toRectInstances(items: readonly StressTestItem[]): RectInstance[] {
+  return items.map((item) => ({
+    sx: item.sx,
+    sy: item.sy,
+    beta: item.beta,
+    tx: item.tx,
+    ty: item.ty,
+    selected: item.selected,
+    u0: 0,
+    v0: 0,
+    u1: 1,
+    v1: 1,
+    colorR: 0,
+    colorG: 0,
+    colorB: 0,
+    colorA: 0,
+  }));
+}
+
 export class DeviceStressTester {
   public readonly itemMap = new Map<number, StressTestItem>();
   public readonly scene: PidScene;
@@ -83,22 +103,7 @@ export class DeviceStressTester {
 
   /** 把可见 StressTestItem 数组转成 Renderer2D 需要的 RectInstance[] */
   buildRectInstanceList(visibleItems: StressTestItem[]): RectInstance[] {
-    return visibleItems.map((item) => ({
-      sx: item.sx,
-      sy: item.sy,
-      beta: item.beta,
-      tx: item.tx,
-      ty: item.ty,
-      selected: item.selected,
-      u0: 0,
-      v0: 0,
-      u1: 1,
-      v1: 1,
-      colorR: 0,
-      colorG: 0,
-      colorB: 0,
-      colorA: 0,
-    }));
+    return toRectInstances(visibleItems);
   }
 
   /**

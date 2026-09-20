@@ -6,6 +6,9 @@
 import { DeviceStressTester } from '@/business/pid_schematic/device_stress_test';
 import { PipeStressTester } from '@/business/pid_schematic/pipe_stress_test';
 import { createValveDemoScene, type ValveDemoScene } from '@/business/pid_schematic/valve_demo';
+import { parseMxDocument } from '@/business/pid_schematic/drawio/mx_document';
+import { toPidScene, type PidLabel } from '@/business/pid_schematic/drawio/to_pid_scene';
+import type { PidScene } from '@/business/pid_schematic/pid_scene';
 import type { AABB } from '@/core/types';
 
 /** 世界范围：压测图元与管线都布在这个矩形内 */
@@ -21,6 +24,29 @@ export interface DemoScene {
   deviceTester: DeviceStressTester;
   pipeTester: PipeStressTester;
   valveScene: ValveDemoScene;
+}
+
+/** 真实图纸的路径（draw.io 的 mxGraphModel；SVG 只是导出快照，不作为数据源） */
+export const DRAWIO_URL = '/assets/graph/meta_demo.xml';
+
+export interface DrawioDemoScene {
+  /** 图纸图元（设备 / 管线 / 阀门）的空间索引 */
+  pidScene: PidScene;
+  /** 位号：文字 + 位置 + 颜色 + 字号 */
+  labels: PidLabel[];
+  stats: { devices: number; pipes: number; labels: number; skipped: number };
+}
+
+/**
+ * 加载真实图纸：XML → 规范化节点 → PidScene
+ * 浏览器内置 DOMParser（解析器本身零依赖，测试里注入 @xmldom/xmldom）
+ */
+export async function createDrawioScene(): Promise<DrawioDemoScene> {
+  const xml = await (await fetch(DRAWIO_URL)).text();
+  const document = parseMxDocument(xml, new DOMParser());
+  const { scene, labels, stats } = toPidScene(document);
+  console.log(`[drawio] 设备 ${stats.devices} / 管线 ${stats.pipes} / 位号 ${stats.labels}`);
+  return { pidScene: scene, labels, stats };
 }
 
 /**
