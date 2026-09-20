@@ -10,16 +10,20 @@ export interface Texture2d {
   height: number;
 }
 
-/** 把 ImageBitmap（或 canvas）上传成可采样纹理 */
+/** 把 ImageBitmap / canvas 上传成可采样纹理 */
 export function createTextureFromBitmap(
   device: GPUDevice,
-  bitmap: ImageBitmap,
+  bitmap: ImageBitmap | HTMLCanvasElement | OffscreenCanvas,
   label = 'texture',
 ): Texture2d {
   const texture = device.createTexture({
     size: [bitmap.width, bitmap.height],
     format: 'rgba8unorm',
-    usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    // copyExternalImageToTexture 要求目标纹理同时具备 COPY_DST 与 RENDER_ATTACHMENT
+    usage:
+      GPUTextureUsage.TEXTURE_BINDING |
+      GPUTextureUsage.COPY_DST |
+      GPUTextureUsage.RENDER_ATTACHMENT,
     label,
   });
   device.queue.copyExternalImageToTexture({ source: bitmap }, { texture }, [

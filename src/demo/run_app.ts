@@ -20,6 +20,8 @@ import {
 } from '@/business/pid_schematic/valve_manager';
 import type { ValveItem } from '@/business/pid_schematic/types';
 import { QuadTree } from '@/core/geometry/quad_tree';
+import { GlyphAtlas } from '@/core/text/glyph_atlas';
+import { layoutText } from '@/core/text/text_batch';
 
 // test 压测
 import { DeviceStressTester } from '@/business/pid_schematic/device_stress_test';
@@ -69,6 +71,8 @@ export async function runApp() {
   // ------------------ 设备图元（阀门）示例 ------------------
   // 一条「阀门—管线—阀门」链 + 拓扑：关闭阀门会把下游管线切回默认样式
   const valveScene = createValveDemoScene();
+  // 位号文字：按需字形图集（中文/西文同一路径）
+  const glyphAtlas = new GlyphAtlas(device, { fontSizePx: 18 });
   await initValves(
     device,
     format,
@@ -231,6 +235,19 @@ export async function runApp() {
     updateVisibleInstances();
     const visiblePipes = updateVisiblePipes();
     visibleValves = updateVisibleValves();
+    // 阀门位号：每字一个实例，图集 uv 写在实例里，与矩形共用一次实例化绘制
+    const tagInstances = visibleValves.flatMap(
+      (valve) =>
+        layoutText(glyphAtlas, `你好 ${valve.id % 1000}`, {
+          x: valve.tx - 60,
+          y: valve.ty + 100,
+          pixelsPerWorldUnit: camera.scale,
+        }).instances,
+    );
+    if (tagInstances.length > 0) {
+      renderer.setInstances([...instanceList, ...tagInstances]);
+      renderer.uploadInstances();
+    }
     const visibleDemoPipes = getVisibleDemoPipes();
     const projMat = camera.getCameraProjectionMatrix();
     renderer.uploadProjectionMatrix(projMat);
