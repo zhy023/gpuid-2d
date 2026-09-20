@@ -77,7 +77,7 @@ export class Topology {
 export function applyValveFlowState(
   topology: Topology,
   valves: Iterable<ValveItem>,
-  pipes: ReadonlyMap<number, PipePolylineItem>,
+  pipes: PipeLookup,
 ): void {
   for (const pipe of pipes.values()) {
     setPipeFlow(pipe, true);
@@ -106,4 +106,9 @@ export function applyValveFlowState(
       }
     }
   }
+}
+/** 管线查找表：Map 与 core 的 QuadTreeStore 都满足这个结构 */
+export interface PipeLookup {
+  values(): Iterable<PipePolylineItem>;
+  get(id: number): PipePolylineItem | undefined;
 }

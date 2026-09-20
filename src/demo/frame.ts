@@ -15,7 +15,6 @@ import { buildValveSpriteInstances } from '@/business/pid_schematic/valve_instan
 import { buildValveLabelInstances } from '@/business/pid_schematic/valve_labels';
 import type { Camera2d } from '@/core/camera';
 import { expandAABB } from '@/core/geometry/aabb';
-import { QuadTree } from '@/core/geometry/quad_tree';
 import type { Renderer2D } from '@/core/gpu/renderer';
 import { RENDER_LAYER, sortRenderLayerDraws, type RenderLayerDraw } from '@/core/gpu/render_layer';
 import type { RectInstance } from '@/core/types';
@@ -55,8 +54,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
   }
 
   function visibleDemoPipes() {
-    const viewport = camera.getViewportAABB();
-    return valveScene.pipes.filter((pipe) => QuadTree.intersect(pipe.worldAABB, viewport));
+    return valveScene.scene.getVisible(camera.getViewportAABB()).pipes;
   }
 
   /** 位号与标题的实例（每字一个，图集 uv 写在实例里） */
@@ -87,9 +85,8 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
     requestAnimationFrame(frame);
 
     const instanceList = ctx.updateVisibleInstances();
-    const visibleValves = valveScene.valves.filter((valve) =>
-      QuadTree.intersect(valve.worldAABB, camera.getViewportAABB()),
-    );
+    // 视口剔除交给 PidScene（内部走 core 的四叉树），demo 不再自己过滤
+    const visibleValves = valveScene.scene.getVisible(camera.getViewportAABB()).valves;
     ctx.onVisibleValves(visibleValves);
 
     // 阀门显示走贴图精灵，但拾取仍需要最新的实例数据与投影矩阵
