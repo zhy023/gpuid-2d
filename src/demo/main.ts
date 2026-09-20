@@ -8,6 +8,7 @@ import { createFrameRunner } from '@/demo/frame';
 import { bindDemoInput } from '@/demo/input';
 import { createPipeFlowCase } from '@/demo/cases/pipe_flow';
 import { createDeviceStressCase } from '@/demo/cases/device_stress';
+import { createValveToggleCase } from '@/demo/cases/valve_toggle';
 import { CanvasSurface } from '@/core/gpu/surface';
 import { createDemoScene } from '@/demo/scene';
 import { getValvesPicker, initValves, disposeValves } from '@/business/pid_schematic/valve_manager';
@@ -84,7 +85,7 @@ export async function runApp() {
   // ?case=<name>：只跑单个功能测试（demo 目录按能力拆分，每个都能独立验证）
   const requestedCase = new URLSearchParams(window.location.search).get('case');
   if (requestedCase) {
-    const demoCases = [createPipeFlowCase(), createDeviceStressCase()];
+    const demoCases = [createPipeFlowCase(), createDeviceStressCase(), createValveToggleCase()];
     const matched = demoCases.find((item) => item.name === requestedCase);
     if (!matched) throw new Error(`未知的功能测试：${requestedCase}`);
 
