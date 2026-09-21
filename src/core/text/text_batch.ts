@@ -94,8 +94,8 @@ export function layoutText(
         .atlasUv([
           glyph.x / atlas.texture.width,
           glyph.y / atlas.texture.height,
-          (glyph.x + glyph.cellWidth) / atlas.texture.width,
-          (glyph.y + glyph.cellHeight) / atlas.texture.height,
+          (glyph.x + (glyph.rasterWidth ?? glyph.cellWidth)) / atlas.texture.width,
+          (glyph.y + (glyph.rasterHeight ?? glyph.cellHeight)) / atlas.texture.height,
         ]),
     );
     cursorX += (glyph.advance + letterSpacingPx) * worldPerPixel;

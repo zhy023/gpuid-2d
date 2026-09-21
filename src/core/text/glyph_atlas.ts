@@ -15,11 +15,17 @@ export interface GlyphEntry {
   /** 图集内的像素矩形；uv 在排版时按当前图集尺寸换算，扩容后依然正确 */
   x: number;
   y: number;
-  /** 字形步进（像素） */
+  /** 字形步进（逻辑像素） */
   advance: number;
-  /** 格子尺寸（像素），绘制端据此换算世界尺寸 */
+  /** 格子尺寸（逻辑像素），绘制端据此换算世界尺寸 */
   cellWidth: number;
   cellHeight: number;
+  /**
+   * 图集里的实际像素尺寸（超采样后 = 逻辑尺寸 × rasterScale）。
+   * uv 按它算；不填视为与逻辑尺寸相同（测试用的假图集）。
+   */
+  rasterWidth?: number;
+  rasterHeight?: number;
 }
 
 export interface GlyphAtlasOptions {
@@ -30,6 +36,11 @@ export interface GlyphAtlasOptions {
   textureHeightPx?: number;
   /** 格子内边距，避免线性采样吸到相邻字形 */
   paddingPx?: number;
+  /**
+   * 烘焙超采样倍率，默认 3：字形按 `fontSizePx × rasterScale` 光栅化进图集，
+   * 对外仍按逻辑字号排版与绘制。文字按世界单位缩放时，放大 3 倍以内不会有锯齿。
+   */
+  rasterScale?: number;
 }
 
 /**
@@ -59,6 +70,8 @@ export class GlyphAtlas {
   texture: Texture2d;
   readonly sampler: GPUSampler;
   readonly fontSizePx: number;
+  /** 烘焙超采样倍率（字形位图 = 逻辑字号 × 该倍率） */
+  readonly rasterScale: number;
   readonly lineHeight: number;
 
   private readonly device: GPUDevice;
@@ -76,6 +89,7 @@ export class GlyphAtlas {
     const {
       fontFamily = DEFAULT_FONT_FAMILY,
       fontSizePx = 16,
+      rasterScale = 3,
       textureWidthPx = 512,
       textureHeightPx = 512,
       paddingPx = 2,
@@ -83,9 +97,11 @@ export class GlyphAtlas {
 
     this.device = device;
     this.fontSizePx = fontSizePx;
+    this.rasterScale = Math.max(rasterScale, 1);
     this.lineHeight = Math.ceil(fontSizePx * 1.25);
     this.paddingPx = paddingPx;
-    this.font = `${fontSizePx}px ${fontFamily}`;
+    // 光栅化按「逻辑字号 × 超采样倍率」，排版与绘制仍用逻辑字号
+    this.font = `${fontSizePx * this.rasterScale}px ${fontFamily}`;
     this.canvas =
       typeof OffscreenCanvas === 'undefined'
         ? document.createElement('canvas')
@@ -111,30 +127,40 @@ export class GlyphAtlas {
     const cached = this.glyphs.get(char);
     if (cached) return cached;
 
+    const scale = this.rasterScale;
     const metrics = this.ctx.measureText(char);
-    const advance = Math.max(metrics.width, 1);
-    const ascent = Math.ceil(metrics.actualBoundingBoxAscent || this.fontSizePx * 0.8);
-    const descent = Math.ceil(metrics.actualBoundingBoxDescent || this.fontSizePx * 0.2);
-    const cellWidth = Math.ceil(advance) + this.paddingPx * 2;
-    const cellHeight = ascent + descent + this.paddingPx * 2;
+    // 图集里按超采样尺寸光栅化，逻辑尺寸对外用（除以倍率）
+    const rasterAdvance = Math.max(metrics.width, 1);
+    const rasterAscent = Math.ceil(
+      metrics.actualBoundingBoxAscent || this.fontSizePx * scale * 0.8,
+    );
+    const rasterDescent = Math.ceil(
+      metrics.actualBoundingBoxDescent || this.fontSizePx * scale * 0.2,
+    );
+    const rasterWidth = Math.ceil(rasterAdvance) + this.paddingPx * scale * 2;
+    const rasterHeight = rasterAscent + rasterDescent + this.paddingPx * scale * 2;
+    const advance = rasterAdvance / scale;
+    const cellWidth = rasterWidth / scale;
+    const cellHeight = rasterHeight / scale;
 
     // 图集满：扩容一页（尺寸翻倍、保留已烘焙字形），再重新分配
-    let slot = this.allocate(cellWidth, cellHeight);
+    let slot = this.allocate(rasterWidth, rasterHeight);
     if (!slot) {
       this.grow();
-      slot = this.allocate(cellWidth, cellHeight);
+      slot = this.allocate(rasterWidth, rasterHeight);
     }
     if (!slot) return undefined;
 
     // 画进格子：基线 = 顶部 padding + ascent
-    this.ctx.fillText(char, slot.x + this.paddingPx, slot.y + this.paddingPx + ascent);
+    const paddingRaster = this.paddingPx * scale;
+    this.ctx.fillText(char, slot.x + paddingRaster, slot.y + paddingRaster + rasterAscent);
     // 只把这一小块写进图集纹理，不重建整张纹理
-    const image = this.ctx.getImageData(slot.x, slot.y, cellWidth, cellHeight);
+    const image = this.ctx.getImageData(slot.x, slot.y, rasterWidth, rasterHeight);
     this.device.queue.writeTexture(
       { texture: this.texture.texture, origin: [slot.x, slot.y] },
       image.data,
-      { bytesPerRow: cellWidth * 4 },
-      [cellWidth, cellHeight],
+      { bytesPerRow: rasterWidth * 4 },
+      [rasterWidth, rasterHeight],
     );
 
     const entry: GlyphEntry = {
@@ -143,6 +169,8 @@ export class GlyphAtlas {
       advance,
       cellWidth,
       cellHeight,
+      rasterWidth,
+      rasterHeight,
     };
     this.glyphs.set(char, entry);
     return entry;
