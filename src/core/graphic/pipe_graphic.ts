@@ -14,7 +14,7 @@
  */
 import { calcPolylineBounds } from '@/core/geometry/polyline';
 import type { Point } from '@/core/geometry/polyline';
-import { Graphic, type GraphicOptions, type Rgba } from '@/core/scene/graphic';
+import { Graphic, type GraphicOptions, type Rgba } from '@/core/graphic/graphic';
 import type { AABB } from '@/core/types';
 
 export interface PipeGraphicOptions extends GraphicOptions {

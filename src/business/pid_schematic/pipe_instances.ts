@@ -12,7 +12,7 @@ import {
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
-import type { Rgba } from '@/core/scene/graphic';
+import type { Rgba } from '@/core/graphic/graphic';
 
 /**
  * 一轮管线条带实例化能出现的图元：管线本身（FlowPipe）

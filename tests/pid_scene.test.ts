@@ -6,7 +6,7 @@ import { describe, it } from 'node:test';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import { RectNode } from '@/core/scene/rect_node';
+import { RectNode } from '@/core/graphic/rect_node';
 import type { AABB } from '@/core/types';
 
 const BOUNDS: AABB = { minX: -1000, minY: -1000, maxX: 1000, maxY: 1000 };

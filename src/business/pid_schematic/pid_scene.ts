@@ -6,8 +6,8 @@
  */
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import type { RectNode } from '@/core/scene/rect_node';
-import { QuadTreeStore } from '@/core/scene/quad_tree_store';
+import type { RectNode } from '@/core/graphic/rect_node';
+import { QuadTreeStore } from '@/core/graphic/quad_tree_store';
 import type { AABB } from '@/core/types';
 
 export interface PidVisibleItems {

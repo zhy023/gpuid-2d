@@ -11,7 +11,7 @@
  * 圆形、多边形等符号可以继承后重写 `computeWorldAABB`。
  */
 import { computeRotatedAABB } from '@/core/geometry/aabb';
-import { Graphic, type GraphicOptions, type Rgba } from '@/core/scene/graphic';
+import { Graphic, type GraphicOptions, type Rgba } from '@/core/graphic/graphic';
 import type { AABB } from '@/core/types';
 
 export interface NodeGraphicOptions extends GraphicOptions {

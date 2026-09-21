@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { QuadTreeStore } from '@/core/scene/quad_tree_store';
+import { QuadTreeStore } from '@/core/graphic/quad_tree_store';
 import type { AABB, QuadTreeItem } from '@/core/types';
 
 const BOUNDS: AABB = { minX: -1000, minY: -1000, maxX: 1000, maxY: 1000 };

@@ -90,7 +90,7 @@ src/
 ├─ core/                        # 引擎内核：业务无关
 │  ├─ gpu/                      # device / context（装配与重建）/ renderer / picker / surface / texture / render_state / render_layer
 │  ├─ geometry/                 # 顶点几何、AABB、四叉树、折线膨胀、2D 变换、精灵实例
-│  ├─ scene/                    # 图形基类（Graphic / NodeGraphic / PipeGraphic + RectNode / PolylinePipe）+ QuadTreeStore 索引
+│  ├─ graphic/                  # 图形基类（Graphic / NodeGraphic / PipeGraphic + RectNode / PolylinePipe）+ QuadTreeStore 索引
 │  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText
 │  ├─ shader/                   # core_include + core_render；generated/ 为展开后的字符串模块
 │  ├─ camera.ts                 # 正交相机

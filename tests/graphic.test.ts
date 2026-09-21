@@ -6,9 +6,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import { NodeGraphic } from '@/core/scene/node_graphic';
-import { RectNode } from '@/core/scene/rect_node';
-import { QuadTreeStore } from '@/core/scene/quad_tree_store';
+import { NodeGraphic } from '@/core/graphic/node_graphic';
+import { RectNode } from '@/core/graphic/rect_node';
+import { QuadTreeStore } from '@/core/graphic/quad_tree_store';
 import type { AABB } from '@/core/types';
 
 /** 取包围盒的小数位，便于断言 */

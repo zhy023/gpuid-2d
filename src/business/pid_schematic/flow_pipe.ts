@@ -11,7 +11,7 @@ import {
   snapPipeLineWidthPx,
 } from '@/business/pid_schematic/pipe_style';
 import { expandPolyline, type ExpandResult, type Point } from '@/core/geometry/polyline';
-import { PolylinePipe } from '@/core/scene/polyline_pipe';
+import { PolylinePipe } from '@/core/graphic/polyline_pipe';
 
 /** 静止虚线的速度约定值（着色器按符号判定三态） */
 export const PIPE_DASHED_FLOW_SPEED = -1;

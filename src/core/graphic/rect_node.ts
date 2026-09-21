@@ -3,7 +3,7 @@
  *
  * 设备矩形、图标框、选中框这类「方块」都用它；更复杂的符号继承 `NodeGraphic` 自己算包围盒。
  */
-import { NodeGraphic } from '@/core/scene/node_graphic';
+import { NodeGraphic } from '@/core/graphic/node_graphic';
 
 export class RectNode extends NodeGraphic {
   get type(): 'rect' {

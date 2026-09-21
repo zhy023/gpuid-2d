@@ -5,7 +5,7 @@
  * 打开（中心挖空，透出下层管线）或关闭（红色十字封堵）；
  * 下游管线的流动样式由拓扑层（`topology.ts`）沿流向派生。
  */
-import { NodeGraphic } from '@/core/scene/node_graphic';
+import { NodeGraphic } from '@/core/graphic/node_graphic';
 
 export class ValveGraphic extends NodeGraphic {
   get type(): 'valve' {

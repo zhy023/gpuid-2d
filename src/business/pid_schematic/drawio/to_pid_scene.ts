@@ -12,7 +12,7 @@ import { mxFlag, mxNumber } from '@/business/pid_schematic/drawio/mx_style';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
-import { RectNode } from '@/core/scene/rect_node';
+import { RectNode } from '@/core/graphic/rect_node';
 import type { AABB } from '@/core/types';
 
 /** 位号：文字 + 世界坐标 + 颜色（rgba） */

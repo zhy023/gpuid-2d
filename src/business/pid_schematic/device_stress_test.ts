@@ -6,7 +6,7 @@
  * 因此 tick() 不再全量扫描 5 万条图元找 dirty。
  */
 import { PidScene } from '@/business/pid_schematic/pid_scene';
-import { RectNode } from '@/core/scene/rect_node';
+import { RectNode } from '@/core/graphic/rect_node';
 import type { AABB, RectInstance } from '@/core/types';
 
 /** 设备图元（= 内核矩形节点）→ 实例化绘制数据（几何 + 选中态；uv 整张纹理、颜色取背景色） */
