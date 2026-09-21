@@ -13,6 +13,7 @@ import {
   type PidLabel,
 } from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { PidScene } from '@/business/pid_schematic/pid_scene';
+import type { Topology } from '@/business/pid_schematic/topology';
 import type { AABB } from '@/core/types';
 
 /** 世界范围：压测图元与管线都布在这个矩形内 */
@@ -36,6 +37,8 @@ export const DRAWIO_URL = '/assets/graph/meta_demo.xml';
 export interface DrawioDemoScene {
   /** 图纸图元（设备 / 管线 / 阀门）的空间索引 */
   pidScene: PidScene;
+  /** 管线 → 两端设备的拓扑（按边的 source → target 方向） */
+  topology: Topology;
   /** 位号：文字 + 位置 + 颜色 + 字号 */
   labels: PidLabel[];
   /** 图元 id → 内联图标 data URL（绘制端按它贴图） */
@@ -77,7 +80,7 @@ export async function createDrawioScene(): Promise<DrawioDemoScene> {
   const xml = await (await fetch(DRAWIO_URL)).text();
   const document = parseMxDocument(xml, new DOMParser());
   // 阀门单元（内联的是阀门贴图）翻成 ValveGraphic：可选中 + 自带开/关状态
-  const { scene, labels, icons, bounds, stats } = toPidScene(document, {
+  const { scene, topology, labels, icons, bounds, stats } = toPidScene(document, {
     valveIcons: await loadValveIcons(),
   });
   // 阀门与管线都保持默认关闭：图纸一进来是静止的初始态，
@@ -87,7 +90,7 @@ export async function createDrawioScene(): Promise<DrawioDemoScene> {
       ` / 位号 ${stats.labels}` +
       ` / 范围 ${Math.round(bounds.maxX - bounds.minX)}×${Math.round(bounds.maxY - bounds.minY)}`,
   );
-  return { pidScene: scene, labels, icons, bounds, stats };
+  return { pidScene: scene, topology, labels, icons, bounds, stats };
 }
 
 /**

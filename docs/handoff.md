@@ -67,6 +67,9 @@
 `resources.ts`、`input.ts`、`frame.ts`、
 `label_atlases.ts`（按字号缓存位号图集）
 
+图纸交互：单击阀门 = 选中 / 取消选中（一次只选中一个，日志打印图元 id 与 drawio cellId）；
+双击阀门 = 开 / 关，并按拓扑把下游管线切到流动 / 默认样式。
+
 图纸绘制口径：**图纸是唯一事实来源**，渲染端不自作主张——
 
 - 颜色：`fillColor` 有值才画，`fill=none` / 没写填充的单元保持透明（与 draw.io 导出的 SVG 一致）；
@@ -75,6 +78,9 @@
 - 图标：图片单元一律用图纸自己的内联图，按 `aspect=fixed` 等比缩放居中，不拉伸、不换贴图；
   阀门节点在模型上是 `ValveGraphic`（selectable 能力、自带开/关状态），但画什么、多大仍然看图纸
 - 尺寸/位置/文字：都用单元自身的几何与 `fontColor` / `fontSize`
+- 拓扑：边的 `source` / `target` 指向节点组里的**关节单元**（图纸里阀门 = 关节 + 位号 + 阀门图标一组），
+  `to_pid_scene` 按「单元 → 所属组 → 组里的阀门」解析回阀门并建出 `Topology`，
+  **方向就是 source → target**；`applyValveFlowState` 据此把阀门开关广播到下游管线
 
 ### 着色器工程
 

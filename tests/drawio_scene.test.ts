@@ -14,6 +14,7 @@ import {
   parseDrawioColor,
   toPidScene,
 } from '@/business/pid_schematic/drawio/to_pid_scene';
+import { applyValveFlowState } from '@/business/pid_schematic/topology';
 
 const XML_PATH = path.join(process.cwd(), 'public/assets/graph/meta_demo.xml');
 const VALVE_OFF_PATH = path.join(process.cwd(), 'public/assets/famen_off@2x.png');
@@ -139,6 +140,36 @@ describe('toPidScene（真实图纸）', () => {
       true,
       'valveOpen: true 时阀门初始为开',
     );
+  });
+
+  it('管线按边的 source → target 挂到阀门上（拓扑管方向）', () => {
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    const links = [...withValves.topology.values()];
+
+    assert.equal(links.length, withValves.stats.pipes, '每条管线都建了拓扑链');
+    // 样例图纸的边两端指向阀门组里的关节单元：应当解析到阀门上
+    const valveIds = new Set([...withValves.scene.valves.values()].map((valve) => valve.id));
+    const touched = links.filter(
+      (link) => valveIds.has(link.sourceElementId) || valveIds.has(link.targetElementId),
+    );
+    assert.ok(touched.length > 0, '至少有管线挂在阀门上');
+
+    // 关掉一个阀门：从它发出的管线（source → target 方向）应当切回默认样式
+    const valve = [...withValves.scene.valves.values()].find((candidate) =>
+      links.some((link) => link.sourceElementId === candidate.id),
+    );
+    assert.ok(valve, '应当能找到有下游管线的阀门');
+    valve.setOpen(false);
+    applyValveFlowState(
+      withValves.topology,
+      withValves.scene.valves.values(),
+      withValves.scene.pipes,
+    );
+    for (const link of links.filter((item) => item.sourceElementId === valve.id)) {
+      const pipe = withValves.scene.pipes.get(link.pipelineId);
+      assert.ok(pipe, `管线 ${link.pipelineId} 应当存在`);
+      assert.equal(pipe.flowSpeed, 0, '阀门关闭后下游管线是默认样式');
+    }
   });
 });
 

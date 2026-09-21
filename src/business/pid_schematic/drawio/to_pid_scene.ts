@@ -12,6 +12,7 @@ import { mxFlag, mxNumber, type MxStyle } from '@/business/pid_schematic/drawio/
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
+import { Topology } from '@/business/pid_schematic/topology';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { AABB } from '@/core/types';
@@ -54,6 +55,8 @@ export function isDrawioCellData(value: unknown): value is DrawioCellData {
 
 export interface DrawioSceneResult {
   scene: PidScene;
+  /** 管线 → 两端设备的拓扑（按边的 source → target 方向建，供阀门开关向下游广播） */
+  topology: Topology;
   labels: PidLabel[];
   /** 图元数字 id → 内联图标 data URL（drawio 把图标放在 style.image 里） */
   icons: Map<number, string>;
@@ -162,9 +165,15 @@ export function toPidScene(
   // 图纸坐标原点不一定在左上角（这份样例的 y 全是负的），范围要算出来给相机用
   const bounds = computeBounds(document.nodes);
   const scene = new PidScene(bounds);
+  const topology = new Topology();
   const labels: PidLabel[] = [];
   const icons = new Map<number, string>();
   const numericIds = new Map<string, number>();
+  // 图纸把一个阀门画成「关节单元 + 位号 + 阀门图标」一组：边的两端指向组里的关节单元，
+  // 所以要把「单元 → 所属组 → 组里的阀门」串起来，管线才能挂到阀门上
+  const cellGroupId = new Map<string, string>();
+  const groupValveId = new Map<string, number>();
+  const pendingLinks: Array<{ pipeId: number; sourceId: string; targetId: string }> = [];
   const stats = { devices: 0, valves: 0, pipes: 0, labels: 0, icons: 0, skipped: 0 };
   let nextId = 1;
 
@@ -199,6 +208,7 @@ export function toPidScene(
   for (const node of document.nodes) {
     // 跳过 drawio 的图层与根节点
     if (node.id === '0' || node.id === '1') continue;
+    if (node.parentId) cellGroupId.set(node.id, node.parentId);
 
     if (node.isEdge) {
       const source = node.sourceId ? document.byId.get(node.sourceId) : undefined;
@@ -241,6 +251,10 @@ export function toPidScene(
         ...(node.targetId ? { targetId: node.targetId } : {}),
       } satisfies DrawioCellData);
       scene.upsertPipe(pipe);
+      // 方向按边的 source → target 记下来，等所有图元建完再解析成阀门/设备
+      if (node.sourceId && node.targetId) {
+        pendingLinks.push({ pipeId: pipe.id, sourceId: node.sourceId, targetId: node.targetId });
+      }
       stats.pipes += 1;
       continue;
     }
@@ -280,6 +294,7 @@ export function toPidScene(
       });
       valve.clearDirty();
       scene.upsertValve(valve);
+      if (node.parentId) groupValveId.set(node.parentId, valve.id);
       stats.valves += 1;
       // 画什么完全看图纸：阀门节点用它自己的内联图标（开/关态也由图纸这张图决定）
       icons.set(valve.id, normalizeIconUrl(iconUrl));
@@ -323,5 +338,19 @@ export function toPidScene(
     }
   }
 
-  return { scene, labels, icons, bounds, stats };
+  // 边建完后再解析端点：端点单元在阀门组里就挂到那个阀门上，否则用它自己的图元 id。
+  // 链路保持 source → target 的方向，下游广播（applyValveFlowState）按这个方向走。
+  const resolveElementId = (cellId: string): number | undefined => {
+    const groupId = cellGroupId.get(cellId);
+    const groupedValve = groupId ? groupValveId.get(groupId) : undefined;
+    return groupedValve ?? numericIds.get(cellId);
+  };
+  for (const link of pendingLinks) {
+    const sourceElementId = resolveElementId(link.sourceId);
+    const targetElementId = resolveElementId(link.targetId);
+    if (sourceElementId === undefined || targetElementId === undefined) continue;
+    topology.setLink({ pipelineId: link.pipeId, sourceElementId, targetElementId });
+  }
+
+  return { scene, topology, labels, icons, bounds, stats };
 }

@@ -46,7 +46,7 @@ export async function runDrawioApp(): Promise<void> {
       { width: canvasEl.width, height: canvasEl.height },
     );
     if (!getValvesPicker()) throw new Error('阀门拾取器未初始化');
-    const { pidScene, labels, icons, bounds } = await createDrawioScene();
+    const { pidScene, topology, labels, icons, bounds } = await createDrawioScene();
     const iconTextures = new IconTextureCache(device);
     const labelAtlases = new LabelAtlasCache(device);
     // demo 自己的画布底色：引擎不再给图元兜底颜色，图纸里大量浅色/白色图元
@@ -71,6 +71,8 @@ export async function runDrawioApp(): Promise<void> {
       canvas: canvasEl,
       renderer,
       getVisibleValves: () => visibleValves,
+      scene: pidScene,
+      topology,
       // 单选：换选/点空白时把整个场景里的阀门选中态清干净（含视口外的）
       clearSelection: () => {
         for (const valve of pidScene.valves.values()) {
