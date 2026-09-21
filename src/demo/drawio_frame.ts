@@ -67,6 +67,11 @@ function toIconGraphic(node: SelectableGraphic, texture: Texture2d): SelectableG
     ? Math.min(width / Math.max(texture.width, 1), height / Math.max(texture.height, 1))
     : 1;
   const graphic = toDrawableGraphic(node, ICON_FILL);
+  // drawio 对 `rounded=1` 的图片单元会做圆形裁剪（导出 SVG 里是 inset + round 49.2%）：
+  // 内核自带圆形遮罩，这里按图纸把它裁成内切圆，而不是直接贴一张方图
+  if (style?.rounded === '1') {
+    graphic.ellipse(Math.abs(node.width), Math.abs(node.height));
+  }
   if (!keepAspect || scale <= 0) return graphic;
   return graphic.setSize(texture.width * scale, texture.height * scale);
 }
