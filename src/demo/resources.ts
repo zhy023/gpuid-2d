@@ -21,8 +21,9 @@ export interface DemoResources {
   valveTextureHeight: number;
 }
 
-const VALVE_OFF_URL = '/assets/famen_off@2x.png';
-const VALVE_ON_URL = '/assets/famen_on@2x.png';
+/** 阀门开关两态贴图（图纸里的阀门单元内联的就是这两张 PNG，图纸翻译层按它识别阀门） */
+export const VALVE_OFF_URL = '/assets/famen_off@2x.png';
+export const VALVE_ON_URL = '/assets/famen_on@2x.png';
 
 export async function createDemoResources(device: GPUDevice): Promise<DemoResources> {
   const glyphAtlas = new GlyphAtlas(device, { fontSizePx: 18 });

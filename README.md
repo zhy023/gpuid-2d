@@ -57,7 +57,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 阀门：开关两态贴图精灵、拾取复用内核拾取着色器（业务只提供 bindGroup）、点击切换开闭
 - 拓扑：`applyValveFlowState` 把阀门状态广播到下游管线（含环路保护）
 - 场景：`PidScene` 统一增删改（`upsertDevice` / `upsertPipe` / `upsertValve` / `remove`）与视口可见集
-- 图纸接入：`drawio/mx_document.ts` + `mx_style.ts`（零运行时依赖，`DOMParser` 注入）→ `to_pid_scene.ts` 把 mxGraphModel 翻译成 `PidScene`（绝对坐标按父链累加、折点在 `<Array as="points">`）
+- 图纸接入：`drawio/mx_document.ts` + `mx_style.ts`（零运行时依赖，`DOMParser` 注入）→ `to_pid_scene.ts` 把 mxGraphModel 翻译成 `PidScene`（绝对坐标按父链累加、折点在 `<Array as="points">`）：连线 → `FlowPipe`（flow 能力），内联图标命中阀门贴图的单元 → `ValveGraphic`（selectable 能力，自带开/关状态），其余 → `SelectableGraphic` 设备；`drawio_main.ts` 里阀门节点按开关态贴图绘制、管线走流动条纹（demo 打开 flow）
 
 **质量保障**
 

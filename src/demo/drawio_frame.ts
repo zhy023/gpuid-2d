@@ -10,10 +10,12 @@
 import type { PidLabel } from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';
 import type { PidScene } from '@/business/pid_schematic/pid_scene';
+import { buildValveSpriteGraphics } from '@/business/pid_schematic/valve_instances';
 import { renderPipes } from '@/business/pid_schematic/pipe_manager';
 import type { Camera2d } from '@/core/camera';
 import { RENDER_LAYER, sortRenderLayerDraws } from '@/core/gpu/render_layer';
 import type { Renderer2D } from '@/core/gpu/renderer';
+import type { Texture2d } from '@/core/gpu/texture';
 import { toInstances, type Graphic } from '@/core/scene/graphic/graphic';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
@@ -67,6 +69,10 @@ export interface DrawioFrameContext {
   icons: ReadonlyMap<number, string>;
   /** 图标纹理缓存（同一图标只加载一次） */
   iconTextures: IconTextureCache;
+  /** 阀门开关两态贴图（阀门节点按开/关分组绘制，与阀门示例同一套口径） */
+  valveOffTexture: Texture2d;
+  valveOnTexture: Texture2d | null;
+  valveSampler: GPUSampler;
 }
 
 /**
@@ -74,8 +80,25 @@ export interface DrawioFrameContext {
  * @returns 本帧提交的设备数与管线数（便于冒烟观测剔除效果）
  */
 export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; pipes: number } {
-  const { renderer, camera, scene, labels, labelAtlases, icons, iconTextures } = ctx;
+  const {
+    renderer,
+    camera,
+    scene,
+    labels,
+    labelAtlases,
+    icons,
+    iconTextures,
+    valveOffTexture,
+    valveOnTexture,
+    valveSampler,
+  } = ctx;
   const visible = scene.getVisible(camera.getViewportAABB());
+
+  // 阀门节点（ValveGraphic：selectable 能力 + 开/关状态）：按开关态分组，各绑一张贴图
+  const valveSprites = buildValveSpriteGraphics(visible.valves, {
+    textureWidth: valveOffTexture.width,
+    textureHeight: valveOffTexture.height,
+  });
 
   // 设备图元分两组：带图标的按 dataURL 分组（各成一个纹理批次，原色显示），其余走基础批次
   const plainDevices = visible.devices.filter((device) => !icons.has(device.id));
@@ -131,6 +154,17 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
   renderer.renderComposite({
     instances: deviceInstances,
     extraBatches: [
+      // 阀门节点：关闭态 / 开启态各一批（阀门贴图与阀门示例用的是同一套）
+      {
+        instances: toInstances(valveSprites.closed, camera.scale),
+        textureView: valveOffTexture.view,
+        sampler: valveSampler,
+      },
+      {
+        instances: toInstances(valveSprites.open, camera.scale),
+        textureView: (valveOnTexture ?? valveOffTexture).view,
+        sampler: valveSampler,
+      },
       ...iconBatches,
       ...[...labelBatches].map(([atlas, graphics]) => ({
         instances: toInstances(graphics, camera.scale),

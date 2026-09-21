@@ -13,8 +13,10 @@ import { renderDrawioFrame } from '@/demo/drawio_frame';
 import { createDrawioScene } from '@/demo/scene';
 import { DRAWIO_CLEAR_COLOR } from '@/demo/drawio_frame';
 import { LabelAtlasCache } from '@/demo/label_atlases';
+import { VALVE_OFF_URL, VALVE_ON_URL } from '@/demo/resources';
 import { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';
 import { initPipe } from '@/business/pid_schematic/pipe_manager';
+import { createTextureSampler, loadTextureFromUrl, type Texture2d } from '@/core/gpu/texture';
 
 /** 取景留白：整页可见还留一点边 */
 const VIEW_FIT_MARGIN = 0.92;
@@ -35,6 +37,15 @@ export async function runDrawioApp(): Promise<void> {
     const { pidScene, labels, icons, bounds } = await createDrawioScene();
     const iconTextures = new IconTextureCache(device);
     const labelAtlases = new LabelAtlasCache(device);
+    // 阀门节点贴图（开关两态）：与图纸里内联的阀门图标是同一份 PNG
+    const valveOffTexture = await loadTextureFromUrl(device, VALVE_OFF_URL, 'drawio-valve-off');
+    let valveOnTexture: Texture2d | null = null;
+    try {
+      valveOnTexture = await loadTextureFromUrl(device, VALVE_ON_URL, 'drawio-valve-on');
+    } catch {
+      console.warn(`[gpuid] 未找到 ${VALVE_ON_URL}，阀门开启态暂用关闭态贴图`);
+    }
+    const valveSampler = createTextureSampler(device, 'drawio-valve-sampler');
 
     // demo 自己的画布底色：引擎不再给图元兜底颜色，图纸里大量浅色/白色图元
     // 在原来的浅灰底上几乎看不见，这里换个中性偏深的底把它们衬出来
@@ -62,6 +73,9 @@ export async function runDrawioApp(): Promise<void> {
         labelAtlases,
         icons,
         iconTextures,
+        valveOffTexture,
+        valveOnTexture,
+        valveSampler,
       });
     };
     tick();

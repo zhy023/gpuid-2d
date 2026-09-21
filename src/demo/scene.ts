@@ -7,7 +7,11 @@ import { DeviceStressTester } from '@/business/pid_schematic/device_stress_test'
 import { PipeStressTester } from '@/business/pid_schematic/pipe_stress_test';
 import { createValveDemoScene, type ValveDemoScene } from '@/business/pid_schematic/valve_demo';
 import { parseMxDocument } from '@/business/pid_schematic/drawio/mx_document';
-import { toPidScene, type PidLabel } from '@/business/pid_schematic/drawio/to_pid_scene';
+import {
+  toPidScene,
+  type DrawioValveIcon,
+  type PidLabel,
+} from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { PidScene } from '@/business/pid_schematic/pid_scene';
 import type { AABB } from '@/core/types';
 
@@ -38,7 +42,34 @@ export interface DrawioDemoScene {
   icons: Map<number, string>;
   /** 图纸世界范围（相机取景用） */
   bounds: AABB;
-  stats: { devices: number; pipes: number; labels: number; icons: number; skipped: number };
+  stats: {
+    devices: number;
+    valves: number;
+    pipes: number;
+    labels: number;
+    icons: number;
+    skipped: number;
+  };
+}
+
+import { VALVE_OFF_URL, VALVE_ON_URL } from '@/demo/resources';
+/** 把本地阀门贴图读成 data URL，供图纸翻译层识别阀门单元 */
+async function loadValveIcons(): Promise<DrawioValveIcon[]> {
+  const toDataUrl = async (url: string): Promise<string> => {
+    const blob = await (await fetch(url)).blob();
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error(`读取失败：${url}`));
+      reader.readAsDataURL(blob);
+    });
+    return base64;
+  };
+
+  return [
+    { url: await toDataUrl(VALVE_OFF_URL), open: false },
+    { url: await toDataUrl(VALVE_ON_URL), open: true },
+  ];
 }
 
 /**
@@ -48,9 +79,17 @@ export interface DrawioDemoScene {
 export async function createDrawioScene(): Promise<DrawioDemoScene> {
   const xml = await (await fetch(DRAWIO_URL)).text();
   const document = parseMxDocument(xml, new DOMParser());
-  const { scene, labels, icons, bounds, stats } = toPidScene(document);
+  // 阀门单元（内联的是阀门贴图）翻成 ValveGraphic：可选中 + 自带开/关状态
+  const { scene, labels, icons, bounds, stats } = toPidScene(document, {
+    valveIcons: await loadValveIcons(),
+  });
+  // 管线走 flow 能力：图纸默认静止，demo 把它打开（dashed 的保持静止虚线）
+  for (const pipe of scene.pipes.values()) {
+    if (!pipe.dashed) pipe.setOpen(true);
+  }
   console.log(
-    `[drawio] 设备 ${stats.devices} / 管线 ${stats.pipes} / 位号 ${stats.labels}` +
+    `[drawio] 设备 ${stats.devices} / 阀门 ${stats.valves} / 管线 ${stats.pipes}` +
+      ` / 位号 ${stats.labels}` +
       ` / 范围 ${Math.round(bounds.maxX - bounds.minX)}×${Math.round(bounds.maxY - bounds.minY)}`,
   );
   return { pidScene: scene, labels, icons, bounds, stats };

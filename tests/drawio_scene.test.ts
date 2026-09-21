@@ -16,6 +16,18 @@ import {
 } from '@/business/pid_schematic/drawio/to_pid_scene';
 
 const XML_PATH = path.join(process.cwd(), 'public/assets/graph/meta_demo.xml');
+const VALVE_OFF_PATH = path.join(process.cwd(), 'public/assets/famen_off@2x.png');
+const VALVE_ON_PATH = path.join(process.cwd(), 'public/assets/famen_on@2x.png');
+
+/** 本地贴图 → data URL：图纸里内联的阀门图标就是同一份字节，用它当「这是阀门」的判据 */
+function toDataUrl(filePath: string): string {
+  return `data:image/png,${readFileSync(filePath).toString('base64')}`;
+}
+
+const VALVE_ICONS = [
+  { url: toDataUrl(VALVE_OFF_PATH), open: false },
+  { url: toDataUrl(VALVE_ON_PATH), open: true },
+];
 
 describe('toPidScene（真实图纸）', () => {
   const document = parseMxDocument(
@@ -98,6 +110,26 @@ describe('toPidScene（真实图纸）', () => {
       assert.ok(device.worldAABB.minX >= bounds.minX && device.worldAABB.maxX <= bounds.maxX);
       assert.ok(device.worldAABB.minY >= bounds.minY && device.worldAABB.maxY <= bounds.maxY);
     }
+  });
+
+  it('阀门单元翻成 ValveGraphic（selectable 能力），其余仍是普通设备', () => {
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    const valves = [...withValves.scene.valves.values()];
+
+    assert.equal(withValves.stats.valves, 40, '样例图纸有 40 个阀门单元（39 关 + 1 开）');
+    assert.equal(valves.length, 40);
+    assert.equal(valves.filter((valve) => valve.open).length, 1, '其中 1 个是开启态图标');
+    // 阀门从设备里摘出来了：设备数 = 原来的设备数 - 阀门数
+    assert.equal(
+      withValves.stats.devices,
+      result.stats.devices - withValves.stats.valves,
+      '阀门不再算普通设备',
+    );
+    // 阀门自带开/关状态与可选中能力（selectable 层）
+    const valve = valves[0];
+    assert.equal(typeof valve.setSelected, 'function', '阀门可选中');
+    assert.equal(typeof valve.setOpen, 'function', '阀门有自己的开/关状态');
+    assert.ok(isDrawioCellData(valve.data) && valve.data.kind === 'valve');
   });
 });
 

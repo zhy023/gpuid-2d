@@ -12,6 +12,7 @@ import { mxFlag, mxNumber, type MxStyle } from '@/business/pid_schematic/drawio/
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
+import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { AABB } from '@/core/types';
 
@@ -36,7 +37,7 @@ export interface DrawioCellData {
   /** 单元显示文字（位号/名称），可能为空串 */
   label: string;
   /** 这个单元被翻成了哪类图元 */
-  kind: 'device' | 'pipe';
+  kind: 'device' | 'valve' | 'pipe';
   /** drawio 原始样式键值（fillColor / strokeColor / fontSize / image …） */
   style: MxStyle;
   /** 连线的两端单元 id（设备没有） */
@@ -59,7 +60,30 @@ export interface DrawioSceneResult {
   /** 图纸世界范围（调用方用它给相机取景，不要去猜页宽高） */
   bounds: AABB;
   /** 统计：便于和 XML 里的单元数对账 */
-  stats: { devices: number; pipes: number; labels: number; icons: number; skipped: number };
+  stats: {
+    devices: number;
+    valves: number;
+    pipes: number;
+    labels: number;
+    icons: number;
+    skipped: number;
+  };
+}
+
+/**
+ * 阀门图标：图纸用内联图片表示阀门时，调用方把「哪张图是阀门、代表开还是关」告诉翻译层。
+ * 比较时忽略 base64 里的空白，所以调用方给本地贴图文件编码出来的 data URL 即可。
+ */
+export interface DrawioValveIcon {
+  /** 内联图片 data URL（`data:image/png,...`） */
+  url: string;
+  /** 这张图代表阀门打开还是关闭 */
+  open: boolean;
+}
+
+export interface ToPidSceneOptions {
+  /** 识别为阀门的内联图标；不传则所有非连线单元都按普通设备处理 */
+  valveIcons?: readonly DrawioValveIcon[];
 }
 
 const DEFAULT_COLOR: readonly [number, number, number, number] = [0.12, 0.12, 0.14, 1];
@@ -131,14 +155,17 @@ function computeBounds(nodes: readonly MxNode[]): AABB {
   return { minX: minX - margin, minY: minY - margin, maxX: maxX + margin, maxY: maxY + margin };
 }
 
-export function toPidScene(document: MxDocument): DrawioSceneResult {
+export function toPidScene(
+  document: MxDocument,
+  options: ToPidSceneOptions = {},
+): DrawioSceneResult {
   // 图纸坐标原点不一定在左上角（这份样例的 y 全是负的），范围要算出来给相机用
   const bounds = computeBounds(document.nodes);
   const scene = new PidScene(bounds);
   const labels: PidLabel[] = [];
   const icons = new Map<number, string>();
   const numericIds = new Map<string, number>();
-  const stats = { devices: 0, pipes: 0, labels: 0, icons: 0, skipped: 0 };
+  const stats = { devices: 0, valves: 0, pipes: 0, labels: 0, icons: 0, skipped: 0 };
   let nextId = 1;
 
   const idOf = (rawId: string): number => {
@@ -150,6 +177,17 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
   };
 
   const centerOf = (node: MxNode) => ({ x: node.x + node.width / 2, y: node.y + node.height / 2 });
+
+  /** 内联图标是否命中「阀门图标」表：两边都按同一套规则规范化（补 `;base64`、去掉空白） */
+  const matchValveIcon = (iconUrl: string): DrawioValveIcon | null => {
+    if (!options.valveIcons?.length) return null;
+    const normalize = (url: string) => normalizeIconUrl(url).replace(/\s+/g, '');
+    const normalized = normalize(iconUrl);
+    for (const icon of options.valveIcons) {
+      if (normalize(icon.url) === normalized) return icon;
+    }
+    return null;
+  };
 
   /** 端点在节点矩形上的锚点：fx/fy 是 0~1 的比例（drawio 的 exitX/entryX） */
   const anchorOf = (node: MxNode, fx: number, fy: number) => ({
@@ -218,31 +256,56 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
     // flipH/flipV 用负缩放表达（贴图跟着镜像，和 drawio 一致）
     const sx = mxFlag(node.style, 'flipH') ? -node.width : node.width;
     const sy = mxFlag(node.style, 'flipV') ? -node.height : node.height;
-    const device = new SelectableGraphic({
-      id: idOf(node.id),
-      x: center.x,
-      y: center.y,
-      width: sx,
-      height: sy,
-      rotation: beta,
-      fillColor: parseDrawioColor(node.style.fillColor),
-      // 原始单元信息跟着图元走（纯属性，不参与绘制）
-      data: {
-        cellId: node.id,
-        label: node.value.trim(),
-        kind: 'device',
-        style: node.style,
-      } satisfies DrawioCellData,
-    });
-    device.clearDirty();
-    scene.upsertDevice(device);
-    stats.devices += 1;
-
-    // 图标：drawio 的图片单元把 base64 放在 style.image 里，绘制端按它贴图
     const iconUrl = node.style.image;
-    if (iconUrl?.startsWith('data:image')) {
-      icons.set(device.id, normalizeIconUrl(iconUrl));
-      stats.icons += 1;
+    // 阀门节点：内联图标命中「阀门图标」表 → 可选中（selectable 能力）+ 自带开/关状态，
+    // 绘制端按开关状态选用阀门贴图，而不是当成普通设备矩形
+    const valveIcon = iconUrl?.startsWith('data:image') ? matchValveIcon(iconUrl) : null;
+    if (valveIcon) {
+      const valve = new ValveGraphic({
+        id: idOf(node.id),
+        x: center.x,
+        y: center.y,
+        width: sx,
+        height: sy,
+        rotation: beta,
+        open: valveIcon.open,
+        // 原始单元信息跟着图元走（纯属性，不参与绘制）
+        data: {
+          cellId: node.id,
+          label: node.value.trim(),
+          kind: 'valve',
+          style: node.style,
+        } satisfies DrawioCellData,
+      });
+      valve.clearDirty();
+      scene.upsertValve(valve);
+      stats.valves += 1;
+    } else {
+      const device = new SelectableGraphic({
+        id: idOf(node.id),
+        x: center.x,
+        y: center.y,
+        width: sx,
+        height: sy,
+        rotation: beta,
+        fillColor: parseDrawioColor(node.style.fillColor),
+        // 原始单元信息跟着图元走（纯属性，不参与绘制）
+        data: {
+          cellId: node.id,
+          label: node.value.trim(),
+          kind: 'device',
+          style: node.style,
+        } satisfies DrawioCellData,
+      });
+      device.clearDirty();
+      scene.upsertDevice(device);
+      stats.devices += 1;
+
+      // 图标：drawio 的图片单元把 base64 放在 style.image 里，绘制端按它贴图
+      if (iconUrl?.startsWith('data:image')) {
+        icons.set(device.id, normalizeIconUrl(iconUrl));
+        stats.icons += 1;
+      }
     }
 
     // 文字：value 非空即视为位号（绘制端再决定字号与是否显示）
