@@ -1,4 +1,4 @@
-// 管线渲染
+/* 管线渲染 */
 
 #include "@/core/shader/core_include/instance_transform.wgsl"
 #include "@/core/shader/core_include/vertex_math.wgsl"
@@ -10,12 +10,12 @@
 struct PidPipelineAnimationUniform {
     orthoMatrix: mat3x3f,
     timeSeconds: f32,
-    flowPeriodWorld: f32, // 一个流动周期对应的世界长度（= 周期像素 / 相机缩放）
-    flowCyclesPerSec: f32, // 每秒走过多少个周期
-    flowDashDuty: f32, // 条带在一个周期里占的比例
+    flowPeriodWorld: f32, /* 一个流动周期对应的世界长度（= 周期像素 / 相机缩放） */
+    flowCyclesPerSec: f32, /* 每秒走过多少个周期 */
+    flowDashDuty: f32, /* 条带在一个周期里占的比例 */
 };
 
-// P&ID业务数据：阀门开关 / 管线流速，与 CPU 侧 PidSchematicInstanceData 布局一致
+/** P&ID业务数据：阀门开关 / 管线流速，与 CPU 侧 PidSchematicInstanceData 布局一致 */
 struct PidSchematicInstanceData {
     valveOpen: f32,
     flowSpeed: f32,
@@ -45,7 +45,7 @@ fn vertexMain(input: PipelineVertexInput, @builtin(instance_index) instanceIdx: 
     let modelMat = computeInstanceModelMatrix(transformData);
     let localVec3 = vec3f(input.localPos, 1.0);
     let worldVec3 = modelMat * localVec3;
-    // 与内核同一套 3×3 正交投影
+    /* 与内核同一套 3×3 正交投影 */
     let clip = pipelineAnimUbo.orthoMatrix * worldVec3;
     out.clipPos = vec4f(clip.xy, 0.5, 1.0);
 
@@ -61,7 +61,7 @@ fn vertexMain(input: PipelineVertexInput, @builtin(instance_index) instanceIdx: 
 
 @fragment
 fn fragmentMain(input: PipelineVertexOutput) -> @location(0) vec4f {
-    // 绿色系配色：暗绿管身 + 亮绿流动条带 + 选中琥珀色
+    /** 绿色系配色：暗绿管身 + 亮绿流动条带 + 选中琥珀色 */
     const pipelineBaseColor = vec4f(0.06, 0.36, 0.17, 1.0);
     const pipelineFlowColor = vec4f(0.45, 1.0, 0.55, 1.0);
     const pipelineSelectedColor = vec4f(0.95, 0.70, 0.20, 1.0);
@@ -92,9 +92,9 @@ fn fragmentMain(input: PipelineVertexOutput) -> @location(0) vec4f {
     var color = select(pipelineBaseColor, pipelineFlowColor, showDash && isDash);
 
     let transformData = instanceTransformStorage[input.instanceIndex];
-    // 逐实例颜色（图纸管线按 strokeColor 上色）：alpha > 0.5 时直接作为管身色
+    /* 逐实例颜色（图纸管线按 strokeColor 上色）：alpha > 0.5 时直接作为管身色 */
     if (transformData.color.a > 0.5) {
-        // 逐实例颜色是 vec4，保持与 color 同类型再 select（别混用 rgb）
+        /* 逐实例颜色是 vec4，保持与 color 同类型再 select（别混用 rgb） */
         color = select(transformData.color, vec4f(color.rgb, color.a), showDash && isDash);
     }
     if (transformData.isSelected > 0.5) {

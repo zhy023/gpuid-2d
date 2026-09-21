@@ -34,9 +34,9 @@ export async function runDrawioApp(): Promise<void> {
   async function start(ctx: RendererContext) {
     const { device, format, renderer, camera, surface } = ctx;
 
-    // 管线模块要先初始化（管线 pipeline + 三角带模板顶点），否则 renderPipes 会直接返回
+    /* 管线模块要先初始化（管线 pipeline + 三角带模板顶点），否则 renderPipes 会直接返回 */
     await initPipe(device, format);
-    // 阀门模块：阀门节点按开关贴图绘制，同时给拾取准备好实例缓冲与拾取器
+    /* 阀门模块：阀门节点按开关贴图绘制，同时给拾取准备好实例缓冲与拾取器 */
     await initValves(
       device,
       format,
@@ -49,7 +49,7 @@ export async function runDrawioApp(): Promise<void> {
     const { pidScene, topology, labels, icons, bounds, theme } = await createDrawioScene();
     const iconTextures = new IconTextureCache(device);
     const labelAtlases = new LabelAtlasCache(device);
-    // demo 自己的画布底色：引擎不兜底颜色，图纸里大量浅色/白色图元需要底色衬托
+    /* demo 自己的画布底色：引擎不兜底颜色，图纸里大量浅色/白色图元需要底色衬托 */
     renderer.setClearColor(DRAWIO_CLEAR_COLOR);
 
     /**
@@ -62,10 +62,10 @@ export async function runDrawioApp(): Promise<void> {
     camera.centerX = (bounds.minX + bounds.maxX) / 2;
     camera.centerY = (bounds.minY + bounds.maxY) / 2;
 
-    // 尺寸变化仍由内核的 CanvasSurface 统一处理
+    /* 尺寸变化仍由内核的 CanvasSurface 统一处理 */
     unbindResize = surface.bindWindowResize();
 
-    // 点击阀门节点：切换选中（selectable 能力）并打印选中的图元 id
+    /** 点击阀门节点：切换选中（selectable 能力）并打印选中的图元 id */
     let visibleValves: ValveGraphic[] = [];
     unbindInput?.();
     unbindInput = bindDrawioInput({
@@ -74,7 +74,7 @@ export async function runDrawioApp(): Promise<void> {
       getVisibleValves: () => visibleValves,
       scene: pidScene,
       topology,
-      // 单选：换选/点空白时把整个场景里的阀门选中态清干净（含视口外的）
+      /* 单选：换选/点空白时把整个场景里的阀门选中态清干净（含视口外的） */
       clearSelection: () => {
         for (const valve of pidScene.valves.values()) {
           if (valve.selected) valve.setSelected(false);
@@ -103,7 +103,7 @@ export async function runDrawioApp(): Promise<void> {
     tick();
   }
 
-  // 掉设备时按内核约定重建（重新 requestAdapter + 重新装配）
+  /** 掉设备时按内核约定重建（重新 requestAdapter + 重新装配） */
   const rebuild = async (previous?: RendererContext) => {
     const ctx = previous
       ? await recreateRendererContext(canvasEl, previous, {

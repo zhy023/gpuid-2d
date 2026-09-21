@@ -17,7 +17,7 @@ export async function initWebGPU(canvas: HTMLCanvasElement, options: InitWebGpuO
 
   const device = await adapter.requestDevice();
 
-  // 设备丢失（驱动重置、页面被回收等）：显式报错，避免静默黑屏
+  /* 设备丢失（驱动重置、页面被回收等）：显式报错，避免静默黑屏 */
   void device.lost.then((info) => {
     console.error(`[gpuid] WebGPU 设备丢失：reason=${info.reason} message=${info.message}`);
     options.onDeviceLost?.(info);

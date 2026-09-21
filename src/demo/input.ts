@@ -79,14 +79,14 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
     const visibleValves = ctx.getVisibleValves();
     const hit = await pickFirst(canvas, event.clientX, event.clientY, buildCandidates());
 
-    // 设备图元命中：切换开闭并广播下游管线样式
+    /** 设备图元命中：切换开闭并广播下游管线样式 */
     if (hit?.candidate.label === VALVE_LABEL) {
       const hitValve = visibleValves[hit.index];
       if (!hitValve) return;
 
       const toggled = toggleValve(valveScene, hitValve.id);
       if (!toggled) return;
-      // 图元自带的用户数据（图纸单元信息等）：有就一并打出来
+      /** 图元自带的用户数据（图纸单元信息等）：有就一并打出来 */
       const detail = hitValve.data ? `，数据：${JSON.stringify(hitValve.data)}` : '';
       console.log(
         `阀门 ${toggled.id}：${toggled.open ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'}${detail}`,
@@ -94,7 +94,7 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
       return;
     }
 
-    // 基础图元：先清空全部选中，再按命中下标选中
+    /* 基础图元：先清空全部选中，再按命中下标选中 */
     ctx.clearSelection();
     if (!hit) {
       console.log('❌空白，未选中图形');
@@ -105,7 +105,7 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
   }
 
   canvas.addEventListener('mousedown', onMouseDown);
-  // 尺寸变化交由内核的 CanvasSurface 统一处理（上下文重配 + MSAA/拾取纹理重建）
+  /** 尺寸变化交由内核的 CanvasSurface 统一处理（上下文重配 + MSAA/拾取纹理重建） */
   const unbindResize = ctx.surface.bindWindowResize();
 
   return () => {

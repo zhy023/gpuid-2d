@@ -69,7 +69,7 @@ export async function createValveRenderResources(
       targets: [{ format: canvasFormat, blend: ALPHA_BLEND_STATE }],
     },
     primitive: { topology: 'triangle-list' },
-    // 与画布 MSAA 目标一致，否则同一个 pass 内校验不过
+    /* 与画布 MSAA 目标一致，否则同一个 pass 内校验不过 */
     multisample: { count: CANVAS_SAMPLE_COUNT },
   });
 
@@ -102,7 +102,7 @@ export function updateValveUniform(
   orthoMat: Float32Array,
 ): void {
   const tmp = new Float32Array(UNIFORM_BUFFER_SIZE / 4);
-  // orthoMat 是 composeProjection2d 出来的 mat3（每列补齐，12 个 float）
+  /* orthoMat 是 composeProjection2d 出来的 mat3（每列补齐，12 个 float） */
   tmp.set(orthoMat.subarray(0, PROJECTION_FLOAT_COUNT), 0);
   device.queue.writeBuffer(valveRes.uniformBuffer, 0, tmp);
 }

@@ -1,4 +1,4 @@
-// aabb 包围盒树，四叉树
+/* aabb 包围盒树，四叉树 */
 
 import type { AABB, QuadTreeItem } from '@/core/types';
 
@@ -46,7 +46,7 @@ class QuadTreeNode {
 
     this.divided = true;
 
-    // 先取出再清空：跨界的图元会被重新放回 this.items，边遍历边插入会漏项/死循环
+    /** 先取出再清空：跨界的图元会被重新放回 this.items，边遍历边插入会漏项/死循环 */
     const pending = [...this.items];
     this.items.length = 0;
     for (const it of pending) {
@@ -60,7 +60,7 @@ class QuadTreeNode {
     if (!this.divided) {
       if (this.items.length < this.capacity) {
         this.items.push(item);
-        // 记录归属节点：删除/更新时直接定位，无需全树遍历
+        /* 记录归属节点：删除/更新时直接定位，无需全树遍历 */
         nodeIndex.set(item.id, this);
         return true;
       }

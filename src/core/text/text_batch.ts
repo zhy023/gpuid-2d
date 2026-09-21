@@ -120,11 +120,11 @@ export function layoutText(
   const worldPerPixel = 1 / Math.max(pixelsPerWorldUnit, 1e-6);
   const glyphGraphics: Graphic[] = [];
 
-  // 底板：宽度先用排版结果算，等排完再插到最前面（保证文字压在底板上）
+  /** 底板：宽度先用排版结果算，等排完再插到最前面（保证文字压在底板上） */
   const backdropGraphics: Graphic[] = [];
   const outlineGraphics: Graphic[] = [];
 
-  // 基线：行盒顶 + 半行距 + 字体 ascent；同一行的所有字都挂在这一条线上
+  /** 基线：行盒顶 + 半行距 + 字体 ascent；同一行的所有字都挂在这一条线上 */
   const halfLeading = (atlas.lineHeight - (atlas.ascentPx + atlas.descentPx)) / 2;
   const baselineY = y + halfLeading + atlas.ascentPx;
 
@@ -135,19 +135,19 @@ export function layoutText(
 
     const worldWidth = glyph.cellWidth * worldPerPixel;
     const worldHeight = glyph.cellHeight * worldPerPixel;
-    // 格子顶边 = 基线往上退「这个字到基线的距离」，所有字共用基线
+    /** 格子顶边 = 基线往上退「这个字到基线的距离」，所有字共用基线 */
     const cellTop = baselineY - glyph.baselineOffset * worldPerPixel;
     glyphGraphics.push(
       new Graphic({
-        // 实例是中心点对齐，格子左上角在 (cursorX, y)
+        /* 实例是中心点对齐，格子左上角在 (cursorX, y) */
         id: glyphGraphics.length,
         x: cursorX + worldWidth / 2,
         y: cellTop + worldHeight / 2,
         fillColor: color,
       })
-        // 格子尺寸就是屏幕像素：贴到画布上视觉大小恒定
+        /* 格子尺寸就是屏幕像素：贴到画布上视觉大小恒定 */
         .screenSize(glyph.cellWidth, glyph.cellHeight)
-        // uv 按图集当前尺寸换算（图集扩容后旧字形依然正确）
+        /* uv 按图集当前尺寸换算（图集扩容后旧字形依然正确） */
         .atlasUv([
           glyph.x / atlas.texture.width,
           glyph.y / atlas.texture.height,
@@ -161,7 +161,7 @@ export function layoutText(
   const measured = measureTextLine(atlas, text, { pixelsPerWorldUnit, letterSpacingPx });
   const width = measured.width;
 
-  // 描边：把主色字形按上下左右各偏一点、用描边色先画一遍
+  /** 描边：把主色字形按上下左右各偏一点、用描边色先画一遍 */
   if (outline && glyphGraphics.length > 0) {
     const offset = (outline.widthPx ?? 1) / Math.max(pixelsPerWorldUnit, 1e-6);
     const offsets: ReadonlyArray<readonly [number, number]> = [
@@ -186,7 +186,7 @@ export function layoutText(
     }
   }
   if (backdrop && glyphGraphics.length > 0) {
-    // 底板的宽度是世界单位，这里换算回「屏幕像素」口径（外扩本来就是像素）
+    /** 底板的宽度是世界单位，这里换算回「屏幕像素」口径（外扩本来就是像素） */
     const padPx = backdropPaddingPx;
     backdropGraphics.push(
       new Graphic({

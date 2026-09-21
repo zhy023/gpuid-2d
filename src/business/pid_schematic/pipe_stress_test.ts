@@ -36,14 +36,14 @@ export class PipeStressTester {
     this.itemMap.clear();
     this.scene.clear();
 
-    // 起点内缩，保证整条直角折线（含最长走线）仍落在世界范围内，不会被四叉树丢弃
+    /** 起点内缩，保证整条直角折线（含最长走线）仍落在世界范围内，不会被四叉树丢弃 */
     const margin = 2000;
 
     for (let i = 0; i < count; i++) {
       const startX = this.worldBounds.minX + margin + Math.random() * (w - margin * 2);
       const startY = this.worldBounds.minY + margin + Math.random() * (h - margin * 2);
 
-      // P&ID 管线就是两点之间的一条直线段：横平竖直，没有斜线和其他形状
+      /** P&ID 管线就是两点之间的一条直线段：横平竖直，没有斜线和其他形状 */
       const runLength = 200 + Math.random() * 600;
       const direction = Math.random() < 0.5 ? -1 : 1;
       const points: Point[] =
@@ -56,12 +56,12 @@ export class PipeStressTester {
               { x: startX, y: startY },
               { x: startX, y: startY + direction * runLength },
             ];
-      // 管线粗细是屏幕像素档位：2 / 4 / 6 / 8 / 10
+      /** 管线粗细是屏幕像素档位：2 / 4 / 6 / 8 / 10 */
       const lineWidthPx =
         PIPE_LINE_WIDTH_STEPS[Math.floor(Math.random() * PIPE_LINE_WIDTH_STEPS.length)];
 
       const pipeItem = createFlowPipe(i, points, lineWidthPx);
-      // 管线之间只有粗细不同：颜色、条纹、流速全部一致（打开 = 流动动画）
+      /* 管线之间只有粗细不同：颜色、条纹、流速全部一致（打开 = 流动动画） */
       pipeItem.setOpen(true);
       pipeItem.clearDirty();
 
@@ -75,14 +75,14 @@ export class PipeStressTester {
   tick(viewport: AABB, isDrag = false) {
     let geometryChanged = false;
     if (!isDrag) {
-      // 非拖动：随机扰动管线顶点
+      /** 非拖动：随机扰动管线顶点 */
       for (const item of this.itemMap.values()) {
         if (Math.random() < this.moveRatio) {
           for (const pt of item.points) {
             pt.x += (Math.random() - 0.5) * 6;
             pt.y += (Math.random() - 0.5) * 6;
           }
-          // 几何变了：让包围盒失效（顶点是原地改的，显式通知一次）并更新索引
+          /* 几何变了：让包围盒失效（顶点是原地改的，显式通知一次）并更新索引 */
           item.markGeometryDirty();
           this.scene.upsertPipe(item);
           item.clearDirty();
@@ -91,7 +91,7 @@ export class PipeStressTester {
       }
     }
 
-    // 视口剔除：索引层已按 AABB 相交过滤
+    /** 视口剔除：索引层已按 AABB 相交过滤 */
     const visibleItems = this.scene.getVisible(viewport).pipes;
 
     let changed = geometryChanged;

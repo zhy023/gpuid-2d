@@ -41,14 +41,14 @@ describe('Graphic（图形基类）', () => {
     assert.equal(g.rotation, 0);
     assert.equal(g.visible, true);
     assert.equal(g.shape, 'rect');
-    // 绘制层不带选中/流动：那是图形与管线各自的能力
+    /* 绘制层不带选中/流动：那是图形与管线各自的能力 */
     assert.equal('selected' in g, false, 'Graphic 没有选中能力');
     assert.equal('open' in g, false, 'Graphic 没有流动状态');
 
     g.setPosition(10, 20)
       .setSize(30, 40)
       .setRotation(Math.PI / 2);
-    // 位置/大小/旋转与 tx/ty/sx/sy/beta 是同一份数据（实例化渲染契约字段）
+    /* 位置/大小/旋转与 tx/ty/sx/sy/beta 是同一份数据（实例化渲染契约字段） */
     assert.deepEqual([g.tx, g.ty, g.sx, g.sy, g.beta], [10, 20, 30, 40, Math.PI / 2]);
   });
 
@@ -61,14 +61,14 @@ describe('Graphic（图形基类）', () => {
     assert.equal(rectangle.width, 120);
     assert.equal(rectangle.height, 60);
 
-    // 圆形：宽高相等是正圆，宽高不等就是椭圆（内切于包围盒）
+    /** 圆形：宽高相等是正圆，宽高不等就是椭圆（内切于包围盒） */
     const circle = new Graphic({ id: 3 }).circle(50);
     assert.equal(circle.shape, 'circle');
     assert.equal(circle.shapeCode, GRAPHIC_SHAPE_CIRCLE);
     const ellipse = new Graphic({ id: 4 }).ellipse(120, 60);
     assert.equal(ellipse.shapeCode, GRAPHIC_SHAPE_CIRCLE);
 
-    // 三角形：内切于包围盒（底边在下、尖端在上），宽高可不等，朝向靠 rotation
+    /** 三角形：内切于包围盒（底边在下、尖端在上），宽高可不等，朝向靠 rotation */
     const triangle = new Graphic({ id: 6 }).triangle(60, 40);
     assert.equal(triangle.shape, 'triangle');
     assert.equal(triangle.shapeCode, GRAPHIC_SHAPE_TRIANGLE);
@@ -100,7 +100,7 @@ describe('Graphic（图形基类）', () => {
     ]);
     assert.deepEqual(round(g.worldAABB), { minX: 0, minY: 0, maxX: 0, maxY: 50 });
 
-    // 就地改点后显式通知一次，缓存同样失效
+    /* 就地改点后显式通知一次，缓存同样失效 */
     g.points[1].y = 80;
     g.markGeometryDirty();
     assert.equal(g.worldAABB.maxY, 80);
@@ -110,20 +110,20 @@ describe('Graphic（图形基类）', () => {
     const g = new Graphic({ id: 1, x: 0, y: 0, width: 10, height: 10 });
     assert.deepEqual(round(g.worldAABB), { minX: -5, minY: -5, maxX: 5, maxY: 5 });
 
-    // 正方形转 90° 后包围盒不变
+    /* 正方形转 90° 后包围盒不变 */
     g.setRotation(Math.PI / 2);
     assert.deepEqual(round(g.worldAABB), { minX: -5, minY: -5, maxX: 5, maxY: 5 });
 
     g.setSize(20, 10);
-    // 此时已经转过 90°：20×10 变成 10×20 的包围盒
+    /* 此时已经转过 90°：20×10 变成 10×20 的包围盒 */
     assert.deepEqual(round(g.worldAABB), { minX: -5, minY: -10, maxX: 5, maxY: 10 });
 
-    // 再转 45°，包围盒比轴对齐时更大
+    /* 再转 45°，包围盒比轴对齐时更大 */
     g.setRotation(Math.PI / 4);
     const rotated = g.worldAABB;
     assert.ok(rotated.maxX > 5 && rotated.maxY > 10);
 
-    // 平移只影响位置，不改变尺寸
+    /** 平移只影响位置，不改变尺寸 */
     const width = rotated.maxX - rotated.minX;
     g.moveBy(100, 0);
     assert.equal(Number((g.worldAABB.maxX - g.worldAABB.minX - width).toFixed(6)), 0);
@@ -193,7 +193,7 @@ describe('Graphic（图形基类）', () => {
     const withData = new DataGraphic({ id: 2, data: { tag: 'x' } });
     assert.deepEqual(withData.data, { tag: 'x' }, '也可以从构造参数带上');
 
-    // 绘制层不带数据：Graphic 上没有 data/setData
+    /* 绘制层不带数据：Graphic 上没有 data/setData */
     assert.equal('data' in new Graphic({ id: 3 }), false, 'Graphic 只管怎么画');
   });
 
@@ -206,7 +206,7 @@ describe('Graphic（图形基类）', () => {
     assert.deepEqual(g.fillColor, RED);
     assert.equal(g.hasStroke, true);
 
-    // 宽度为 0 / 颜色为 null 都视为不描边
+    /* 宽度为 0 / 颜色为 null 都视为不描边 */
     g.stroke(BLUE, 0);
     assert.equal(g.hasStroke, false);
     g.noFill();
@@ -243,10 +243,10 @@ describe('图形可直接进四叉树', () => {
 describe('分层：基础 → 绘制 → 数据 → 两种能力', () => {
   it('属性按层归位：基础只有身份/变换，绘制加外观形状，data 再上一层，能力层各加一种', () => {
     const base = new GraphicBase({ id: 1, x: 1, y: 2, width: 3, height: 4 });
-    // 基础层自己就能算包围盒、能进四叉树、能当实例变换的来源
+    /* 基础层自己就能算包围盒、能进四叉树、能当实例变换的来源 */
     assert.deepEqual(round(base.worldAABB), { minX: -0.5, minY: 0, maxX: 2.5, maxY: 4 });
     assert.equal(base.tx, 1);
-    // 但基础层不认识外观/形状/打包，也没有选中与流动
+    /* 但基础层不认识外观/形状/打包，也没有选中与流动 */
     assert.equal('fillColor' in base, false, '基础层不带外观');
     assert.equal('shape' in base, false, '基础层不带形状');
     assert.equal('toInstance' in base, false, '基础层不参与打包');
@@ -263,7 +263,7 @@ describe('分层：基础 → 绘制 → 数据 → 两种能力', () => {
     assert.ok(withData instanceof Graphic, 'DataGraphic 继承绘制层');
     assert.deepEqual(withData.data, { tag: 'x' });
 
-    // 两种能力都长在 DataGraphic 上，但彼此独立
+    /** 两种能力都长在 DataGraphic 上，但彼此独立 */
     const shape = new SelectableGraphic({ id: 4 });
     assert.ok(shape instanceof DataGraphic, '图形能力继承数据层');
     assert.equal('open' in shape, false, '图形没有流动');
@@ -315,7 +315,7 @@ describe('外观 → 实例数据', () => {
       [BLUE[0], BLUE[1], BLUE[2], BLUE[3]],
       '环用描边色',
     );
-    // 打包成实例缓冲后，宽度落在第 8 个 float（pad1 位置）
+    /** 打包成实例缓冲后，宽度落在第 8 个 float（pad1 位置） */
     const packed = packInstances([instances[1]]);
     assert.equal(packed[7], 3, 'pad1 位置写的是描边宽度');
   });
@@ -326,7 +326,7 @@ describe('外观 → 实例数据', () => {
     assert.equal(instance.shape, GRAPHIC_SHAPE_CIRCLE);
     assert.equal(instance.colorR, 1, '填充色进逐实例颜色通道');
 
-    // 16 个 float/实例：0-1 缩放、2 旋转、3-4 位置、5 选中、6 形状
+    /** 16 个 float/实例：0-1 缩放、2 旋转、3-4 位置、5 选中、6 形状 */
     const packed = packInstances([instance]);
     assert.equal(packed[6], GRAPHIC_SHAPE_CIRCLE, 'shape 落在第 7 个 float');
     assert.equal(packed[12], 1);
@@ -343,7 +343,7 @@ describe('外观 → 实例数据', () => {
 describe('业务实现（阀门 / 流动管线）', () => {
   it('阀门：开闭走图形基类状态，valveOpen 是实例数据口径', () => {
     const valve = new ValveGraphic({ id: 1, x: 0, y: 0, width: 40, height: 40 });
-    // 阀门符号用方框模板画，业务分类由类本身表达，内核不感知
+    /* 阀门符号用方框模板画，业务分类由类本身表达，内核不感知 */
     assert.equal(valve.shape, 'rect');
     assert.equal(valve.valveOpen, 1);
     valve.toggleOpen();

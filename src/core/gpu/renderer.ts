@@ -36,9 +36,9 @@ function writeInstance(data: Float32Array, index: number, instance: PrimitiveIns
   data[offset + 3] = instance.tx;
   data[offset + 4] = instance.ty;
   data[offset + 5] = instance.selected ?? 0;
-  // shape：方框 / 圆（着色器按它裁形状）
+  /* shape：方框 / 圆（着色器按它裁形状） */
   data[offset + 6] = instance.shape ?? 0;
-  // 描边宽度（屏幕像素）：只有描边环实例用得到，其余实例写 0
+  /* 描边宽度（屏幕像素）：只有描边环实例用得到，其余实例写 0 */
   data[offset + 7] = instance.borderWidthPx ?? 0;
   data[offset + 8] = instance.u0;
   data[offset + 9] = instance.v0;
@@ -76,11 +76,11 @@ export class Renderer2D {
 
   /** 基础批次实例数：绘制数量只看它，覆盖批次由各自的纹理批次绘制 */
   private baseInstanceCount = 0;
-  // MSAA 颜色目标：渲染到它，再 resolve 到画布纹理
+  /** MSAA 颜色目标：渲染到它，再 resolve 到画布纹理 */
   private msaaTexture: GPUTexture | null = null;
-  // 背景色：默认很淡的灰，工业图纸长时间观看更舒服
+  /** 背景色：默认很淡的灰，工业图纸长时间观看更舒服 */
   private clearColor: GPUColor = { r: 0.96, g: 0.96, b: 0.96, a: 1 };
-  // 默认纹理绑定：不贴图的图元采样到白色，外观不变
+  /** 默认纹理绑定：不贴图的图元采样到白色，外观不变 */
   private defaultTexture!: Texture2d;
   private defaultSampler!: GPUSampler;
 
@@ -98,7 +98,7 @@ export class Renderer2D {
     this.vertexCount = vertexCount;
 
     this.projectionBuffer = device.createBuffer({
-      // 正交投影是 3×3：每列补到 16 字节 → 48 字节（与 WGSL `mat3x3f` 一致）
+      /* 正交投影是 3×3：每列补到 16 字节 → 48 字节（与 WGSL `mat3x3f` 一致） */
       size: PROJECTION_FLOAT_COUNT * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
@@ -163,7 +163,7 @@ export class Renderer2D {
       throw new Error(`实例数超出缓冲容量：${totalCount} > ${MAX_INSTANCE_COUNT}`);
     }
 
-    // 一次打包成连续缓冲，避免先拼一个中间数组再打包
+    /** 一次打包成连续缓冲，避免先拼一个中间数组再打包 */
     const packed = new Float32Array(totalCount * INSTANCE_FLOAT_COUNT);
     let cursor = 0;
     for (const instance of instances) writeInstance(packed, cursor++, instance);
@@ -176,7 +176,7 @@ export class Renderer2D {
       this.device.queue.writeBuffer(this.instanceStorageBuffer, 0, packed);
     }
 
-    // 绘制数量只看基础批次
+    /* 绘制数量只看基础批次 */
     this.baseInstanceCount = instances.length;
     this.render(
       drawUnderlay,
@@ -256,7 +256,7 @@ export class Renderer2D {
         visibility: GPUShaderStage.VERTEX,
         buffer: { type: 'read-only-storage' },
       },
-      // 纹理能力：binding3 纹理 + binding4 采样器（fragment 阶段采样）
+      /* 纹理能力：binding3 纹理 + binding4 采样器（fragment 阶段采样） */
       {
         binding: 3,
         visibility: GPUShaderStage.FRAGMENT,
@@ -275,7 +275,7 @@ export class Renderer2D {
 
     this.bindGroupLayout = bindGroupLayout;
 
-    // build bindGroup entries
+    /** build bindGroup entries */
     const bindGroupEntries: GPUBindGroupEntry[] = [
       { binding: 0, resource: { buffer: this.projectionBuffer } },
       { binding: 1, resource: { buffer: this.instanceStorageBuffer } },
@@ -334,7 +334,7 @@ export class Renderer2D {
     const renderPass = encoder.beginRenderPass({
       colorAttachments: [
         {
-          // 多重采样渲染到 MSAA 纹理，再 resolve 到画布纹理
+          /* 多重采样渲染到 MSAA 纹理，再 resolve 到画布纹理 */
           view: this.msaaTexture!.createView(),
           resolveTarget: this.context.getCurrentTexture().createView(),
           clearValue: this.clearColor,
@@ -359,7 +359,7 @@ export class Renderer2D {
 
     drawOverlay?.(renderPass);
 
-    // 纹理批次（文字/贴图）紧跟基础实例之后，区间偏移在这里累加，调用方不必手算
+    /** 纹理批次（文字/贴图）紧跟基础实例之后，区间偏移在这里累加，调用方不必手算 */
     let firstInstance = this.baseInstanceCount;
     for (const batch of textureBatches) {
       if (batch.instanceCount <= 0) continue;
@@ -378,7 +378,7 @@ export class Renderer2D {
     this.device.queue.submit([encoder.finish()]);
   }
 
-  // 对外获取顶点buffer布局，给拾取管线复用
+  /** 对外获取顶点buffer布局，给拾取管线复用 */
   getVertexLayout(): GPUVertexBufferLayout {
     return {
       arrayStride: 8,

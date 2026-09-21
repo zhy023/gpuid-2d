@@ -28,7 +28,7 @@ export async function createPipeRenderResources(
     entries: [
       {
         binding: 0,
-        // 动画时间在 fragment 阶段参与流动条纹计算，故两个阶段都要可见
+        /* 动画时间在 fragment 阶段参与流动条纹计算，故两个阶段都要可见 */
         visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
         buffer: { type: 'uniform' },
       },
@@ -56,7 +56,7 @@ export async function createPipeRenderResources(
       entryPoint: 'vertexMain',
       buffers: [
         {
-          // 单条管线膨胀顶点： localPos(vec2), flowUv(vec2) → 4 * f32
+          /* 单条管线膨胀顶点： localPos(vec2), flowUv(vec2) → 4 * f32 */
           arrayStride: 4 * 4,
           attributes: [
             { shaderLocation: 0, offset: 0, format: 'float32x2' },
@@ -73,7 +73,7 @@ export async function createPipeRenderResources(
     primitive: {
       topology: 'triangle-strip',
     },
-    // 与画布 MSAA 目标一致，否则同一个 pass 内校验不过
+    /* 与画布 MSAA 目标一致，否则同一个 pass 内校验不过 */
     multisample: { count: CANVAS_SAMPLE_COUNT },
   });
 

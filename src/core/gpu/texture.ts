@@ -19,7 +19,7 @@ export function createTextureFromBitmap(
   const texture = device.createTexture({
     size: [bitmap.width, bitmap.height],
     format: 'rgba8unorm',
-    // copyExternalImageToTexture 要求目标纹理同时具备 COPY_DST 与 RENDER_ATTACHMENT
+    /* copyExternalImageToTexture 要求目标纹理同时具备 COPY_DST 与 RENDER_ATTACHMENT */
     usage:
       GPUTextureUsage.TEXTURE_BINDING |
       GPUTextureUsage.COPY_DST |

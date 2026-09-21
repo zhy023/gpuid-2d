@@ -59,7 +59,7 @@ export class DeviceStressTester {
         height: sy,
         rotation: beta,
       }).fill(STRESS_DEVICE_FILL);
-      // 刚生成、还未提交渲染，先清掉变更标记
+      /* 刚生成、还未提交渲染，先清掉变更标记 */
       item.clearDirty();
       this.itemMap.set(i, item);
       this.scene.upsertDevice(item);
@@ -88,11 +88,11 @@ export class DeviceStressTester {
   tick(viewport: AABB, isDrag = false) {
     let geometryChanged = false;
 
-    // 拖动时随机抖动：几何变了才需要更新索引
+    /** 拖动时随机抖动：几何变了才需要更新索引 */
     if (isDrag) {
       for (const item of this.itemMap.values()) {
         if (Math.random() >= this.moveRatio) continue;
-        // 位置/旋转改动会打 dirty 并让包围盒失效，这里直接走图形基类的接口
+        /* 位置/旋转改动会打 dirty 并让包围盒失效，这里直接走图形基类的接口 */
         item.moveBy((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15);
         item.setRotation(item.rotation + 0.002);
         this.scene.upsertDevice(item);
@@ -101,7 +101,7 @@ export class DeviceStressTester {
       }
     }
 
-    // 选中态等其他变更：只影响实例数据
+    /** 选中态等其他变更：只影响实例数据 */
     if (this.renderDirtyIds.size > 0) {
       for (const id of this.renderDirtyIds) {
         const item = this.itemMap.get(id);
@@ -110,7 +110,7 @@ export class DeviceStressTester {
       this.renderDirtyIds.clear();
     }
 
-    // 视口剔除（索引层已按 AABB 相交过滤）
+    /** 视口剔除（索引层已按 AABB 相交过滤） */
     const visibleItems = this.scene.getVisible(viewport).devices;
 
     const currIds = new Set(visibleItems.map((item) => item.id));

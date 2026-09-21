@@ -26,7 +26,7 @@ export interface ValveDemoOptions {
   initialClosedIndex?: number;
 }
 
-// 阀门与示例管线的 id 从高位开始，避开压测图元的 id 区间
+/** 阀门与示例管线的 id 从高位开始，避开压测图元的 id 区间 */
 const VALVE_ID_BASE = 200_000;
 const PIPE_ID_BASE = 300_000;
 
@@ -42,7 +42,7 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
   } = options;
 
   const halfSymbol = symbolSize / 2;
-  // 世界范围只需覆盖这条阀门链（两端各留一个间距）
+  /** 世界范围只需覆盖这条阀门链（两端各留一个间距） */
   const bounds: AABB = {
     minX: startX - spacing,
     minY: centerY - spacing,
@@ -67,7 +67,7 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
     scene.upsertValve(valve);
   }
 
-  // 相邻阀门之间接一条横管线，端点在阀门边缘，避免符号与管道重叠
+  /** 相邻阀门之间接一条横管线，端点在阀门边缘，避免符号与管道重叠 */
   for (let index = 1; index < valveCount; index += 1) {
     const from = valves[index - 1];
     const to = valves[index];
@@ -101,7 +101,7 @@ export function toggleValve(scene: ValveDemoScene, valveId: number): ValveGraphi
   if (!valve) return null;
 
   valve.toggleOpen();
-  // 状态变化也统一走 upsert（方案 A 约定：业务侧只需一个入口）
+  /* 状态变化也统一走 upsert（方案 A 约定：业务侧只需一个入口） */
   scene.scene.upsertValve(valve);
   applyValveFlowState(scene.topology, scene.scene.valves.values(), scene.scene.pipes);
   return valve;

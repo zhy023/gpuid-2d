@@ -51,12 +51,12 @@ describe('parseMxDocument（真实图纸 meta_demo.xml）', () => {
   });
 
   it('坐标已按父链累加为绝对值', () => {
-    // 所有坐标都应是有限值
+    /** 所有坐标都应是有限值 */
     for (const node of document.nodes) {
       assert.ok(Number.isFinite(node.x) && Number.isFinite(node.y), `节点 ${node.id} 坐标非法`);
     }
 
-    // 至少有若干「子格」的绝对坐标与其父不同 —— 说明确实做了累加而不是照抄相对值
+    /** 至少有若干「子格」的绝对坐标与其父不同 —— 说明确实做了累加而不是照抄相对值 */
     const accumulated = document.nodes.filter((node) => {
       const parent = node.parentId ? document.byId.get(node.parentId) : undefined;
       return (

@@ -31,7 +31,7 @@ export async function createDemoResources(device: GPUDevice): Promise<DemoResour
 
   const valveOffTexture = await loadTextureFromUrl(device, VALVE_OFF_URL, 'valve-sprite');
 
-  // 开启态贴图缺失时退化为关闭态，保证应用仍能启动
+  /** 开启态贴图缺失时退化为关闭态，保证应用仍能启动 */
   let valveOnTexture: Texture2d | null = null;
   try {
     valveOnTexture = await loadTextureFromUrl(device, VALVE_ON_URL, 'valve-sprite-on');

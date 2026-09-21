@@ -16,7 +16,7 @@ fn mat3Scale(scaleX: f32, scaleY: f32) -> mat3x3f {
 fn mat3Rotate(radians: f32) -> mat3x3f {
     let cosVal = cos(radians);
     let sinVal = sin(radians);
-    // 逆时针为正，与 CPU 侧 computeRotatedAABB / atan2(段方向) 约定一致
+    /* 逆时针为正，与 CPU 侧 computeRotatedAABB / atan2(段方向) 约定一致 */
     return mat3x3f(
         vec3f(cosVal, sinVal, 0.0),
         vec3f(-sinVal, cosVal, 0.0),
@@ -55,7 +55,7 @@ fn unitSquareMask(localPos: vec2f) -> f32 {
  * 三条边的有符号距离取最小值即「到三角形边界」的距离，再按像素宽度做平滑。
  */
 fn unitTriangleMask(localPos: vec2f) -> f32 {
-    let slopeScale = 0.89442718; // 1 / sqrt(1.25)：把两条斜边的距离换算成局部单位
+    let slopeScale = 0.89442718; /* 1 / sqrt(1.25)：把两条斜边的距离换算成局部单位 */
     let leftEdge = (localPos.x + 0.5 * localPos.y + 0.25) * slopeScale;
     let rightEdge = (-localPos.x + 0.5 * localPos.y + 0.25) * slopeScale;
     let bottomEdge = 0.5 - localPos.y;
@@ -64,9 +64,9 @@ fn unitTriangleMask(localPos: vec2f) -> f32 {
     return smoothstep(-pixelWidth, pixelWidth, inside);
 }
 
-// 单位方形内切圆（宽高相等即正圆，不等就是内切椭圆）的覆盖度：0~1，按屏幕像素抗锯齿。
+/** 单位方形内切圆（宽高相等即正圆，不等就是内切椭圆）的覆盖度：0~1，按屏幕像素抗锯齿。 */
 fn unitCircleMask(localPos: vec2f) -> f32 {
-    let radius = length(localPos) * 2.0; // 0 = 中心，1 = 内切边界
+    let radius = length(localPos) * 2.0; /* 0 = 中心，1 = 内切边界 */
     let pixelWidth = max(fwidth(radius), 1e-6);
     return 1.0 - smoothstep(1.0 - pixelWidth, 1.0, radius);
 }
@@ -79,7 +79,7 @@ fn unitCircleMask(localPos: vec2f) -> f32 {
  * 顶点模板三角形比单位方形大，所以方框遮罩是每种形状都要相交的底。
  */
 fn unitShapeMask(localPos: vec2f, shape: f32) -> f32 {
-    // 覆盖度里的 fwidth 必须在统一控制流里求值：三个候选先全算出来，再按 shape 取用
+    /* 覆盖度里的 fwidth 必须在统一控制流里求值：三个候选先全算出来，再按 shape 取用 */
     let squareMask = unitSquareMask(localPos);
     let circleMask = unitCircleMask(localPos);
     let triangleMask = unitTriangleMask(localPos);
@@ -107,7 +107,7 @@ const SHAPE_RING_OFFSET: f32 = 3.0;
  */
 fn unitRingMask(localPos: vec2f, baseShape: f32, borderWidthPx: f32) -> f32 {
     let outer = unitShapeMask(localPos, baseShape);
-    // 内形状：把坐标放大（等价于把形状内缩）——方框与圆/椭圆都是这样定义的，三角形近似成立
+    /* 内形状：把坐标放大（等价于把形状内缩）——方框与圆/椭圆都是这样定义的，三角形近似成立 */
     let inset = fwidth(localPos) * max(borderWidthPx, 0.0);
     let innerPos = localPos / max(vec2f(1.0, 1.0) - 2.0 * inset, vec2f(1e-4, 1e-4));
     let inner = unitShapeMask(innerPos, baseShape);

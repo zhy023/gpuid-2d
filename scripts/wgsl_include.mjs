@@ -46,7 +46,7 @@ export async function resolveWgslIncludes(entryFilePath, options = {}) {
   async function inline(filePath, stack) {
     const resolvedPath = path.resolve(filePath);
 
-    // 先判环：真正成环时报错，菱形依赖（同一文件被两条路径各自 include）只算重复
+    /** 先判环：真正成环时报错，菱形依赖（同一文件被两条路径各自 include）只算重复 */
     if (stack.includes(resolvedPath)) {
       const cycle = [...stack, resolvedPath].map((item) => path.relative(process.cwd(), item));
       throw new Error(`WGSL #include 存在循环引用：${cycle.join(' -> ')}`);
@@ -57,7 +57,7 @@ export async function resolveWgslIncludes(entryFilePath, options = {}) {
     dependencies.push(resolvedPath);
 
     const source = await readSource(resolvedPath);
-    // 正则必须是本次调用的局部实例：嵌套 include 会打断复用的 lastIndex
+    /** 正则必须是本次调用的局部实例：嵌套 include 会打断复用的 lastIndex */
     const includeLine = new RegExp(INCLUDE_LINE.source, 'gm');
     const chunks = [];
     let cursor = 0;

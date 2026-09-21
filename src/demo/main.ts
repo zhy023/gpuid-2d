@@ -28,7 +28,7 @@ interface RunningDemo {
 export async function runApp() {
   const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
   if (!canvas) throw new Error('找不到 #canvas');
-  // 嵌套的函数是声明式（会被提升），拿不到外层收窄，所以显式取一个非空引用
+  /** 嵌套的函数是声明式（会被提升），拿不到外层收窄，所以显式取一个非空引用 */
   const canvasEl: HTMLCanvasElement = canvas;
 
   let running: RunningDemo | null = null;
@@ -44,7 +44,7 @@ export async function runApp() {
     try {
       running?.runner.stop();
       running?.unbindInput();
-      // 业务模块的 GPU 资源同样要释放，重建时由 startDemo 重新初始化
+      /** 业务模块的 GPU 资源同样要释放，重建时由 startDemo 重新初始化 */
       disposePipes();
       disposeValves();
 
@@ -65,10 +65,10 @@ export async function runApp() {
   async function startDemo(ctx: RendererContext): Promise<RunningDemo> {
     const { device, context, format, renderer, picker, surface, camera } = ctx;
 
-    // 示例 GPU 资源：字形图集 + 阀门开关贴图
+    /** 示例 GPU 资源：字形图集 + 阀门开关贴图 */
     const resources = await createDemoResources(device);
 
-    // 阀门拾取器由业务模块创建并持有
+    /* 阀门拾取器由业务模块创建并持有 */
     await initValves(
       device,
       format,
@@ -80,11 +80,11 @@ export async function runApp() {
     const valvePicker = getValvesPicker();
     if (!valvePicker) throw new Error('阀门拾取器未初始化（initValves 需要传入画布尺寸）');
 
-    // 场景数据：设备图元 / 管线 / 阀门链与拓扑
+    /** 场景数据：设备图元 / 管线 / 阀门链与拓扑 */
     const scene = await createDemoScene(device, format);
     const { deviceTester: pidTester, valveScene } = scene;
     camera.scale = 0.1;
-    // demo 自己的画布底色（引擎不兜底颜色）
+    /* demo 自己的画布底色（引擎不兜底颜色） */
     renderer.setClearColor(DEMO_CLEAR_COLOR);
 
     let instanceList: PrimitiveInstance[] = [];
@@ -106,7 +106,7 @@ export async function runApp() {
 
     updateVisibleInstances();
 
-    // 输入与尺寸处理：点击拾取（设备优先 → 基础图元）与 resize 同步
+    /** 输入与尺寸处理：点击拾取（设备优先 → 基础图元）与 resize 同步 */
     const unbindInput = bindDemoInput({
       canvas: canvasEl,
       context,
@@ -129,7 +129,7 @@ export async function runApp() {
         const hitItem = visibleItemsSnapshot[index];
         if (!hitItem) return;
         pidTester.setItemSelected(hitItem.id, true);
-        // 图元自带的用户数据：选中后查看详情就靠它（内核不解释，纯属性）
+        /* 图元自带的用户数据：选中后查看详情就靠它（内核不解释，纯属性） */
         console.log(
           '✅GPU拾取，全局图元ID：',
           hitItem.id,
@@ -142,7 +142,7 @@ export async function runApp() {
       refresh: updateVisibleInstances,
     });
 
-    // 每帧组装与提交交给 frame.ts；这里只注入运行期对象与两个回调
+    /** 每帧组装与提交交给 frame.ts；这里只注入运行期对象与两个回调 */
     const runner = createFrameRunner({
       device,
       renderer,
@@ -163,7 +163,7 @@ export async function runApp() {
     await createRendererContext(canvas, { onDeviceLost: handleDeviceLost }),
   );
 
-  // 页面卸载时释放 GPU 资源（纹理/buffer 必须显式销毁）
+  /* 页面卸载时释放 GPU 资源（纹理/buffer 必须显式销毁） */
   window.addEventListener(
     'pagehide',
     () => {

@@ -14,7 +14,7 @@ const VIEWPORT: AABB = { minX: -200, minY: -200, maxX: 200, maxY: 200 };
 const FAR_VIEWPORT: AABB = { minX: 800, minY: 800, maxX: 900, maxY: 900 };
 
 function makeDevice(id: number, x: number, y: number): Graphic {
-  // 设备矩形就是最普通的图形：包围盒由位置/宽高自己算
+  /* 设备矩形就是最普通的图形：包围盒由位置/宽高自己算 */
   return new Graphic({ id, x, y, width: 20, height: 20 });
 }
 
@@ -26,7 +26,7 @@ describe('PidScene', () => {
   it('三类图元各自可增删改，视口剔除按各自 AABB 生效', () => {
     const scene = new PidScene(BOUNDS);
     scene.upsertDevice(makeDevice(1, 0, 0));
-    scene.upsertDevice(makeDevice(2, 900, 900)); // 视口外
+    scene.upsertDevice(makeDevice(2, 900, 900)); /* 视口外 */
     scene.upsertPipe(
       createFlowPipe(
         11,
@@ -48,14 +48,14 @@ describe('PidScene', () => {
     assert.equal(visible.valves.length, 1);
     assert.equal(scene.getVisible(FAR_VIEWPORT).devices.length, 1, '远处视口只应命中设备 2');
 
-    // 更新：把设备 1 移到视口外，查询结果随之变化
+    /* 更新：把设备 1 移到视口外，查询结果随之变化 */
     scene.upsertDevice(makeDevice(1, 950, 950));
     assert.equal(scene.getVisible(VIEWPORT).devices.length, 0);
 
-    // 删除：三类共用同一个 id 入口
+    /* 删除：三类共用同一个 id 入口 */
     scene.remove(11);
     assert.equal(scene.getVisible(VIEWPORT).pipes.length, 0);
-    scene.remove(999); // 不存在的 id 不应抛错
+    scene.remove(999); /* 不存在的 id 不应抛错 */
   });
 
   it('clear 清空三类图元', () => {

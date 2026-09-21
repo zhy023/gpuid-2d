@@ -56,12 +56,12 @@ function toDrawableGraphic(
     rotation: node.rotation,
     selected: node.selected,
     fillColor: fillOverride ?? node.fillColor,
-    // 描边也要带过来，否则图纸里的边框（strokeColor / strokeWidth）在 demo 里会丢
+    /* 描边也要带过来，否则图纸里的边框（strokeColor / strokeWidth）在 demo 里会丢 */
     strokeColor: node.strokeColor,
     strokeWidth: node.strokeWidth,
     sizeUnit: node.sizeUnit,
   }).atlasUv(node.atlasUvRect);
-  // 形状同样按图纸还原：椭圆 / 三角形（内核按 shape 通道裁，拾取也跟着一致）
+  /** 形状同样按图纸还原：椭圆 / 三角形（内核按 shape 通道裁，拾取也跟着一致） */
   if (node.shape === 'circle') graphic.ellipse(Math.abs(node.width), Math.abs(node.height));
   else if (node.shape === 'triangle') {
     graphic.triangle(Math.abs(node.width), Math.abs(node.height));
@@ -78,7 +78,7 @@ function toIconGraphic(node: SelectableGraphic, texture: Texture2d): SelectableG
   const clip = parseClipInset(style?.clipPath);
   const fullWidth = Math.abs(node.width);
   const fullHeight = Math.abs(node.height);
-  // 图纸的 clipPath=inset(...)：可见框往里收，中心随之偏移
+  /** 图纸的 clipPath=inset(...)：可见框往里收，中心随之偏移 */
   const boxWidth = clip ? fullWidth * (1 - clip.left - clip.right) : fullWidth;
   const boxHeight = clip ? fullHeight * (1 - clip.top - clip.bottom) : fullHeight;
   const keepAspect = style?.aspect === 'fixed' && !clip;
@@ -198,13 +198,13 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     else iconGroups.set(url, [node]);
   }
 
-  // 颜色按图纸来：fill=none / 没写填充的单元保持透明（与 SVG 导出一致，不补白底）
+  /** 颜色按图纸来：fill=none / 没写填充的单元保持透明（与 SVG 导出一致，不补白底） */
   const deviceInstances = toInstances(plainDevices.map((device) => toDrawableGraphic(device)));
   const iconBatches = [];
   const iconBorderInstances: PrimitiveInstance[] = [];
   for (const [url, group] of iconGroups) {
     const texture = iconTextures.get(url);
-    if (!texture) continue; // 未加载完，下一帧再画
+    if (!texture) continue; /* 未加载完，下一帧再画 */
     const iconGraphics = group.map((node) => toIconGraphic(node, texture));
     for (let index = 0; index < group.length; index += 1) {
       const border = toIconBorderGraphic(group[index], iconGraphics[index], theme);
@@ -212,7 +212,7 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
       if (instance) iconBorderInstances.push(instance);
     }
     iconBatches.push({
-      // 图标按图纸的 aspect=fixed 等比缩放居中，原色显示（逐实例颜色给白）
+      /* 图标按图纸的 aspect=fixed 等比缩放居中，原色显示（逐实例颜色给白） */
       instances: toInstances(iconGraphics, camera.scale),
       textureView: texture.view,
       sampler: iconTextures.sampler,
@@ -254,7 +254,7 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
 
   const projMat = camera.getCameraProjectionMatrix();
   renderer.uploadProjectionMatrix(projMat);
-  // 阀门拾取复用阀门模块自己的实例缓冲（与阀门示例同一套），这里每帧上传最新实例与投影
+  /** 阀门拾取复用阀门模块自己的实例缓冲（与阀门示例同一套），这里每帧上传最新实例与投影 */
   const valveRes = getValveResources();
   if (valveRes) {
     uploadValveInstances(device, valveRes, projMat, visible.valves);
@@ -263,20 +263,20 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     instances: deviceInstances,
     extraBatches: [
       ...iconBatches,
-      // 图标外圈（imageBorder）：白纹理 + 描边环，压在图标之上
+      /* 图标外圈（imageBorder）：白纹理 + 描边环，压在图标之上 */
       {
         instances: iconBorderInstances,
         textureView: renderer.getDefaultTexture().view,
         sampler: renderer.getDefaultSampler(),
       },
       ...[...labelBatches].map(([atlas, graphics]) => ({
-        // 位号排版时用的是 ppwu = 1（字号即世界单位），装箱必须用同一个口径
+        /* 位号排版时用的是 ppwu = 1（字号即世界单位），装箱必须用同一个口径 */
         instances: toInstances(graphics, 1),
         textureView: atlas.texture.view,
         sampler: atlas.sampler,
       })),
     ],
-    // 管线最先画：设备填充、符号、位号都压在它上面（层契约见 render_layer.ts）
+    /* 管线最先画：设备填充、符号、位号都压在它上面（层契约见 render_layer.ts） */
     drawUnderlay: (pass) => {
       const draws = sortRenderLayerDraws([
         {

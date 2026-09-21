@@ -11,20 +11,20 @@ import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
 
-// 设备符号数量上限，压测可按需调大
+/** 设备符号数量上限，压测可按需调大 */
 const MAX_VALVE_INSTANCE = 4096;
-// InstanceTransform：8 个基字段 + 图集 uv 矩形(4) + 逐实例颜色(4) → 16 × f32 = 64B，与 WGSL 结构一致
+/** InstanceTransform：8 个基字段 + 图集 uv 矩形(4) + 逐实例颜色(4) → 16 × f32 = 64B，与 WGSL 结构一致 */
 const INSTANCE_FLOAT_COUNT = 16;
-// PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float
+/** PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float */
 const BUSINESS_FLOAT_COUNT = 4;
 
-// CPU 侧复用数组，避免每帧 new
+/** CPU 侧复用数组，避免每帧 new */
 const instanceCpuBuffer = new Float32Array(MAX_VALVE_INSTANCE * INSTANCE_FLOAT_COUNT);
 const businessCpuBuffer = new Float32Array(MAX_VALVE_INSTANCE * BUSINESS_FLOAT_COUNT);
 
 let valveInstanceStorageBuffer: GPUBuffer | null = null;
 let valveBusinessStorageBuffer: GPUBuffer | null = null;
-// buffer 与 layout 固定，bindGroup 只需建一次
+/** buffer 与 layout 固定，bindGroup 只需建一次 */
 let valveBindGroup: GPUBindGroup | null = null;
 
 /** 初始化两套 StorageBuffer，仅执行一次 */
@@ -123,7 +123,7 @@ function packValveInstances(valves: readonly ValveGraphic[]): number {
     if (writeIdx >= MAX_VALVE_INSTANCE) break;
 
     const instanceOffset = writeIdx * INSTANCE_FLOAT_COUNT;
-    // 拾取实例的尺寸口径与精灵一致：都用图元自身的世界尺寸
+    /* 拾取实例的尺寸口径与精灵一致：都用图元自身的世界尺寸 */
     instanceCpuBuffer[instanceOffset + 0] = valve.width;
     instanceCpuBuffer[instanceOffset + 1] = valve.height;
     instanceCpuBuffer[instanceOffset + 2] = valve.rotation;
@@ -132,7 +132,7 @@ function packValveInstances(valves: readonly ValveGraphic[]): number {
     instanceCpuBuffer[instanceOffset + 5] = valve.selectedFlag;
     instanceCpuBuffer[instanceOffset + 6] = 0;
     instanceCpuBuffer[instanceOffset + 7] = 0;
-    // 图集 uv：设备符号暂不贴图，整张纹理
+    /* 图集 uv：设备符号暂不贴图，整张纹理 */
     instanceCpuBuffer[instanceOffset + 8] = 0;
     instanceCpuBuffer[instanceOffset + 9] = 0;
     instanceCpuBuffer[instanceOffset + 10] = 1;

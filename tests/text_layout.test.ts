@@ -17,7 +17,7 @@ function makeFakeAtlas(characters: string): GlyphAtlas {
   const glyphs = new Map<string, GlyphEntry>();
   [...characters].forEach((char, index) => {
     glyphs.set(char, {
-      // 条目存像素矩形；uv 由 layoutText 按图集尺寸换算
+      /* 条目存像素矩形；uv 由 layoutText 按图集尺寸换算 */
       x: index * 10,
       y: 0,
       advance: 8,
@@ -33,7 +33,7 @@ function makeFakeAtlas(characters: string): GlyphAtlas {
     fontSizePx: 10,
     ascentPx: 10,
     descentPx: 2,
-    // 图集纹理尺寸：100×20，于是第 n 个格子的 u 区间仍是 [n/10, (n+1)/10]
+    /* 图集纹理尺寸：100×20，于是第 n 个格子的 u 区间仍是 [n/10, (n+1)/10] */
     texture: { width: 100, height: 20 },
     getGlyph: (char: string) => glyphs.get(char),
   } as unknown as GlyphAtlas;
@@ -54,13 +54,13 @@ describe('layoutText', () => {
     assert.equal(result.width, 16, '总宽 = 2 × advance');
 
     const [first, second] = result.graphics;
-    // 实例是中心点对齐：格子左上角在 x=0 / x=8
+    /* 实例是中心点对齐：格子左上角在 x=0 / x=8 */
     assert.equal(first.x, 5);
     assert.equal(second.x, 13);
     assert.equal(first.width, 10, '尺寸按屏幕像素存');
     assert.equal(first.height, 12);
     assert.equal(first.sizeUnit, 'screen');
-    // uv 分别来自两个字，且互不重叠
+    /* uv 分别来自两个字，且互不重叠 */
     assert.deepEqual([first.atlasUvRect[0], first.atlasUvRect[2]], [0, 0.1]);
     assert.deepEqual([second.atlasUvRect[0], second.atlasUvRect[2]], [0.1, 0.2]);
     assert.ok(first.atlasUvRect[2] <= second.atlasUvRect[0], '相邻字的 uv 不应重叠');
@@ -100,7 +100,7 @@ describe('layoutText', () => {
   });
 
   it('同一行的字共用一条基线，而不是各按自己的墨迹居中', () => {
-    // 一个字只有 x 高度，另一个带降部（格子更高、顶边离基线更远）
+    /** 一个字只有 x 高度，另一个带降部（格子更高、顶边离基线更远） */
     const glyphs = new Map<string, GlyphEntry>([
       ['H', { x: 0, y: 0, advance: 8, cellWidth: 10, cellHeight: 12, baselineOffset: 10 }],
       ['g', { x: 10, y: 0, advance: 8, cellWidth: 10, cellHeight: 14, baselineOffset: 12 }],
@@ -117,7 +117,7 @@ describe('layoutText', () => {
     const { graphics } = layoutText(atlas, 'Hg', { x: 0, y: 0, pixelsPerWorldUnit: 1 });
     const [cap, descender] = graphics;
 
-    // 行盒 12 = ascent 10 + descent 2，半行距 0 → 基线在行盒顶下方 10px
+    /* 行盒 12 = ascent 10 + descent 2，半行距 0 → 基线在行盒顶下方 10px */
     assert.equal(baselineOf(cap, 10), 10);
     assert.equal(baselineOf(descender, 12), 10, '降部字的基线要和字母同高');
     assert.notEqual(descender.y, cap.y, '降部字的格子要整体上抬，才不是按墨迹居中');
@@ -155,7 +155,7 @@ describe('layoutTextBlock', () => {
 
     assert.equal(block.lines, 2);
     assert.equal(block.lineHeight, 12, '行距 = 图集行高');
-    // 整块高 2 × 12 = 24，围绕 y = 100 居中 → 两行行盒顶分别在 88 / 100
+    /* 整块高 2 × 12 = 24，围绕 y = 100 居中 → 两行行盒顶分别在 88 / 100 */
     assert.equal(block.graphics[0].y, 94);
     assert.equal(block.graphics[1].y, 106);
   });
@@ -168,7 +168,7 @@ describe('layoutTextBlock', () => {
       pixelsPerWorldUnit: 1,
       align: 'center',
     });
-    // 宽 16 → 居中的行左边界在 -8
+    /* 宽 16 → 居中的行左边界在 -8 */
     assert.equal(centered.graphics[0].x, -3);
     assert.equal(centered.graphics[1].x, 5);
 

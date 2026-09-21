@@ -54,7 +54,7 @@ describe('toPidScene（真实图纸）', () => {
       result.stats.devices - withValves.stats.valves,
       '设备数 = 原设备数 - 被识别成阀门的单元（连接点在两边都不算设备）',
     );
-    // 连接点虽然没有图元，但拓扑仍要能串过去
+    /* 连接点虽然没有图元，但拓扑仍要能串过去 */
     assert.equal(
       [...withValves.topology.values()].length,
       withValves.stats.pipes,
@@ -83,7 +83,7 @@ describe('toPidScene（真实图纸）', () => {
     assert.ok(isDrawioCellData(pipeData), '管线上应挂着图纸单元信息');
     assert.equal(pipeData.kind, 'pipe');
 
-    // 纯属性：不影响打包出来的实例，也不触发重绘
+    /* 纯属性：不影响打包出来的实例，也不触发重绘 */
     pipe.clearDirty();
     const before = pipe.toInstance();
     pipe.setData({ ...pipeData, label: '改名了' });
@@ -95,7 +95,7 @@ describe('toPidScene（真实图纸）', () => {
     for (const [id, url] of result.icons) {
       assert.ok(result.scene.devices.get(id) !== undefined, `图标 ${id} 应当对应一个设备图元`);
       assert.ok(url.startsWith('data:image'), '图标应当是 data URL');
-      // drawio 写的是 data:image/png,<base64>（少了 ;base64），不补回去浏览器解码必然失败
+      /* drawio 写的是 data:image/png,<base64>（少了 ;base64），不补回去浏览器解码必然失败 */
       assert.ok(url.includes(';base64,'), `图标 ${id} 应当是可解码的 base64 data URL`);
     }
   });
@@ -160,19 +160,19 @@ describe('toPidScene（真实图纸）', () => {
       0,
       '阀门默认关闭（图纸是静止的初始态）',
     );
-    // 阀门从设备里摘出来了：设备数 = 原来的设备数 - 阀门数
+    /* 阀门从设备里摘出来了：设备数 = 原来的设备数 - 阀门数 */
     assert.equal(
       withValves.stats.devices,
       result.stats.devices - withValves.stats.valves,
       '阀门不再算普通设备',
     );
-    // 阀门自带开/关状态与可选中能力（selectable 层）
+    /** 阀门自带开/关状态与可选中能力（selectable 层） */
     const valve = valves[0];
     assert.equal(typeof valve.setSelected, 'function', '阀门可选中');
     assert.equal(typeof valve.setOpen, 'function', '阀门有自己的开/关状态');
     assert.ok(isDrawioCellData(valve.data) && valve.data.kind === 'valve');
 
-    // 需要初始打开时由调用方显式声明
+    /** 需要初始打开时由调用方显式声明 */
     const opened = toPidScene(document, { valveIcons: VALVE_ICONS, valveOpen: true });
     assert.equal(
       [...opened.scene.valves.values()].every((valve) => valve.open),
@@ -186,14 +186,14 @@ describe('toPidScene（真实图纸）', () => {
     const links = [...withValves.topology.values()];
 
     assert.equal(links.length, withValves.stats.pipes, '每条管线都建了拓扑链');
-    // 样例图纸的边两端指向阀门组里的关节单元：应当解析到阀门上
+    /** 样例图纸的边两端指向阀门组里的关节单元：应当解析到阀门上 */
     const valveIds = new Set([...withValves.scene.valves.values()].map((valve) => valve.id));
     const touched = links.filter(
       (link) => valveIds.has(link.sourceElementId) || valveIds.has(link.targetElementId),
     );
     assert.ok(touched.length > 0, '至少有管线挂在阀门上');
 
-    // 关掉一个阀门：从它发出的管线（source → target 方向）应当切回默认样式
+    /** 关掉一个阀门：从它发出的管线（source → target 方向）应当切回默认样式 */
     const valve = [...withValves.scene.valves.values()].find((candidate) =>
       links.some((link) => link.sourceElementId === candidate.id),
     );
@@ -220,7 +220,7 @@ describe('toPidScene（真实图纸）', () => {
       assert.equal(pipe.lineWidthPx, expected, `管线 ${pipe.id} 的粗细应等于 XML 的 strokeWidth`);
       widths.set(expected, (widths.get(expected) ?? 0) + 1);
     }
-    // 样例图纸里只有 1（5 条）和 2（125 条），其余没写 → 默认 1
+    /* 样例图纸里只有 1（5 条）和 2（125 条），其余没写 → 默认 1 */
     assert.deepEqual(
       [...widths.keys()].sort((a, b) => a - b),
       [1, 2],
@@ -242,7 +242,7 @@ describe('toPidScene（真实图纸）', () => {
         if (!cell.cellId || !cell.point) continue;
         const node = document.byId.get(cell.cellId);
         if (node?.style.shape !== 'waypoint') continue;
-        // 连接点用 centerPerimeter：端口就是单元中心；图纸是手画的，允许为对齐管线微调 ≤12
+        /** 连接点用 centerPerimeter：端口就是单元中心；图纸是手画的，允许为对齐管线微调 ≤12 */
         const drift = Math.hypot(
           cell.point.x - (node.x + node.width / 2),
           cell.point.y - (node.y + node.height / 2),
@@ -268,7 +268,7 @@ describe('toPidScene（真实图纸）', () => {
     const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
     const rich = withValves.labels.filter((label) => label.text.includes('\n'));
     assert.ok(rich.length > 0, '样例里有 `<div>` 多行位号');
-    // `<div>` 是块级换行：开标签就是断行位置。只认 `</div>` 会把前两行黏成 `N210`
+    /* `<div>` 是块级换行：开标签就是断行位置。只认 `</div>` 会把前两行黏成 `N210` */
     assert.ok(
       withValves.labels.some((label) => label.text === 'N2\n10\nFL71'),
       '`N2<div>10</div><div>FL71</div>` 要解析成三行',
@@ -310,7 +310,7 @@ describe('toPidScene（真实图纸）', () => {
       1,
     ]);
 
-    // 默认主题是深色（设计人员看的正是这一套），所以位号要拿到 span 的深色那一支
+    /** 默认主题是深色（设计人员看的正是这一套），所以位号要拿到 span 的深色那一支 */
     const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
     const flows = withValves.labels.filter((label) => label.text === 'Flow');
     assert.ok(flows.length > 0, '样例图纸里有 `Flow` 位号');
@@ -318,7 +318,7 @@ describe('toPidScene（真实图纸）', () => {
     for (const label of flows) {
       assert.deepEqual(label.color, [51 / 255, 153 / 255, 1, 1], '`Flow` 是内联的深色那一支');
     }
-    // 图纸没写 fontColor 的单元（ATM / Shutter / MFC90…）：默认色也是自适应的（浅色黑 / 深色白）
+    /** 图纸没写 fontColor 的单元（ATM / Shutter / MFC90…）：默认色也是自适应的（浅色黑 / 深色白） */
     const light = toPidScene(document, { valveIcons: VALVE_ICONS, theme: 'light' });
     for (const text of ['ATM', 'Shutter', 'MFC90']) {
       const darkLabel = withValves.labels.find((item) => item.text === text);
@@ -336,11 +336,11 @@ describe('toPidScene（真实图纸）', () => {
       const label = result.labels.find((item) => item.text === text);
       return label?.color;
     };
-    // 内联 `light-dark(rgb(0,0,0), rgb(51,153,255))`：浅色黑、深色 #3399ff
+    /* 内联 `light-dark(rgb(0,0,0), rgb(51,153,255))`：浅色黑、深色 #3399ff */
     assert.deepEqual(fillOf(light, 'Flow'), [0, 0, 0, 1]);
     assert.deepEqual(fillOf(dark, 'Flow'), [51 / 255, 153 / 255, 1, 1]);
 
-    // 单元样式 `fillColor=light-dark(#FFFFFF,#3399FF)` 的底盒同样跟着主题走
+    /** 单元样式 `fillColor=light-dark(#FFFFFF,#3399FF)` 的底盒同样跟着主题走 */
     const mfc = (result: typeof dark) =>
       [...result.scene.devices.values()].find(
         (device) => isDrawioCellData(device.data) && device.data.label === 'MFC90',
@@ -392,14 +392,14 @@ describe('parseDrawioColor', () => {
   it('解析 #RRGGBB / #RGB / light-dark(...) / none', () => {
     assert.deepEqual(parseDrawioColor('#ff0000'), [1, 0, 0, 1]);
     assert.deepEqual(parseDrawioColor('#0f0'), [0, 1, 0, 1]);
-    // light-dark 按主题取支：浅色取第一支，深色取第二支
+    /** light-dark 按主题取支：浅色取第一支，深色取第二支 */
     const [r, g, b, a] = parseDrawioColor('light-dark(#123456,#ffffff)', 'light') ?? [];
     assert.equal(Math.round(r * 255), 0x12);
     assert.equal(Math.round(g * 255), 0x34);
     assert.equal(Math.round(b * 255), 0x56);
     assert.equal(a, 1);
     assert.deepEqual(parseDrawioColor('light-dark(#123456,#ffffff)', 'dark'), [1, 1, 1, 1]);
-    // 没写 light-dark 的颜色两套主题一致
+    /* 没写 light-dark 的颜色两套主题一致 */
     assert.deepEqual(parseDrawioColor('#ff0000', 'dark'), [1, 0, 0, 1]);
     assert.equal(parseDrawioColor('none'), null);
     assert.equal(parseDrawioColor(undefined), null);

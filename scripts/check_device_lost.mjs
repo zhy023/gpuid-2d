@@ -17,7 +17,7 @@ import { findChrome, withSandboxFlags } from './find_chrome.mjs';
 const page = `<!doctype html><html><body><pre id="out">PENDING</pre><script type="module">
 async function run() {
   const result = {};
-  // 无 GPU 的 runner（CI）只有 fallback adapter 可用，两种都试
+  /** 无 GPU 的 runner（CI）只有 fallback adapter 可用，两种都试 */
   const adapter =
     (await navigator.gpu.requestAdapter()) ??
     (await navigator.gpu.requestAdapter({ forceFallbackAdapter: true }));
@@ -27,7 +27,7 @@ async function run() {
   device.destroy();
   result.lost = await lost;
   result.lostPromiseResolved = true;
-  // 重建：适配器被旧设备消费过，必须重新 requestAdapter 再 requestDevice
+  /** 重建：适配器被旧设备消费过，必须重新 requestAdapter 再 requestDevice */
   const adapter2 =
     (await navigator.gpu.requestAdapter()) ??
     (await navigator.gpu.requestAdapter({ forceFallbackAdapter: true }));
@@ -39,7 +39,7 @@ async function run() {
   device2.queue.writeTexture({ texture }, new Uint8Array(64), { bytesPerRow: 16 }, [4, 4]);
   result.rebuildOk = !!buffer && !!texture;
 
-  // 重建后还要能建管线并真的渲染一帧（不只是能建 buffer/纹理）
+  /** 重建后还要能建管线并真的渲染一帧（不只是能建 buffer/纹理） */
   const module = device2.createShaderModule({
     code: \`
       @vertex fn vs_main(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
@@ -123,7 +123,7 @@ function finish(result) {
   console.log(JSON.stringify(result, null, 2));
   if (!isPassing(result)) {
     console.error('设备丢失探针未通过：见上面的 result（fatal 字段为失败原因）');
-    // 子进程可能还占着 stdio，显式退出避免脚本挂住
+    /* 子进程可能还占着 stdio，显式退出避免脚本挂住 */
     process.exit(1);
   }
   console.log('设备丢失探针通过：destroy → lost(destroyed) → 重建 → 建管线并渲染一帧');
@@ -158,7 +158,7 @@ chrome = spawn(
   ]),
   { stdio: ['ignore', 'ignore', 'pipe'] },
 );
-// 浏览器起不来（路径不对、权限不足）时给出可读的失败信息，而不是未捕获的 error 事件
+/* 浏览器起不来（路径不对、权限不足）时给出可读的失败信息，而不是未捕获的 error 事件 */
 chrome.on('error', (error) => {
   finish({ fatal: `无法启动浏览器：${error.message}`, chrome: chromePath });
 });

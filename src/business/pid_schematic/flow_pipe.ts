@@ -42,7 +42,7 @@ export function createFlowPipe<TData = unknown>(
   lineWidthPx = PIPE_LINE_WIDTH_DEFAULT_PX,
 ): FlowPipe<TData> {
   const pipe = new FlowPipe<TData>({ id });
-  // 粗细以数据为准：不做档位吸附（图纸 XML 里 strokeWidth 是多少就画多少）
+  /* 粗细以数据为准：不做档位吸附（图纸 XML 里 strokeWidth 是多少就画多少） */
   pipe.polyline(points, lineWidthPx);
   return pipe;
 }

@@ -83,7 +83,7 @@ async function loadValveIcons(): Promise<DrawioValveIcon[]> {
 export async function createDrawioScene(): Promise<DrawioDemoScene> {
   const xml = await (await fetch(DRAWIO_URL)).text();
   const document = parseMxDocument(xml, new DOMParser());
-  // 阀门单元（内联的是阀门贴图）翻成 ValveGraphic：可选中 + 自带开/关状态
+  /** 阀门单元（内联的是阀门贴图）翻成 ValveGraphic：可选中 + 自带开/关状态 */
   const { scene, topology, labels, icons, bounds, stats, theme } = toPidScene(document, {
     valveIcons: await loadValveIcons(),
   });

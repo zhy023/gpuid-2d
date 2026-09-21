@@ -92,7 +92,7 @@ export class Graphic extends GraphicBase {
     this.lineWidthPx = 2;
   }
 
-  // ---- 形状：绘制命令（链式，形状差异只是外观差异） ----
+  /* ---- 形状：绘制命令（链式，形状差异只是外观差异） ---- */
 
   get shape(): GraphicShape {
     return this.shapeKind;
@@ -141,7 +141,7 @@ export class Graphic extends GraphicBase {
     return this;
   }
 
-  // ---- 外观：填充与描边 ----
+  /* ---- 外观：填充与描边 ---- */
 
   /** 填充色 */
   fill(color: Rgba | null): this {
@@ -201,7 +201,7 @@ export class Graphic extends GraphicBase {
     return this;
   }
 
-  // ---- 渲染契约 ----
+  /* ---- 渲染契约 ---- */
 
   /**
    * 打包成一个实例：内核唯一的「图形 → 实例」出口。
@@ -241,7 +241,7 @@ export class Graphic extends GraphicBase {
     const stroke = this.strokeColor;
     return {
       ...instance,
-      // 环用描边色（填充实例的颜色通道可能就是填充色），形状换成对应的环
+      /* 环用描边色（填充实例的颜色通道可能就是填充色），形状换成对应的环 */
       colorR: stroke?.[0] ?? 0,
       colorG: stroke?.[1] ?? 0,
       colorB: stroke?.[2] ?? 0,

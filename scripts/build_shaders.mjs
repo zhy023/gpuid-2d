@@ -149,7 +149,7 @@ async function renderModule(entryPath, code) {
     `// 源着色器：${relative}（#include 已在生成期展开，运行期直接交给 createShaderModule）。\n\n` +
     `export default ${JSON.stringify(code)};\n`;
 
-  // format() 不会自己去读 `.prettierrc.json`（那是 CLI 的行为），这里显式解析
+  /* format() 不会自己去读 `.prettierrc.json`（那是 CLI 的行为），这里显式解析 */
   prettierOptions ??= (await resolveConfig(generatedPath)) ?? {};
   return await format(source, { ...prettierOptions, filepath: generatedPath });
 }
@@ -191,7 +191,7 @@ export async function generateShaders(options = {}) {
     written.push(filePath);
   }
 
-  // 清理孤儿生成物（源着色器改名/删除后遗留的模块），只删带生成标记的文件
+  /** 清理孤儿生成物（源着色器改名/删除后遗留的模块），只删带生成标记的文件 */
   const removed = [];
   const orphans = (await collectGeneratedFiles(SRC_DIR)).filter(
     (filePath) => !expected.has(filePath),

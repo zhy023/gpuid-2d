@@ -21,7 +21,7 @@ function makeValve(id: number, open = true): ValveGraphic {
 describe('applyValveFlowState', () => {
   it('关闭阀门只影响其下游管线', () => {
     const scene = createValveDemoScene({ valveCount: 6, initialClosedIndex: 2 });
-    // 阀门 2 关闭 → 管线 2、3、4 默认样式，管线 0、1 仍流动
+    /* 阀门 2 关闭 → 管线 2、3、4 默认样式，管线 0、1 仍流动 */
     assert.equal(flowPattern([...scene.scene.pipes.values()]), '11000');
   });
 
@@ -88,7 +88,7 @@ describe('applyValveFlowState', () => {
     );
     scene.scene.upsertPipe(loose);
     applyValveFlowState(scene.topology, scene.scene.valves.values(), scene.scene.pipes);
-    // loose 不在拓扑里，仍按「先全部恢复流动」保持流动
+    /* loose 不在拓扑里，仍按「先全部恢复流动」保持流动 */
     assert.equal(loose.flowSpeed > 0, true);
   });
 });

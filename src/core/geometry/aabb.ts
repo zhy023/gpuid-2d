@@ -1,7 +1,7 @@
 import { composeTransform2d, transformPoint2d } from '@/core/geometry/transform_2d';
 import type { AABB } from '@/core/types';
 
-// 单位方块四角，与核心侧图元模板 [-0.5, 0.5] 一致
+/** 单位方块四角，与核心侧图元模板 [-0.5, 0.5] 一致 */
 const UNIT_CORNER_X = [-0.5, 0.5, 0.5, -0.5];
 const UNIT_CORNER_Y = [-0.5, -0.5, 0.5, 0.5];
 
@@ -27,7 +27,7 @@ export function computeRotatedAABB(
   sy: number,
   beta: number,
 ): AABB {
-  // 直接用与 GPU 一致的 T·R·S 矩阵变换单位方块四角，避免手写三角函数与着色器约定不一致
+  /** 直接用与 GPU 一致的 T·R·S 矩阵变换单位方块四角，避免手写三角函数与着色器约定不一致 */
   const matrix = composeTransform2d(tx, ty, beta, sx, sy, transformMatrix);
 
   let minX = Infinity,

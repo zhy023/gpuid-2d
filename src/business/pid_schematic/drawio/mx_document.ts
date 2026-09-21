@@ -103,7 +103,7 @@ function readGeometry(cell: Element): {
   result.height = Number(attr(geometry, 'height') ?? 0);
   result.relative = attr(geometry, 'relative') === '1';
 
-  // 折点写在 <Array as="points"><mxPoint .../></Array> 里，要按后代找而不是只看直接子节点
+  /** 折点写在 <Array as="points"><mxPoint .../></Array> 里，要按后代找而不是只看直接子节点 */
   for (const element of Array.from(geometry.getElementsByTagName('mxPoint'))) {
     const as = attr(element, 'as');
     if (as === 'sourcePoint' || as === 'targetPoint') continue;
@@ -125,7 +125,7 @@ export function parseMxDocument(xmlText: string, domParser: DOMParser): MxDocume
   const byId = new Map<string, MxNode>();
 
   for (const cell of cells) {
-    // id 通常在自己身上；被 <UserObject> 包住时 id/label 在外层
+    /** id 通常在自己身上；被 <UserObject> 包住时 id/label 在外层 */
     const wrapper =
       cell.parentNode && (cell.parentNode as Element).tagName === 'UserObject'
         ? (cell.parentNode as Element)
@@ -153,7 +153,7 @@ export function parseMxDocument(xmlText: string, domParser: DOMParser): MxDocume
     byId.set(node.id, node);
   }
 
-  // 绝对坐标：mxCell 的 x/y 相对父容器，逐层累加（成组阀门＝组 + 子格）
+  /** 绝对坐标：mxCell 的 x/y 相对父容器，逐层累加（成组阀门＝组 + 子格） */
   const absoluteCache = new Map<string, MxPoint>();
   function absoluteOrigin(node: MxNode): MxPoint {
     const cached = absoluteCache.get(node.id);

@@ -60,7 +60,7 @@ export class GraphicBase implements QuadItem {
     this.dirty = true;
   }
 
-  // 位置 / 大小 / 基本属性
+  /* 位置 / 大小 / 基本属性 */
 
   /** 移动到世界坐标中心点 */
   setPosition(x: number, y: number): this {
@@ -114,7 +114,7 @@ export class GraphicBase implements QuadItem {
     this.invalidate();
   }
 
-  // 空间与实例契约
+  /* 空间与实例契约 */
 
   /** 世界包围盒：缓存 + 变更失效，四叉树与拾取直接用它 */
   get worldAABB(): AABB {
@@ -127,7 +127,7 @@ export class GraphicBase implements QuadItem {
     return computeRotatedAABB(this.x, this.y, this.width, this.height, this.rotation);
   }
 
-  // 实例化渲染契约别名：位置/大小/旋转与 tx/ty/sx/sy/beta 是同一份数据
+  /* 实例化渲染契约别名：位置/大小/旋转与 tx/ty/sx/sy/beta 是同一份数据 */
   get tx(): number {
     return this.x;
   }

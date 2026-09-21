@@ -87,7 +87,7 @@ export class WebGpuPicker {
   private pickPipelineLayout?: GPUPipelineLayout;
   public pickPipeline?: GPURenderPipeline;
 
-  private _isPicking = false; // 防重复点击锁
+  private _isPicking = false; /* 防重复点击锁 */
 
   constructor(device: GPUDevice) {
     this.device = device;
@@ -112,7 +112,7 @@ export class WebGpuPicker {
     });
 
     this.pickReadBuffer = device.createBuffer({
-      // WebGPU requires bytesPerRow to be aligned to 256 bytes.
+      /* WebGPU requires bytesPerRow to be aligned to 256 bytes. */
       size: 256,
       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
     });
@@ -130,7 +130,7 @@ export class WebGpuPicker {
    */
   createPipeline(vertexBufferLayout?: GPUVertexBufferLayout) {
     if (!this.pickShaderModule || !this.pickPipelineLayout) throw new Error('picker not init');
-    // 入口函数名与 core_render / features 下的着色器保持一致
+    /* 入口函数名与 core_render / features 下的着色器保持一致 */
     this.pickPipeline = this.device.createRenderPipeline({
       layout: this.pickPipelineLayout,
       vertex: {
@@ -248,7 +248,7 @@ export class WebGpuPicker {
       pass.draw(vertexCount, instanceCount);
       pass.end();
 
-      // 标准完整copyTextureToBuffer参数，修复width undefined
+      /* 标准完整copyTextureToBuffer参数，修复width undefined */
       encoder.copyTextureToBuffer(
         {
           texture: this.pickTexture,

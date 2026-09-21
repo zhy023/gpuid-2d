@@ -151,7 +151,7 @@ export function normalizeIconUrl(url: string): string {
   const match = /^data:image\/[a-z0-9.+-]+,(.*)$/is.exec(url);
   if (!match) return url;
   const payload = match[1];
-  // 带 `%` 的是真的百分号编码（如内联 SVG），不能当 base64 处理
+  /** 带 `%` 的是真的百分号编码（如内联 SVG），不能当 base64 处理 */
   if (payload.includes('%')) return url;
   if (!/^[A-Za-z0-9+/=\s]+$/.test(payload)) return url;
   return url.replace(',', ';base64,');
@@ -183,7 +183,7 @@ function splitTopLevelArguments(body: string): string[] {
   for (const char of body) {
     if (char === '(') depth += 1;
     else if (char === ')') {
-      if (depth === 0) break; // light-dark(...) 自己的右括号
+      if (depth === 0) break; /* light-dark(...) 自己的右括号 */
       depth -= 1;
     } else if (char === ',' && depth === 0) {
       args.push(current.trim());
@@ -211,7 +211,7 @@ export function parseDrawioColor(
 ): readonly [number, number, number, number] | null {
   if (!raw || raw === 'none') return null;
   const value = pickThemedColor(raw, theme);
-  // 也支持 rgb()/rgba()（drawio 的富文本标签用这种写法）
+  /** 也支持 rgb()/rgba()（drawio 的富文本标签用这种写法） */
   const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value);
   if (rgb) {
     return [Number(rgb[1]) / 255, Number(rgb[2]) / 255, Number(rgb[3]) / 255, 1];
@@ -263,9 +263,9 @@ export function toPidScene(
   document: MxDocument,
   options: ToPidSceneOptions = {},
 ): DrawioSceneResult {
-  // 主题先行：图纸的颜色大多是 `light-dark(浅色, 深色)`，取色前必须先定主题
+  /** 主题先行：图纸的颜色大多是 `light-dark(浅色, 深色)`，取色前必须先定主题 */
   const theme = options.theme ?? DEFAULT_DRAWIO_THEME;
-  // 图纸坐标原点不一定在左上角（这份样例的 y 全是负的），范围要算出来给相机用
+  /** 图纸坐标原点不一定在左上角（这份样例的 y 全是负的），范围要算出来给相机用 */
   const bounds = computeBounds(document.nodes);
   const scene = new PidScene(bounds);
   const topology = new Topology();
@@ -327,7 +327,7 @@ export function toPidScene(
   } => {
     const text = raw
       .replace(/<br\s*\/?>/gi, '\n')
-      // drawio 的多行是块级 `<div>`：开标签才是换行位置（只认 `</div>` 会把 `N2` 和 `10` 黏成 `N210`）
+      /* drawio 的多行是块级 `<div>`：开标签才是换行位置（只认 `</div>` 会把 `N2` 和 `10` 黏成 `N210`） */
       .replace(/<div[^>]*>/gi, '\n')
       .replace(/<\/div>/gi, '')
       .replace(/<\/p>/gi, '\n')
@@ -356,7 +356,7 @@ export function toPidScene(
     width: number,
     height: number,
   ): void => {
-    // 内核只认「方框 / 圆（内切椭圆）/ 三角形」，其它形状（圆角矩形、callout 等）保持方框
+    /** 内核只认「方框 / 圆（内切椭圆）/ 三角形」，其它形状（圆角矩形、callout 等）保持方框 */
     const absoluteWidth = Math.abs(width);
     const absoluteHeight = Math.abs(height);
     if (style.ellipse === '1' || style.shape === 'ellipse') {
@@ -373,7 +373,7 @@ export function toPidScene(
      * 图纸里的连接点（waypoint）就是这么连的，两条管线必须在同一点接上，否则会断开。
      */
     const centerPort = node.style.perimeter === 'centerPerimeter';
-    // 单元的 rotation（角度，顺时针）要作用在锚点上，否则旋转过的设备会连歪
+    /** 单元的 rotation（角度，顺时针）要作用在锚点上，否则旋转过的设备会连歪 */
     const beta = (mxNumber(node.style, 'rotation', 0) * Math.PI) / 180;
     const localX = ((centerPort ? 0.5 : fx) - 0.5) * node.width;
     const localY = ((centerPort ? 0.5 : fy) - 0.5) * node.height;
@@ -395,9 +395,9 @@ export function toPidScene(
   /** 位号草稿：等图元位置定下来（可能微调）再落位 */
   const labelDrafts: Array<{ cellId: string; text: string; style: MxStyle }> = [];
 
-  // 第一遍：图元（设备 / 阀门 / 连接点）与位号草稿
+  /** 第一遍：图元（设备 / 阀门 / 连接点）与位号草稿 */
   for (const node of document.nodes) {
-    // 跳过 drawio 的图层与根节点
+    /** 跳过 drawio 的图层与根节点 */
     if (node.id === '0' || node.id === '1') continue;
     if (node.parentId) cellGroupId.set(node.id, node.parentId);
     if (node.isEdge) continue;
@@ -418,13 +418,13 @@ export function toPidScene(
     }
 
     const center = centerOf(node);
-    // drawio 的 rotation 是角度；fillColor 是填充色（fill=none 或没写就是不绘制）
+    /** drawio 的 rotation 是角度；fillColor 是填充色（fill=none 或没写就是不绘制） */
     const beta = (mxNumber(node.style, 'rotation', 0) * Math.PI) / 180;
-    // flipH/flipV 用负缩放表达（贴图跟着镜像，和 drawio 一致）
+    /** flipH/flipV 用负缩放表达（贴图跟着镜像，和 drawio 一致） */
     const sx = mxFlag(node.style, 'flipH') ? -node.width : node.width;
     const sy = mxFlag(node.style, 'flipV') ? -node.height : node.height;
     const iconUrl = node.style.image;
-    // 阀门节点：内联图标命中「阀门图标」表 → 可选中（selectable 能力）+ 自带开/关状态
+    /** 阀门节点：内联图标命中「阀门图标」表 → 可选中（selectable 能力）+ 自带开/关状态 */
     const valveIcon = iconUrl?.startsWith('data:image') ? matchValveIcon(iconUrl) : null;
     if (valveIcon) {
       const valve = new ValveGraphic({
@@ -434,9 +434,9 @@ export function toPidScene(
         width: sx,
         height: sy,
         rotation: beta,
-        // 图纸里的阀门默认关闭；需要初始打开时由调用方显式传 valveOpen
+        /* 图纸里的阀门默认关闭；需要初始打开时由调用方显式传 valveOpen */
         open: options.valveOpen ?? false,
-        // 原始单元信息跟着图元走（纯属性，不参与绘制）
+        /* 原始单元信息跟着图元走（纯属性，不参与绘制） */
         data: {
           cellId: node.id,
           label: node.value.trim(),
@@ -449,7 +449,7 @@ export function toPidScene(
       placedGraphics.set(node.id, { graphic: valve, kind: 'valve' });
       if (node.parentId) groupValveId.set(node.parentId, valve.id);
       stats.valves += 1;
-      // 画什么完全看图纸：阀门节点用它自己的内联图标（开/关态也由图纸这张图决定）
+      /* 画什么完全看图纸：阀门节点用它自己的内联图标（开/关态也由图纸这张图决定） */
       icons.set(valve.id, normalizeIconUrl(iconUrl));
       stats.icons += 1;
     } else {
@@ -461,10 +461,10 @@ export function toPidScene(
         height: sy,
         rotation: beta,
         fillColor: parseDrawioColor(node.style.fillColor, theme),
-        // 描边按图纸：strokeColor / strokeWidth（没写描边就不画环）
+        /* 描边按图纸：strokeColor / strokeWidth（没写描边就不画环） */
         strokeColor: parseDrawioColor(node.style.strokeColor, theme),
         strokeWidth: mxNumber(node.style, 'strokeWidth', 1),
-        // 原始单元信息跟着图元走（纯属性，不参与绘制）
+        /* 原始单元信息跟着图元走（纯属性，不参与绘制） */
         data: {
           cellId: node.id,
           label: node.value.trim(),
@@ -473,13 +473,13 @@ export function toPidScene(
         } satisfies DrawioCellData,
       });
       device.clearDirty();
-      // 形状按图纸：椭圆单元画成内切椭圆，而不是方框（内核按 shape 通道裁剪，拾取同样跟着变）
+      /** 形状按图纸：椭圆单元画成内切椭圆，而不是方框（内核按 shape 通道裁剪，拾取同样跟着变） */
       applyDrawioShape(device, node.style, sx, sy);
       scene.upsertDevice(device);
       placedGraphics.set(node.id, { graphic: device, kind: 'device' });
       stats.devices += 1;
 
-      // 图标：drawio 的图片单元把 base64 放在 style.image 里，绘制端按它贴图
+      /** 图标：drawio 的图片单元把 base64 放在 style.image 里，绘制端按它贴图 */
       if (iconUrl?.startsWith('data:image')) {
         icons.set(device.id, normalizeIconUrl(iconUrl));
         stats.icons += 1;
@@ -490,7 +490,7 @@ export function toPidScene(
     if (text) labelDrafts.push({ cellId: node.id, text, style: node.style });
   }
 
-  // 第二遍：先按图纸算出每条边的端口，收一下「把相连单元微调一点就能对齐」的诉求
+  /** 第二遍：先按图纸算出每条边的端口，收一下「把相连单元微调一点就能对齐」的诉求 */
   const cellShifts = new Map<string, { dx: number; dy: number }>();
   /** 同一个单元可能连多条边：把各条边的诉求收集起来，最后取中位数（避免只顾第一条边） */
   const cellDemands = new Map<string, { dx: number[]; dy: number[] }>();
@@ -530,7 +530,7 @@ export function toPidScene(
       };
       const hasWaypoints = node.points.length > 0;
       if (hasWaypoints) {
-        // 有折点：折点是固定的，端口整段对齐过去
+        /** 有折点：折点是固定的，端口整段对齐过去 */
         requestShift(source, portOf(source, exitX, exitY), node.points[0], 1);
         requestShift(
           target,
@@ -539,7 +539,7 @@ export function toPidScene(
           1,
         );
       } else {
-        // 两点直连：两端都是节点，各走一半，向中间那条正交线靠
+        /** 两点直连：两端都是节点，各走一半，向中间那条正交线靠 */
         requestShift(source, portOf(source, exitX, exitY), portOf(target, entryX, entryY), 0.5);
         requestShift(target, portOf(target, entryX, entryY), portOf(source, exitX, exitY), 0.5);
       }
@@ -548,14 +548,14 @@ export function toPidScene(
       const previous = cellShifts.get(cellId) ?? { dx: 0, dy: 0 };
       const dx = previous.dx + average(demand.dx);
       const dy = previous.dy + average(demand.dy);
-      // 微调幅度封顶：图纸手画的偏差不大，但别让某个单元被拉太远
+      /** 微调幅度封顶：图纸手画的偏差不大，但别让某个单元被拉太远 */
       const clamp = (value: number) => Math.max(-PORT_ALIGN_MAX, Math.min(PORT_ALIGN_MAX, value));
       cellShifts.set(cellId, { dx: clamp(dx), dy: clamp(dy) });
     }
   };
   for (let round = 0; round < 4; round += 1) runAlignRound();
 
-  // 落位：微调单元（图元整体平移一点，重建空间索引），位号跟着单元中心走
+  /** 落位：微调单元（图元整体平移一点，重建空间索引），位号跟着单元中心走 */
   for (const [cellId, shift] of cellShifts) {
     const placed = placedGraphics.get(cellId);
     if (!placed) continue;
@@ -568,7 +568,7 @@ export function toPidScene(
     if (!node) continue;
     const shift = cellShifts.get(draft.cellId);
     const center = centerOf(node);
-    // 位号可能是富文本：文字取纯文本，颜色/字号优先用内联样式，其次才是单元的 fontColor/fontSize
+    /** 位号可能是富文本：文字取纯文本，颜色/字号优先用内联样式，其次才是单元的 fontColor/fontSize */
     const rich = parseDrawioLabel(draft.text);
     if (!rich.text) continue;
     labels.push({
@@ -590,7 +590,7 @@ export function toPidScene(
     stats.labels += 1;
   }
 
-  // 第三遍：建管线（端口用微调后的位置，再按惯例横平竖直）
+  /** 第三遍：建管线（端口用微调后的位置，再按惯例横平竖直） */
   for (const node of document.nodes) {
     if (!node.isEdge) continue;
     const source = node.sourceId ? document.byId.get(node.sourceId) : undefined;
@@ -617,16 +617,16 @@ export function toPidScene(
     const points = orthogonalizePolyline(rawPoints, {
       preferHorizontalFirst: exitX !== 0.5 || exitY === 0.5,
     });
-    // 管线粗细遵守图纸：XML 里 strokeWidth 是多少就画多少；没写按 draw.io 默认的 1px
+    /** 管线粗细遵守图纸：XML 里 strokeWidth 是多少就画多少；没写按 draw.io 默认的 1px */
     const lineWidthPx = mxNumber(node.style, 'strokeWidth', 1);
     const pipe = createFlowPipe(idOf(node.id), points, lineWidthPx);
-    // 图纸管线默认关闭（正式图纸不需要流动条纹），需要动画时由上层再打开
+    /* 图纸管线默认关闭（正式图纸不需要流动条纹），需要动画时由上层再打开 */
     pipe.setOpen(false);
-    // 图纸里 dashed=1 的管线画成静态虚线
+    /* 图纸里 dashed=1 的管线画成静态虚线 */
     pipe.setDashed(mxFlag(node.style, 'dashed'));
-    // 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色）
+    /* 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色） */
     pipe.fill(parseDrawioColor(node.style.strokeColor, theme));
-    // 原始单元信息跟着图元走（纯属性，不参与绘制）
+    /* 原始单元信息跟着图元走（纯属性，不参与绘制） */
     pipe.setData({
       cellId: node.id,
       label: node.value.trim(),

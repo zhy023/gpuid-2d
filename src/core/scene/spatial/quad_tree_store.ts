@@ -13,7 +13,7 @@ export class QuadTreeStore<T extends QuadTreeItem> {
   private readonly items = new Map<number, T>();
 
   constructor(worldBounds: AABB) {
-    // 注意：项目开启 erasableSyntaxOnly，不能用构造参数属性
+    /* 注意：项目开启 erasableSyntaxOnly，不能用构造参数属性 */
     this.worldBounds = worldBounds;
     this.tree = new QuadTree(worldBounds);
   }

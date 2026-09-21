@@ -10,7 +10,7 @@ export interface PrimitiveInstance {
   sx: number;
   sy: number;
   beta: number;
-  selected: number; // 0未选中，1选中
+  selected: number; /* 0未选中，1选中 */
   /** 图集 uv 矩形 (u0,v0,u1,v1)，不贴图时填 (0,0,1,1) */
   u0: number;
   v0: number;
@@ -30,7 +30,7 @@ export interface PrimitiveInstance {
   shape?: number;
 }
 
-// 基础AABB包围盒
+/** 基础AABB包围盒 */
 export interface AABB {
   minX: number;
   minY: number;
@@ -44,7 +44,7 @@ export interface Point2 {
   y: number;
 }
 
-// 四叉树索引最小单元：几何/空间层只依赖 id 与世界AABB，不感知渲染字段
+/** 四叉树索引最小单元：几何/空间层只依赖 id 与世界AABB，不感知渲染字段 */
 export interface QuadTreeItem {
   id: number;
   worldAABB: AABB;

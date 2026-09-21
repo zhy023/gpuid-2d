@@ -94,15 +94,15 @@ export function composeProjection2d(
   dst[0] = sx;
   dst[1] = 0;
   dst[2] = 0;
-  dst[3] = 0; // 第一列补齐
+  dst[3] = 0; /* 第一列补齐 */
   dst[4] = 0;
   dst[5] = sy;
   dst[6] = 0;
-  dst[7] = 0; // 第二列补齐
+  dst[7] = 0; /* 第二列补齐 */
   dst[8] = -view.centerX * sx;
   dst[9] = -view.centerY * sy;
   dst[10] = 1;
-  dst[11] = 0; // 第三列（平移列）补齐
+  dst[11] = 0; /* 第三列（平移列）补齐 */
   return dst;
 }
 

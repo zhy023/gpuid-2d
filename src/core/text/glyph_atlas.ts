@@ -106,7 +106,7 @@ export class GlyphAtlas {
   private canvas: HTMLCanvasElement | OffscreenCanvas;
   private readonly paddingPx: number;
   private readonly glyphs = new Map<string, GlyphEntry>();
-  // shelf 打包游标
+  /** shelf 打包游标 */
   private cursorX = 0;
   private cursorY = 0;
   private shelfHeight = 0;
@@ -128,7 +128,7 @@ export class GlyphAtlas {
     this.lineHeightRatio = lineHeightRatio;
     this.lineHeight = fontSizePx * lineHeightRatio;
     this.paddingPx = paddingPx;
-    // 光栅化按「逻辑字号 × 超采样倍率」，排版与绘制仍用逻辑字号
+    /* 光栅化按「逻辑字号 × 超采样倍率」，排版与绘制仍用逻辑字号 */
     this.font = `${fontSizePx * this.rasterScale}px ${fontFamily}`;
     this.canvas =
       typeof OffscreenCanvas === 'undefined'
@@ -137,7 +137,7 @@ export class GlyphAtlas {
     this.canvas.width = textureWidthPx;
     this.canvas.height = textureHeightPx;
 
-    // willReadFrequently：每个新字形都要 getImageData，加这个标记避免反复从 GPU 回读
+    /** willReadFrequently：每个新字形都要 getImageData，加这个标记避免反复从 GPU 回读 */
     const ctx = this.canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) throw new Error('无法创建 2D 上下文，字形图集光栅化失败');
     this.ctx = ctx as unknown as CanvasRenderingContext2D;
@@ -146,7 +146,7 @@ export class GlyphAtlas {
     this.ctx.textBaseline = 'alphabetic';
     this.ctx.fillStyle = '#ffffff';
 
-    // 字体级度量取整行的「样式盒」而不是某个字的墨迹：`fontBoundingBox*` 缺失时退回经验比例
+    /** 字体级度量取整行的「样式盒」而不是某个字的墨迹：`fontBoundingBox*` 缺失时退回经验比例 */
     const probe = this.ctx.measureText('Hg');
     this.ascentPx = fontMetricAtScale(
       probe,
@@ -172,7 +172,7 @@ export class GlyphAtlas {
 
     const scale = this.rasterScale;
     const metrics = this.ctx.measureText(char);
-    // 图集里按超采样尺寸光栅化，逻辑尺寸对外用（除以倍率）
+    /** 图集里按超采样尺寸光栅化，逻辑尺寸对外用（除以倍率） */
     const rasterAdvance = Math.max(metrics.width, 1);
     const rasterAscent = Math.ceil(
       metrics.actualBoundingBoxAscent || this.fontSizePx * scale * 0.8,
@@ -186,7 +186,7 @@ export class GlyphAtlas {
     const cellWidth = rasterWidth / scale;
     const cellHeight = rasterHeight / scale;
 
-    // 图集满：扩容一页（尺寸翻倍、保留已烘焙字形），再重新分配
+    /** 图集满：扩容一页（尺寸翻倍、保留已烘焙字形），再重新分配 */
     let slot = this.allocate(rasterWidth, rasterHeight);
     if (!slot) {
       this.grow();
@@ -194,10 +194,10 @@ export class GlyphAtlas {
     }
     if (!slot) return undefined;
 
-    // 画进格子：基线 = 顶部 padding + ascent
+    /** 画进格子：基线 = 顶部 padding + ascent */
     const paddingRaster = this.paddingPx * scale;
     this.ctx.fillText(char, slot.x + paddingRaster, slot.y + paddingRaster + rasterAscent);
-    // 只把这一小块写进图集纹理，不重建整张纹理
+    /** 只把这一小块写进图集纹理，不重建整张纹理 */
     const image = this.ctx.getImageData(slot.x, slot.y, rasterWidth, rasterHeight);
     this.device.queue.writeTexture(
       { texture: this.texture.texture, origin: [slot.x, slot.y] },
@@ -212,7 +212,7 @@ export class GlyphAtlas {
       advance,
       cellWidth,
       cellHeight,
-      // 格子顶边到基线：顶部 padding + 该字的 ascent（换算回逻辑像素）
+      /* 格子顶边到基线：顶部 padding + 该字的 ascent（换算回逻辑像素） */
       baselineOffset: (paddingRaster + rasterAscent) / scale,
       rasterWidth,
       rasterHeight,

@@ -15,7 +15,7 @@ let valveRes: ValveRenderResources | null = null;
 let gpuDevice: GPUDevice | null = null;
 let valveTemplateVertexBuffer: GPUBuffer | null = null;
 let valveTemplateVertexCount = 0;
-// 阀门拾取器由业务模块自己持有：着色器与模板顶点都用内核的，只有绑定是阀门的
+/** 阀门拾取器由业务模块自己持有：着色器与模板顶点都用内核的，只有绑定是阀门的 */
 let valvePicker: WebGpuPicker | null = null;
 
 /**

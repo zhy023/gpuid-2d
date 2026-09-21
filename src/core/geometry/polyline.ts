@@ -56,10 +56,10 @@ export function orthogonalizePolyline(
 
     const angle = Math.atan2(Math.abs(dy), Math.abs(dx));
     if (angle <= tolerance) {
-      // 近似水平 → 拉平
+      /** 近似水平 → 拉平 */
       push({ x: raw.x, y: prev.y });
     } else if (angle >= Math.PI / 2 - tolerance) {
-      // 近似垂直 → 拉直
+      /** 近似垂直 → 拉直 */
       push({ x: prev.x, y: raw.y });
     } else if (preferHorizontalFirst) {
       push({ x: raw.x, y: prev.y });

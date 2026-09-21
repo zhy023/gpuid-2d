@@ -37,14 +37,14 @@ describe('QuadTreeStore', () => {
       store.add(makeItem(i, (random() - 0.5) * 1800, (random() - 0.5) * 1800));
     }
 
-    // 移动前 300 个
+    /** 移动前 300 个 */
     for (let i = 0; i < 300; i += 1) {
       const item = store.get(i);
       assert.ok(item);
       store.update(makeItem(i, (random() - 0.5) * 1800, (random() - 0.5) * 1800));
     }
 
-    // 删除 200 个
+    /** 删除 200 个 */
     const removed = new Set<number>();
     for (let i = 500; i < 700; i += 1) {
       store.remove(i);

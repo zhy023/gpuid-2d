@@ -15,7 +15,7 @@ export interface TopologyLink {
 
 export class Topology {
   private readonly links = new Map<number, TopologyLink>();
-  // 以源设备为索引，便于从阀门沿流向向下游遍历
+  /** 以源设备为索引，便于从阀门沿流向向下游遍历 */
   private readonly linksBySource = new Map<number, TopologyLink[]>();
 
   setLink(link: TopologyLink): void {
@@ -98,7 +98,7 @@ export function applyValveFlowState(
           const pipe = pipes.get(link.pipelineId);
           if (pipe) pipe.setOpen(false);
         }
-        // 环路保护：同一个设备只展开一次
+        /** 环路保护：同一个设备只展开一次 */
         if (!visitedElements.has(link.targetElementId)) {
           visitedElements.add(link.targetElementId);
           queue.push(link.targetElementId);

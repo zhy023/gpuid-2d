@@ -1,4 +1,4 @@
-// Core 通用图元渲染着色器
+/* Core 通用图元渲染着色器 */
 
 #include "@/core/shader/core_include/instance_transform.wgsl"
 #include "@/core/shader/core_include/vertex_math.wgsl"
@@ -34,7 +34,7 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> 
 
     let localVec3 = vec3f(input.localPos, 1.0);
     let worldVec3 = modelMat * localVec3;
-    // 3×3 正交投影：只算 xy，z 恒定 0.5
+    /* 3×3 正交投影：只算 xy，z 恒定 0.5 */
     let clip = projectionUbo.orthoMatrix * worldVec3;
     out.clipPos = vec4f(clip.xy, 0.5, 1.0);
     out.localUv = input.localPos;
@@ -48,7 +48,7 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> 
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-    // 形状覆盖度（含「裁掉模板三角形多出的半边」与描边环）与拾取走同一份实现
+    /* 形状覆盖度（含「裁掉模板三角形多出的半边」与描边环）与拾取走同一份实现 */
     let shapeMask = unitInstanceMask(input.localUv, input.shape, input.borderWidthPx);
 
     /*
@@ -59,10 +59,10 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
         return vec4f(0.0, 0.0, 0.0, 0.0);
     }
 
-    // 模板坐标 [-0.5,0.5] → 图集局部 uv [0,1] → 实例指定图集区域
+    /* 模板坐标 [-0.5,0.5] → 图集局部 uv [0,1] → 实例指定图集区域 */
     let localUv = input.localUv + vec2f(0.5, 0.5);
     let uv = mix(input.atlasUvRect.xy, input.atlasUvRect.zw, localUv);
-    // 显式 LOD 0（图集只有一级 mip）：textureSampleLevel 不受「统一控制流」约束，上面才能早退
+    /* 显式 LOD 0（图集只有一级 mip）：textureSampleLevel 不受「统一控制流」约束，上面才能早退 */
     let texel = textureSampleLevel(atlasTexture, atlasSampler, uv, 0.0);
 
     /**

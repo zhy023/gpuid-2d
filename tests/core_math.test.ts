@@ -98,8 +98,8 @@ describe('orthogonalizePolyline（管线横平竖直）', () => {
   it('近水平 / 近垂直的段直接拉正，首点不动', () => {
     const points = orthogonalizePolyline([
       { x: 0, y: 0 },
-      { x: 100, y: 2 }, // 差 1.1°，按容差拉平
-      { x: 103, y: 80 }, // 差 2°，按容差拉直（这是末点，固定不动 → 用短肘摆正）
+      { x: 100, y: 2 } /* 差 1.1°，按容差拉平 */,
+      { x: 103, y: 80 } /* 差 2°，按容差拉直（这是末点，固定不动 → 用短肘摆正） */,
     ]);
     assert.deepEqual(points[0], { x: 0, y: 0 }, '首点（吸附在设备上的端点）不动');
     assert.equal(points[1].y, 0, '水平段被拉平');
@@ -113,7 +113,7 @@ describe('orthogonalizePolyline（管线横平竖直）', () => {
   });
 
   it('真正的斜线段插入肘点，变成两段正交线', () => {
-    // 中间有一段真斜线（首末两点是端口，都不动）
+    /** 中间有一段真斜线（首末两点是端口，都不动） */
     const points = orthogonalizePolyline(
       [
         { x: 0, y: 0 },
@@ -136,7 +136,7 @@ describe('orthogonalizePolyline（管线横平竖直）', () => {
   it('首末点（端口）不动：管线接头不会断开', () => {
     const points = orthogonalizePolyline([
       { x: 0, y: 0 },
-      { x: 100, y: 30 }, // 近水平但不完全
+      { x: 100, y: 30 } /* 近水平但不完全 */,
     ]);
     assert.deepEqual(points[0], { x: 0, y: 0 }, '首点固定');
     assert.deepEqual(points[points.length - 1], { x: 100, y: 30 }, '末点固定（端口在设备上）');
@@ -212,7 +212,7 @@ describe('QuadTree', () => {
       tree.insert(item);
     }
 
-    // 移动前 200 个（updateItem = 删除 + 重新插入）
+    /** 移动前 200 个（updateItem = 删除 + 重新插入） */
     for (let i = 0; i < 200; i += 1) {
       const item = items[i];
       const cx = (random() - 0.5) * 1800;
@@ -221,7 +221,7 @@ describe('QuadTree', () => {
       tree.updateItem(item);
     }
 
-    // 删除 100 个
+    /** 删除 100 个 */
     const removed = new Set<number>();
     for (let i = 300; i < 400; i += 1) {
       tree.remove(items[i].id);

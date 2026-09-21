@@ -7,7 +7,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const TARGET_DIR = 'src';
-// 允许：app.tsx、user_card.tsx、api_client.test.ts、hero.png
+/** 允许：app.tsx、user_card.tsx、api_client.test.ts、hero.png */
 const VALID_FILE_NAME = /^[a-z0-9]+(?:_[a-z0-9]+)*(?:\.[a-z0-9]+)*$/;
 
 async function collectFiles(dir) {

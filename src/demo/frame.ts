@@ -74,7 +74,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
 
   /** 位号与标题的图形（每字一个 `Graphic`，图集 uv 写在图形里） */
   function buildTextGraphics(valves: readonly ValveGraphic[]) {
-    // 图集按屏幕像素造字形，这里换算成「世界字号」口径：ppwu = 图集字号 / 目标世界字号
+    /** 图集按屏幕像素造字形，这里换算成「世界字号」口径：ppwu = 图集字号 / 目标世界字号 */
     const tagScale = glyphAtlas.fontSizePx / LABEL_WORLD_FONT;
     const titleScale = titleAtlas.fontSizePx / TITLE_WORLD_FONT;
     const titleGraphics = layoutText(titleAtlas, TITLE, {
@@ -83,7 +83,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
       pixelsPerWorldUnit: titleScale,
       color: TITLE_COLOR,
     }).graphics;
-    // 位号文案/颜色/偏移是业务表现，交给业务层
+    /** 位号文案/颜色/偏移是业务表现，交给业务层 */
     const tagGraphics = buildValveLabelGraphics(glyphAtlas, valves, {
       pixelsPerWorldUnit: tagScale,
     });
@@ -101,11 +101,11 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
     requestAnimationFrame(frame);
 
     const instanceList = ctx.updateVisibleInstances();
-    // 视口剔除交给 PidScene（内部走 core 的四叉树），demo 不自己过滤
+    /** 视口剔除交给 PidScene（内部走 core 的四叉树），demo 不自己过滤 */
     const visibleValves = valveScene.scene.getVisible(camera.getViewportAABB()).valves;
     ctx.onVisibleValves(visibleValves);
 
-    // 阀门显示走贴图精灵，但拾取仍需要最新的实例数据与投影矩阵
+    /** 阀门显示走贴图精灵，但拾取仍需要最新的实例数据与投影矩阵 */
     const valveRes = getValveResources();
     if (valveRes) {
       uploadValveInstances(device, valveRes, camera.getCameraProjectionMatrix(), visibleValves);
@@ -113,13 +113,13 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
 
     const { titleGraphics, tagGraphics } = buildTextGraphics(visibleValves);
     const { closed, open } = buildValveSprites(visibleValves);
-    // 装箱与排版用同一个 ppwu（文字是世界字号口径，不能再按相机缩放折算一次）
+    /** 装箱与排版用同一个 ppwu（文字是世界字号口径，不能再按相机缩放折算一次） */
     const titleInstances = toInstances(titleGraphics, titleAtlas.fontSizePx / TITLE_WORLD_FONT);
     const tagInstances = toInstances(tagGraphics, glyphAtlas.fontSizePx / LABEL_WORLD_FONT);
     const projMat = camera.getCameraProjectionMatrix();
     renderer.uploadProjectionMatrix(projMat);
 
-    // 整帧提交：基础实例批次 + 文字/贴图批次（打包、上传与偏移由 core 内部完成）
+    /* 整帧提交：基础实例批次 + 文字/贴图批次（打包、上传与偏移由 core 内部完成） */
     renderer.renderComposite({
       instances: instanceList,
       extraBatches: [
@@ -135,18 +135,18 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
         },
         { instances: closed, textureView: valveOffTexture.view, sampler: valveSampler },
         {
-          // 开启态：有独立贴图就用它，否则沿用关闭态贴图
+          /* 开启态：有独立贴图就用它，否则沿用关闭态贴图 */
           instances: open,
           textureView: (valveOnTexture ?? valveOffTexture).view,
           sampler: valveSampler,
         },
       ],
-      // 管线最先画：设备填充、符号、位号都压在它上面（层契约见 render_layer.ts）
+      /* 管线最先画：设备填充、符号、位号都压在它上面（层契约见 render_layer.ts） */
       drawUnderlay: (pass) => {
         const layerDraws: RenderLayerDraw[] = [
           {
             layer: RENDER_LAYER.pipe,
-            // 压测管线与阀门示例管线共用一次实例化绘制
+            /* 压测管线与阀门示例管线共用一次实例化绘制 */
             draw: (overlayPass) =>
               renderPipes(overlayPass, projMat, [...visiblePipes(), ...visibleDemoPipes()]),
           },

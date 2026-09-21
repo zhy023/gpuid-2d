@@ -21,22 +21,22 @@ import type { Rgba } from '@/core/scene/graphic/graphic';
  */
 export type PipeBatchItem = FlowPipe | ValveGraphic;
 
-// 最大管线实例数量，压测可按需调大（管线按段展开，直角拐点还要各加一个方块实例）
+/** 最大管线实例数量，压测可按需调大（管线按段展开，直角拐点还要各加一个方块实例） */
 const MAX_PIPE_INSTANCE = 8192;
 /** 管线没有选中能力，实例的选中通道恒为 0 */
 const NO_SELECTION = 0;
-// InstanceTransform：8 个基字段 + 图集 uv 矩形(4) + 逐实例颜色(4) → 16 × f32 = 64B，与 WGSL 结构一致
+/** InstanceTransform：8 个基字段 + 图集 uv 矩形(4) + 逐实例颜色(4) → 16 × f32 = 64B，与 WGSL 结构一致 */
 const INSTANCE_FLOAT_COUNT = 16;
-// PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float
+/** PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float */
 const PID_DATA_FLOAT_COUNT = 4;
 
-// CPU侧复用数组，避免每帧new
+/** CPU侧复用数组，避免每帧new */
 const instanceCpuBuffer = new Float32Array(MAX_PIPE_INSTANCE * INSTANCE_FLOAT_COUNT);
 const pidDataCpuBuffer = new Float32Array(MAX_PIPE_INSTANCE * PID_DATA_FLOAT_COUNT);
 
 let pipeInstanceStorageBuffer: GPUBuffer | null = null;
 let pipePidStorageBuffer: GPUBuffer | null = null;
-// 两套 storage buffer 一旦创建就不再变更，bindGroup 可以缓存复用，避免每帧重建
+/** 两套 storage buffer 一旦创建就不再变更，bindGroup 可以缓存复用，避免每帧重建 */
 let pipeBindGroup: GPUBindGroup | null = null;
 
 /**
@@ -112,12 +112,12 @@ function writeInstanceTransform(
   instanceCpuBuffer[offset + 5] = selected;
   instanceCpuBuffer[offset + 6] = 0;
   instanceCpuBuffer[offset + 7] = 0;
-  // 图集 uv：管线暂不贴图，整张纹理
+  /* 图集 uv：管线暂不贴图，整张纹理 */
   instanceCpuBuffer[offset + 8] = 0;
   instanceCpuBuffer[offset + 9] = 0;
   instanceCpuBuffer[offset + 10] = 1;
   instanceCpuBuffer[offset + 11] = 1;
-  // 逐实例颜色：缺省写 0（= 用管线着色器的默认色），避免复用缓冲残留脏数据
+  /* 逐实例颜色：缺省写 0（= 用管线着色器的默认色），避免复用缓冲残留脏数据 */
   instanceCpuBuffer[offset + 12] = color?.[0] ?? 0;
   instanceCpuBuffer[offset + 13] = color?.[1] ?? 0;
   instanceCpuBuffer[offset + 14] = color?.[2] ?? 0;
@@ -162,7 +162,7 @@ function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
         item.y,
         item.selectedFlag,
       );
-      // 阀门：valveOpen 有效，流速置 0（阀门本身不做流动动画）
+      /** 阀门：valveOpen 有效，流速置 0（阀门本身不做流动动画） */
       writePidInstanceData(writeIdx, item.valveOpen, 0, 0);
       writeIdx += 1;
       continue;
@@ -175,7 +175,7 @@ function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
      * 管宽是世界单位：只跟图纸 strokeWidth 有关，不随相机缩放浮动
      */
     const lineWidthWorld = pipeLineWidthWorld(pipe.lineWidthPx);
-    // 以管宽为单位的累计里程，喂给 flowOffset，保证拐点两侧条纹相位接得上
+    /** 以管宽为单位的累计里程，喂给 flowOffset，保证拐点两侧条纹相位接得上 */
     let travelled = 0;
 
     for (
@@ -197,11 +197,11 @@ function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
         Math.atan2(dy, dx),
         (start.x + end.x) / 2,
         (start.y + end.y) / 2,
-        // 管线不可选中：选中通道恒为 0（图形才有选中能力）
+        /* 管线不可选中：选中通道恒为 0（图形才有选中能力） */
         NO_SELECTION,
         pipe.fillColor,
       );
-      // flowOffset 用世界里程，保证条纹沿整条管线连续
+      /** flowOffset 用世界里程，保证条纹沿整条管线连续 */
       writePidInstanceData(writeIdx, 0, flowSpeed, travelled);
 
       travelled += segmentLength;
@@ -259,7 +259,7 @@ export function renderAllVisiblePipes(
   const validCount = packPipeInstanceItems(visibleItems);
   if (validCount <= 0) return;
 
-  // 写两套storage buffer
+  /* 写两套storage buffer */
   device.queue.writeBuffer(
     storage.instanceBuffer,
     0,
@@ -275,11 +275,11 @@ export function renderAllVisiblePipes(
     validCount * PID_DATA_FLOAT_COUNT,
   );
 
-  // 更新UBO：投影矩阵 + 时间 + 流动参数（条纹周期按当前缩放折算成世界单位，屏幕观感恒定）
+  /** 更新UBO：投影矩阵 + 时间 + 流动参数（条纹周期按当前缩放折算成世界单位，屏幕观感恒定） */
   updatePipeUniform(device, pipeRes, {
     projection: viewProj,
     timeSeconds: timeSec,
-    // 条纹周期是世界单位（与图元同一套单位）
+    /* 条纹周期是世界单位（与图元同一套单位） */
     flowPeriodWorld: PIPE_FLOW_PERIOD_WORLD,
     flowCyclesPerSec: PIPE_FLOW_CYCLES_PER_SEC,
     flowDashDuty: PIPE_FLOW_DASH_DUTY,
