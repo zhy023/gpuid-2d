@@ -3,7 +3,6 @@ interface Point {
   y: number;
 }
 
-/**向量归一化 */
 function normalize(dx: number, dy: number): Point {
   const len = Math.hypot(dx, dy);
   if (len < 1e-9) return { x: 0, y: 0 };
@@ -51,6 +50,7 @@ export function expandPolyline(points: Point[], lineWidth: number): ExpandResult
   out.push(points[0].x - n0.x, points[0].y - n0.y, 0.0, 0.0);
 
   let dist = 0;
+
   for (let i = 1; i < points.length - 1; i++) {
     dist += segLengths[i - 1];
     const u = accumulatedLen > 0 ? dist / accumulatedLen : 0;
@@ -86,6 +86,7 @@ export function calcPolylineBounds(points: Point[], tx = 0, ty = 0) {
     minY = Infinity;
   let maxX = -Infinity,
     maxY = -Infinity;
+
   for (const p of points) {
     const x = p.x + tx;
     const y = p.y + ty;
@@ -94,5 +95,6 @@ export function calcPolylineBounds(points: Point[], tx = 0, ty = 0) {
     minY = Math.min(minY, y);
     maxY = Math.max(maxY, y);
   }
+
   return { minX, minY, maxX, maxY };
 }

@@ -55,6 +55,7 @@ export function computePolylineAABB(points: Array<{ x: number; y: number }>, tx 
     minY = Infinity;
   let maxX = -Infinity,
     maxY = -Infinity;
+
   for (const p of points) {
     const x = p.x + tx;
     const y = p.y + ty;
@@ -63,6 +64,7 @@ export function computePolylineAABB(points: Array<{ x: number; y: number }>, tx 
     minY = Math.min(minY, y);
     maxY = Math.max(maxY, y);
   }
+
   return { minX, minY, maxX, maxY };
 }
 

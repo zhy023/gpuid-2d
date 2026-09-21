@@ -26,6 +26,7 @@ export function createTextureFromBitmap(
       GPUTextureUsage.RENDER_ATTACHMENT,
     label,
   });
+
   device.queue.copyExternalImageToTexture({ source: bitmap }, { texture }, [
     bitmap.width,
     bitmap.height,
@@ -45,6 +46,7 @@ export function createDefaultWhiteTexture(device: GPUDevice): Texture2d {
     usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     label: 'default-white-texture',
   });
+
   device.queue.writeTexture(
     { texture },
     new Uint8Array([255, 255, 255, 255]),

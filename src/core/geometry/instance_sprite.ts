@@ -35,6 +35,7 @@ export function spriteInstance(options: SpriteInstanceOptions): RectInstance {
     beta = 0,
     selected = 0,
   } = options;
+
   const worldPerPixel = 1 / Math.max(pixelsPerWorldUnit, 1e-6);
 
   return {

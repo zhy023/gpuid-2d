@@ -13,6 +13,8 @@ export interface PipePolylineItem extends QuadItem {
   geoCache: ExpandResult | null; // 膨胀几何缓存
   /** 流动动画速度倍率：>0 为流动样式（阀门打开的下游管线），0 为默认静止样式 */
   flowSpeed: number;
+  /** 逐实例管线颜色（图纸 strokeColor）；不设时用管线着色器的默认配色 */
+  strokeColor?: readonly [number, number, number, number];
 }
 
 /**

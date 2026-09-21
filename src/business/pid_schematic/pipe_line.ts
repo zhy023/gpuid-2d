@@ -24,6 +24,17 @@ export function computePipeAABB(pipe: PipePolylineItem): AABB {
   return calcPolylineBounds(pipe.points);
 }
 
+/** 静止虚线的流速约定值：flowSpeed < 0 表示「画条纹但不流动」 */
+export const PIPE_DASHED_FLOW_SPEED = -1;
+
+/**
+ * 设置管线为虚线样式（图纸里的 dashed）：
+ * 与流动样式的区别只在「条纹是否随时间移动」，所以复用同一套条纹绘制。
+ */
+export function setPipeDashed(pipe: PipePolylineItem, dashed: boolean): void {
+  pipe.flowSpeed = dashed ? PIPE_DASHED_FLOW_SPEED : 0;
+}
+
 /**
  * 切换管线流动样式：阀门打开 → 下游管线流动；阀门关闭 → 恢复默认样式。
  * 实例数据每帧重新打包，所以改完下一帧就生效，不需要标 dirty（那是几何变更用的）

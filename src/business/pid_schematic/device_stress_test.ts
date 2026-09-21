@@ -18,6 +18,8 @@ export interface StressTestItem extends QuadTreeItem {
   sy: number;
   beta: number;
   selected: number; // 0=未选中，1=选中，float32对齐shader
+  /** 逐实例填充色（图纸 fillColor）；不设时用着色器默认灰 */
+  fillColor?: readonly [number, number, number, number];
 }
 
 /** 设备图元 → 实例化绘制数据（几何 + 选中态；uv 用整张纹理、颜色沿用默认） */
@@ -33,10 +35,10 @@ export function toRectInstances(items: readonly StressTestItem[]): RectInstance[
     v0: 0,
     u1: 1,
     v1: 1,
-    colorR: 0,
-    colorG: 0,
-    colorB: 0,
-    colorA: 0,
+    colorR: item.fillColor?.[0] ?? 0,
+    colorG: item.fillColor?.[1] ?? 0,
+    colorB: item.fillColor?.[2] ?? 0,
+    colorA: item.fillColor?.[3] ?? 0,
   }));
 }
 

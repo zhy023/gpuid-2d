@@ -34,7 +34,11 @@ export interface DrawioDemoScene {
   pidScene: PidScene;
   /** 位号：文字 + 位置 + 颜色 + 字号 */
   labels: PidLabel[];
-  stats: { devices: number; pipes: number; labels: number; skipped: number };
+  /** 图元 id → 内联图标 data URL（绘制端按它贴图） */
+  icons: Map<number, string>;
+  /** 图纸世界范围（相机取景用） */
+  bounds: AABB;
+  stats: { devices: number; pipes: number; labels: number; icons: number; skipped: number };
 }
 
 /**
@@ -44,9 +48,12 @@ export interface DrawioDemoScene {
 export async function createDrawioScene(): Promise<DrawioDemoScene> {
   const xml = await (await fetch(DRAWIO_URL)).text();
   const document = parseMxDocument(xml, new DOMParser());
-  const { scene, labels, stats } = toPidScene(document);
-  console.log(`[drawio] 设备 ${stats.devices} / 管线 ${stats.pipes} / 位号 ${stats.labels}`);
-  return { pidScene: scene, labels, stats };
+  const { scene, labels, icons, bounds, stats } = toPidScene(document);
+  console.log(
+    `[drawio] 设备 ${stats.devices} / 管线 ${stats.pipes} / 位号 ${stats.labels}` +
+      ` / 范围 ${Math.round(bounds.maxX - bounds.minX)}×${Math.round(bounds.maxY - bounds.minY)}`,
+  );
+  return { pidScene: scene, labels, icons, bounds, stats };
 }
 
 /**

@@ -43,6 +43,7 @@ export async function createRendererContext(
 
   const { vertexBuffer, vertexCount } = createRectVertexBuffer(device);
   const renderer = new Renderer2D(device, context, format, vertexBuffer, vertexCount);
+
   await renderer.initPipeline();
 
   const picker = await createRendererPicker(device, renderer, canvas.width, canvas.height);
@@ -53,6 +54,7 @@ export async function createRendererContext(
     format,
     resizeTargets: [renderer, picker, ...(options.resizeTargets ?? [])],
   });
+
   const camera = new Camera2d(canvas);
 
   return {

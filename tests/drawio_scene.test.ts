@@ -8,7 +8,11 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { DOMParser } from '@xmldom/xmldom';
 import { parseMxDocument } from '@/business/pid_schematic/drawio/mx_document';
-import { parseDrawioColor, toPidScene } from '@/business/pid_schematic/drawio/to_pid_scene';
+import {
+  normalizeIconUrl,
+  parseDrawioColor,
+  toPidScene,
+} from '@/business/pid_schematic/drawio/to_pid_scene';
 
 const XML_PATH = path.join(process.cwd(), 'public/assets/graph/meta_demo.xml');
 
@@ -21,11 +25,27 @@ describe('toPidScene（真实图纸）', () => {
 
   it('把图纸翻译成设备矩形 / 管线 / 位号', () => {
     console.log(
-      `[drawio] 设备 ${result.stats.devices} / 管线 ${result.stats.pipes} / 位号 ${result.stats.labels} / 跳过 ${result.stats.skipped}（共 ${document.nodes.length} 个单元）`,
+      `[drawio] 设备 ${result.stats.devices} / 管线 ${result.stats.pipes} / 位号 ${result.stats.labels} / 图标 ${result.stats.icons} / 跳过 ${result.stats.skipped}（共 ${document.nodes.length} 个单元）`,
     );
     assert.ok(result.stats.devices > 0, '应当解析出设备图元');
     assert.ok(result.stats.pipes > 0, '应当解析出管线');
     assert.ok(result.labels.length > 0, '应当解析出位号文字');
+    assert.ok(result.stats.icons > 0, '应当提取出内联图标');
+  });
+
+  it('图纸管线默认静止（默认样式）', () => {
+    for (const pipe of result.scene.pipes.values()) {
+      assert.equal(pipe.flowSpeed, 0, `管线 ${pipe.id} 应为静止样式`);
+    }
+  });
+
+  it('图标 key 都是合法图元 id，且是 data URL', () => {
+    for (const [id, url] of result.icons) {
+      assert.ok(result.scene.devices.get(id) !== undefined, `图标 ${id} 应当对应一个设备图元`);
+      assert.ok(url.startsWith('data:image'), '图标应当是 data URL');
+      // drawio 写的是 data:image/png,<base64>（少了 ;base64），不补回去浏览器解码必然失败
+      assert.ok(url.includes(';base64,'), `图标 ${id} 应当是可解码的 base64 data URL`);
+    }
   });
 
   it('图元都落在世界范围内，超大视口查询应全部命中', () => {
@@ -45,6 +65,34 @@ describe('toPidScene（真实图纸）', () => {
       assert.ok(label.fontSizePx > 0);
       assert.equal(label.color.length, 4);
     }
+  });
+
+  it('图纸范围覆盖全部图元（相机取景用它，不能写死页宽高）', () => {
+    const { bounds } = result;
+    assert.ok(bounds.maxX > bounds.minX && bounds.maxY > bounds.minY);
+    for (const device of result.scene.devices.values()) {
+      assert.ok(device.worldAABB.minX >= bounds.minX && device.worldAABB.maxX <= bounds.maxX);
+      assert.ok(device.worldAABB.minY >= bounds.minY && device.worldAABB.maxY <= bounds.maxY);
+    }
+  });
+});
+
+describe('normalizeIconUrl', () => {
+  it('drawio 的 data:image/png,<base64> 补上 ;base64', () => {
+    assert.equal(
+      normalizeIconUrl('data:image/png,iVBORw0KGgoAAAANSUhEUg=='),
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+    );
+  });
+
+  it('已经是 ;base64 的不动', () => {
+    const url = 'data:image/png;base64,iVBORw0KGgo=';
+    assert.equal(normalizeIconUrl(url), url);
+  });
+
+  it('百分号编码的（如内联 SVG）不动', () => {
+    const url = 'data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org';
+    assert.equal(normalizeIconUrl(url), url);
   });
 });
 

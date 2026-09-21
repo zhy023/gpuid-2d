@@ -8,17 +8,15 @@ import {
   recreateRendererContext,
   type RendererContext,
 } from '@/core/gpu/context';
-import { GlyphAtlas } from '@/core/text/glyph_atlas';
+
 import { renderDrawioFrame } from '@/demo/drawio_frame';
 import { createDrawioScene } from '@/demo/scene';
+import { LabelAtlasCache } from '@/demo/label_atlases';
+import { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';
 import { initPipe } from '@/business/pid_schematic/pipe_manager';
 
-/** 位号字号（图集按字号划分，这里固定一档） */
-const LABEL_FONT_SIZE_PX = 12;
-/** 图纸是 drawio 页面坐标（1169×1654），初始缩放取 0.6 便于整页可见 */
-const INITIAL_SCALE = 0.6;
-const PAGE_WIDTH = 1169;
-const PAGE_HEIGHT = 1654;
+/** 取景留白：整页可见还留一点边 */
+const VIEW_FIT_MARGIN = 0.92;
 
 export async function runDrawioApp(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>('#canvas');
@@ -33,13 +31,17 @@ export async function runDrawioApp(): Promise<void> {
 
     // 管线模块要先初始化（管线 pipeline + 三角带模板顶点），否则 renderPipes 会直接返回
     await initPipe(device, format);
-    const { pidScene, labels } = await createDrawioScene();
-    const labelAtlas = new GlyphAtlas(device, { fontSizePx: LABEL_FONT_SIZE_PX });
+    const { pidScene, labels, icons, bounds } = await createDrawioScene();
+    const iconTextures = new IconTextureCache(device);
+    const labelAtlases = new LabelAtlasCache(device);
 
-    // 视线对准图纸中心
-    camera.scale = INITIAL_SCALE;
-    camera.centerX = PAGE_WIDTH / 2;
-    camera.centerY = PAGE_HEIGHT / 2;
+    // 按真实图纸范围取景：drawio 的坐标原点不一定在左上角（样例图纸 y 全是负的），
+    // 写死页宽高会把整张图剔除掉，只剩画不出来的空白
+    const width = Math.max(bounds.maxX - bounds.minX, 1e-6);
+    const height = Math.max(bounds.maxY - bounds.minY, 1e-6);
+    camera.scale = Math.min(canvasEl.width / width, canvasEl.height / height) * VIEW_FIT_MARGIN;
+    camera.centerX = (bounds.minX + bounds.maxX) / 2;
+    camera.centerY = (bounds.minY + bounds.maxY) / 2;
 
     // 尺寸变化仍由内核的 CanvasSurface 统一处理
     unbindResize = surface.bindWindowResize();
@@ -47,7 +49,15 @@ export async function runDrawioApp(): Promise<void> {
     const tick = () => {
       if (!running) return;
       requestAnimationFrame(tick);
-      renderDrawioFrame({ renderer, camera, scene: pidScene, labels, labelAtlas });
+      renderDrawioFrame({
+        renderer,
+        camera,
+        scene: pidScene,
+        labels,
+        labelAtlases,
+        icons,
+        iconTextures,
+      });
     };
     tick();
   }

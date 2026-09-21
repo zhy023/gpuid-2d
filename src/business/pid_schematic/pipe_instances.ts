@@ -95,6 +95,7 @@ function writeInstanceTransform(
   tx: number,
   ty: number,
   selected: number,
+  color?: readonly [number, number, number, number],
 ): void {
   const offset = writeIdx * INSTANCE_FLOAT_COUNT;
   instanceCpuBuffer[offset + 0] = sx;
@@ -110,11 +111,11 @@ function writeInstanceTransform(
   instanceCpuBuffer[offset + 9] = 0;
   instanceCpuBuffer[offset + 10] = 1;
   instanceCpuBuffer[offset + 11] = 1;
-  // 逐实例颜色：默认 0（沿用着色器默认色）
-  instanceCpuBuffer[offset + 12] = 0;
-  instanceCpuBuffer[offset + 13] = 0;
-  instanceCpuBuffer[offset + 14] = 0;
-  instanceCpuBuffer[offset + 15] = 0;
+  // 逐实例颜色：缺省写 0（= 用管线着色器的默认色），避免复用缓冲残留脏数据
+  instanceCpuBuffer[offset + 12] = color?.[0] ?? 0;
+  instanceCpuBuffer[offset + 13] = color?.[1] ?? 0;
+  instanceCpuBuffer[offset + 14] = color?.[2] ?? 0;
+  instanceCpuBuffer[offset + 15] = color?.[3] ?? 0;
 }
 
 /** 写入单个实例的 PidSchematicInstanceData（4 × f32） */
@@ -194,6 +195,7 @@ function packPipeInstanceItems(
         (start.x + end.x) / 2,
         (start.y + end.y) / 2,
         item.selected,
+        pipe.strokeColor,
       );
       // flowOffset 用世界里程，保证条纹沿整条管线连续
       writePidInstanceData(writeIdx, 0, flowSpeed, travelled);
@@ -213,6 +215,7 @@ function packPipeInstanceItems(
           end.x,
           end.y,
           item.selected,
+          pipe.strokeColor,
         );
         writePidInstanceData(writeIdx, 0, flowSpeed, travelled);
         writeIdx += 1;

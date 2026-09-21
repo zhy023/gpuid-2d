@@ -69,7 +69,7 @@ export class Camera2d {
     const invProj = mat4.invert(projMat, this.invProjBuffer);
     if (!invProj) return { x: 0, y: 0 };
 
-    // 齐次向量 NDC: (x,y, 0, 1)
+    // 齐次向量 NDC: (x,y,0,1)
     const ndcVec = vec4.create(ndcX, ndcY, 0, 1);
     // 乘逆投影矩阵
     const worldVec = vec4.transformMat4(ndcVec, invProj);

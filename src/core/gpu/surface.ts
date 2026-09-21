@@ -44,12 +44,14 @@ export class CanvasSurface {
     const { canvas } = this;
     canvas.width = canvas.clientWidth;
     canvas.height = canvas.clientHeight;
+
     // 尺寸变了必须重配上下文，否则画面会被拉伸
     this.context.configure({
       device: this.device,
       format: this.format,
       alphaMode: this.alphaMode,
     });
+
     for (const target of this.resizeTargets) {
       target.resize(canvas.width, canvas.height);
     }
