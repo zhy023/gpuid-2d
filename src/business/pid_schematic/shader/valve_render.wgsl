@@ -46,6 +46,8 @@ fn vertexMain(input: ValveVertexInput, @builtin(instance_index) instanceIdx: u32
 
 @fragment
 fn fragmentMain(input: ValveVertexOutput) -> @location(0) vec4f {
+    // 遮罩里的 fwidth 必须在统一控制流里求值，所以先算好再进分支
+    let unitMask = unitSquareMask(input.localUv);
     let uv = input.localUv;
     let uNorm = uv.x + 0.5;
     let vNorm = uv.y + 0.5;
@@ -72,5 +74,5 @@ fn fragmentMain(input: ValveVertexOutput) -> @location(0) vec4f {
         fragColor = mix(fragColor, vec4f(0.95, 0.70, 0.20, 1.0), 0.35);
     }
     // 符号模板用的是内核的三角形模板，方形外的部分裁掉
-    return vec4f(fragColor.rgb, fragColor.a * unitSquareMask(input.localUv));
+    return vec4f(fragColor.rgb, fragColor.a * unitMask);
 }

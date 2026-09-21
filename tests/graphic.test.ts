@@ -6,7 +6,12 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import { GRAPHIC_SHAPE_CIRCLE, GRAPHIC_SHAPE_RECT, Graphic } from '@/core/scene/graphic';
+import {
+  GRAPHIC_SHAPE_CIRCLE,
+  GRAPHIC_SHAPE_RECT,
+  GRAPHIC_SHAPE_TRIANGLE,
+  Graphic,
+} from '@/core/scene/graphic';
 import { QuadTreeStore } from '@/core/scene/quad_tree_store';
 import { packRectInstances } from '@/core/gpu/renderer';
 import { toRectInstances } from '@/business/pid_schematic/device_stress_test';
@@ -41,7 +46,7 @@ describe('Graphic（图形基类）', () => {
     assert.deepEqual([g.tx, g.ty, g.sx, g.sy, g.beta], [10, 20, 30, 40, Math.PI / 2]);
   });
 
-  it('绘制命令：正方形/长方形/圆，返回自身可链式调用', () => {
+  it('绘制命令：正方形/长方形/圆/三角形，返回自身可链式调用', () => {
     const square = new Graphic({ id: 1 }).square(80);
     assert.equal(square.width, 80);
     assert.equal(square.height, 80);
@@ -56,6 +61,13 @@ describe('Graphic（图形基类）', () => {
     assert.equal(circle.shapeCode, GRAPHIC_SHAPE_CIRCLE);
     const ellipse = new Graphic({ id: 4 }).ellipse(120, 60);
     assert.equal(ellipse.shapeCode, GRAPHIC_SHAPE_CIRCLE);
+
+    // 三角形：内切于包围盒（底边在下、尖端在上），宽高可不等，朝向靠 rotation
+    const triangle = new Graphic({ id: 6 }).triangle(60, 40);
+    assert.equal(triangle.shape, 'triangle');
+    assert.equal(triangle.shapeCode, GRAPHIC_SHAPE_TRIANGLE);
+    assert.equal(triangle.width, 60);
+    assert.equal(triangle.height, 40);
 
     const chain = new Graphic({ id: 5 }).rect(10, 10).fill(RED).stroke(BLUE, 2);
     assert.deepEqual(chain.fillColor, RED);
@@ -211,6 +223,9 @@ describe('外观 → 实例数据', () => {
 
     const rect = new Graphic({ id: 2 }).rect(20, 10);
     assert.equal(toRectInstances([rect])[0].shape, GRAPHIC_SHAPE_RECT);
+
+    const triangle = new Graphic({ id: 3 }).triangle(30, 20);
+    assert.equal(toRectInstances([triangle])[0].shape, GRAPHIC_SHAPE_TRIANGLE);
   });
 });
 

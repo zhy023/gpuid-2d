@@ -25,8 +25,8 @@
 - 图形基类（全库唯一一层抽象，业务无关，用法参考 PixiJS 的 `Graphics`）：`Graphic` 同时承载
   位置/大小/旋转、基本属性（可见/选中/dirty）、外观（`fill` / `stroke`）、状态（开关/hover）、
   动画（`animationSpeed` / `flowOffset`）与形状绘制命令（`rect` / `square` / `circle` / `ellipse` /
-  `polyline`）；实现 `QuadTreeItem`，可直接进 `QuadTreeStore`。圆形/椭圆把形状编码写进实例的
-  shape 通道，渲染与拾取着色器都按包围盒内切圆裁剪
+  `triangle` / `polyline`）；实现 `QuadTreeItem`，可直接进 `QuadTreeStore`。圆/椭圆与三角形把形状
+  编码写进实例的 shape 通道，渲染与拾取着色器按包围盒内切圆 / 内切三角形裁剪
 
 ### business/pid_schematic
 

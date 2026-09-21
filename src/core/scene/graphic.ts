@@ -9,6 +9,7 @@
  * const g = new Graphic({ id: 1, x: 100, y: 100 });
  * g.rect(80, 60).fill(RED).stroke(BLUE, 2);   // 长方形；正方形就 rect(80, 80)
  * g.circle(40).fill(GRAY);                    // 圆形；宽高不等即椭圆
+ * g.triangle(40, 32).fill(GREEN);             // 三角形（内切于包围盒，底边在下、尖端在上）
  * g.polyline(points, 4).fill(GREEN);          // 折线（管线），粗细按屏幕像素
  * ```
  *
@@ -27,12 +28,13 @@ export type Rgba = readonly [number, number, number, number];
 /** 图形类型：与实例化渲染契约（`QuadItem.type`）一致，决定走哪条渲染通路 */
 export type GraphicType = QuadItem['type'];
 
-/** 形状：矩形（正方形是宽高相等的一种）、圆（宽高不等即椭圆）、折线 */
-export type GraphicShape = 'rect' | 'circle' | 'polyline';
+/** 形状：矩形（正方形是宽高相等的一种）、圆（宽高不等即椭圆）、三角形、折线 */
+export type GraphicShape = 'rect' | 'circle' | 'triangle' | 'polyline';
 
-/** 形状编码：写进实例的 shape 通道，着色器按它裁形状（0 = 方框，1 = 圆/椭圆） */
+/** 形状编码：写进实例的 shape 通道，着色器按它裁形状 */
 export const GRAPHIC_SHAPE_RECT = 0;
 export const GRAPHIC_SHAPE_CIRCLE = 1;
+export const GRAPHIC_SHAPE_TRIANGLE = 2;
 
 export interface GraphicOptions {
   /** 场景内唯一 id（四叉树、拾取、实例数据都按它索引） */
@@ -154,6 +156,16 @@ export class Graphic implements QuadItem {
   /** 椭圆：宽高就是包围盒 */
   ellipse(width: number, height: number): this {
     this.shapeKind = 'circle';
+    this.setSize(width, height);
+    return this;
+  }
+
+  /**
+   * 三角形：内切于包围盒，底边在下、尖端在上（等腰）。
+   * 换朝向用 `setRotation`（例如 -90° 得到尖端朝右），换胖瘦用 `setSize`。
+   */
+  triangle(width: number, height = width): this {
+    this.shapeKind = 'triangle';
     this.setSize(width, height);
     return this;
   }
@@ -327,7 +339,9 @@ export class Graphic implements QuadItem {
 
   /** 形状编码：交给渲染侧裁形状 */
   get shapeCode(): number {
-    return this.shape === 'circle' ? GRAPHIC_SHAPE_CIRCLE : GRAPHIC_SHAPE_RECT;
+    if (this.shape === 'triangle') return GRAPHIC_SHAPE_TRIANGLE;
+    if (this.shape === 'circle') return GRAPHIC_SHAPE_CIRCLE;
+    return GRAPHIC_SHAPE_RECT;
   }
 
   /** 世界包围盒：缓存 + 变更失效，四叉树与拾取直接用它 */

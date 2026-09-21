@@ -45,3 +45,15 @@ fn unitSquareMask(localPos: vec2f) -> f32 {
     let pixelWidth = max(fwidth(edgeDistance), 1e-6);
     return 1.0 - smoothstep(0.5 - pixelWidth, 0.5, edgeDistance);
 }
+
+// 单位方形内切三角形（底边在下、尖端在上）的覆盖度：0~1，同样按屏幕像素抗锯齿。
+// 三条边的有符号距离取最小值即「到三角形边界」的距离，再按像素宽度做平滑。
+fn unitTriangleMask(localPos: vec2f) -> f32 {
+    let slopeScale = 0.89442718; // 1 / sqrt(1.25)：把两条斜边的距离换算成局部单位
+    let leftEdge = (localPos.x + 0.5 * localPos.y + 0.25) * slopeScale;
+    let rightEdge = (-localPos.x + 0.5 * localPos.y + 0.25) * slopeScale;
+    let bottomEdge = 0.5 - localPos.y;
+    let inside = min(min(leftEdge, rightEdge), bottomEdge);
+    let pixelWidth = max(fwidth(inside), 1e-6);
+    return smoothstep(-pixelWidth, pixelWidth, inside);
+}
