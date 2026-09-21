@@ -140,11 +140,13 @@ function packValveInstances(valves: readonly ValveGraphic[], pixelsPerWorldUnit:
     instanceCpuBuffer[instanceOffset + 9] = 0;
     instanceCpuBuffer[instanceOffset + 10] = 1;
     instanceCpuBuffer[instanceOffset + 11] = 1;
-    // 逐实例颜色：默认 0（沿用着色器默认色）
-    instanceCpuBuffer[instanceOffset + 12] = 0;
-    instanceCpuBuffer[instanceOffset + 13] = 0;
-    instanceCpuBuffer[instanceOffset + 14] = 0;
-    instanceCpuBuffer[instanceOffset + 15] = 0;
+    // 逐实例颜色：这里必须给一个非零 alpha——拾取着色器把「没指定颜色」当成不可绘制、
+    // 因而也不可拾取（内核不再兜底灰色，见 primitive_pick.wgsl）。
+    // 阀门符号自身的配色由 valve_render.wgsl 决定，颜色通道只参与这条判据。
+    instanceCpuBuffer[instanceOffset + 12] = 1;
+    instanceCpuBuffer[instanceOffset + 13] = 1;
+    instanceCpuBuffer[instanceOffset + 14] = 1;
+    instanceCpuBuffer[instanceOffset + 15] = 1;
 
     const businessOffset = writeIdx * BUSINESS_FLOAT_COUNT;
     businessCpuBuffer[businessOffset + 0] = valve.valveOpen;
