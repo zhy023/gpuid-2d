@@ -28,11 +28,8 @@ import type { DemoScene } from '@/demo/scene';
 const TITLE = '你好';
 /** 标题颜色（金黄，压在浅底上可辨） */
 const TITLE_COLOR = [1.0, 0.78, 0.25, 1] as const;
-/**
- * demo 自己的画布背景色：引擎不再给图元兜底颜色，白底看不出浅色图标，
- * 所以这里给一个中性偏深的底，和图纸的浅色图形形成对比。
- */
-export const DEMO_CLEAR_COLOR: GPUColor = { r: 0.11, g: 0.13, b: 0.16, a: 1 };
+/** demo 自己的画布背景色：淡淡的灰（引擎不兜底色，背景由 demo 决定） */
+export const DEMO_CLEAR_COLOR: GPUColor = { r: 0.95, g: 0.955, b: 0.96, a: 1 };
 
 export interface DemoFrameContext {
   device: GPUDevice;

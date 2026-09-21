@@ -188,6 +188,23 @@ describe('toPidScene（真实图纸）', () => {
     }
   });
 
+  it('管线粗细遵守 XML 的 strokeWidth（没写按 draw.io 默认 1px）', () => {
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    const widths = new Map<number, number>();
+    for (const pipe of withValves.scene.pipes.values()) {
+      const data = isDrawioCellData(pipe.data) ? pipe.data : null;
+      const expected = Number(data?.style.strokeWidth ?? 1);
+      assert.equal(pipe.lineWidthPx, expected, `管线 ${pipe.id} 的粗细应等于 XML 的 strokeWidth`);
+      widths.set(expected, (widths.get(expected) ?? 0) + 1);
+    }
+    // 样例图纸里只有 1（5 条）和 2（125 条），其余没写 → 默认 1
+    assert.deepEqual(
+      [...widths.keys()].sort((a, b) => a - b),
+      [1, 2],
+      `粗细只应来自图纸：${JSON.stringify([...widths])}`,
+    );
+  });
+
   it('接在连接点上的管线共用同一个端点（中心出线，接头不断开）', () => {
     const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
     const endpoints = new Map<string, Array<{ x: number; y: number }>>();
@@ -202,11 +219,14 @@ describe('toPidScene（真实图纸）', () => {
         if (!cell.cellId || !cell.point) continue;
         const node = document.byId.get(cell.cellId);
         if (node?.style.shape !== 'waypoint') continue;
-        // 连接点用 centerPerimeter：端口就是单元中心，必须严格对上
-        assert.equal(Number(cell.point.x.toFixed(6)), Number((node.x + node.width / 2).toFixed(6)));
-        assert.equal(
-          Number(cell.point.y.toFixed(6)),
-          Number((node.y + node.height / 2).toFixed(6)),
+        // 连接点用 centerPerimeter：端口就是单元中心；图纸是手画的，允许为对齐管线微调 ≤12
+        const drift = Math.hypot(
+          cell.point.x - (node.x + node.width / 2),
+          cell.point.y - (node.y + node.height / 2),
+        );
+        assert.ok(
+          drift <= 12,
+          `连接点 ${cell.cellId} 的端口只允许微调（实测 ${drift.toFixed(2)}）`,
         );
         const bucket = endpoints.get(cell.cellId) ?? [];
         bucket.push(cell.point);

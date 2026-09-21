@@ -9,10 +9,7 @@
  * 几何：只保留折线顶点；渲染侧按「每段一个单位方块实例」展开
  * （见 `pipe_instances.ts`），业务对象不再持有 CPU 膨胀顶点。
  */
-import {
-  PIPE_LINE_WIDTH_DEFAULT_PX,
-  snapPipeLineWidthPx,
-} from '@/business/pid_schematic/pipe_style';
+import { PIPE_LINE_WIDTH_DEFAULT_PX } from '@/business/pid_schematic/pipe_style';
 import type { Point } from '@/core/geometry/polyline';
 import { FlowGraphic } from '@/core/scene/capability/flow';
 
@@ -46,6 +43,7 @@ export function createFlowPipe<TData = unknown>(
   lineWidthPx = PIPE_LINE_WIDTH_DEFAULT_PX,
 ): FlowPipe<TData> {
   const pipe = new FlowPipe<TData>({ id });
-  pipe.polyline(points, snapPipeLineWidthPx(lineWidthPx));
+  // 粗细以数据为准：不做档位吸附（图纸 XML 里 strokeWidth 是多少就画多少）
+  pipe.polyline(points, lineWidthPx);
   return pipe;
 }

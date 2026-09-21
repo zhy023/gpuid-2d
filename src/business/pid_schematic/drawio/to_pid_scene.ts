@@ -11,10 +11,9 @@ import type { MxDocument, MxNode } from '@/business/pid_schematic/drawio/mx_docu
 import { mxFlag, mxNumber, type MxStyle } from '@/business/pid_schematic/drawio/mx_style';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
-import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
 import { Topology } from '@/business/pid_schematic/topology';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import { orthogonalizePolyline } from '@/core/geometry/polyline';
+import { orthogonalizePolyline, type Point } from '@/core/geometry/polyline';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { AABB } from '@/core/types';
 
@@ -226,68 +225,22 @@ export function toPidScene(
     };
   };
 
-  // 先建图元（边要查两端节点的中心）
+  /** 端口微调上限（世界单位）：绘图员的偏差都在这个量级内，超过就不挪图元、交给正交化的肘点 */
+  const PORT_ALIGN_MAX = 12;
+  /** 单元 → 建出来的图元（微调位置时要一并移动并重建索引） */
+  const placedGraphics = new Map<
+    string,
+    { graphic: SelectableGraphic; kind: 'device' | 'valve' }
+  >();
+  /** 位号草稿：等图元位置定下来（可能微调）再落位 */
+  const labelDrafts: Array<{ cellId: string; text: string; style: MxStyle }> = [];
+
+  // 第一遍：图元（设备 / 阀门 / 连接点）与位号草稿
   for (const node of document.nodes) {
     // 跳过 drawio 的图层与根节点
     if (node.id === '0' || node.id === '1') continue;
     if (node.parentId) cellGroupId.set(node.id, node.parentId);
-
-    if (node.isEdge) {
-      const source = node.sourceId ? document.byId.get(node.sourceId) : undefined;
-      const target = node.targetId ? document.byId.get(node.targetId) : undefined;
-      if (!source || !target) {
-        stats.skipped += 1;
-        continue;
-      }
-      // 走线按 drawio 的出口/入口锚点：缺省 0.5 = 中心；orthogonal 的折点来自 <Array as="points">
-      const exit = anchorOf(
-        source,
-        mxNumber(node.style, 'exitX', 0.5),
-        mxNumber(node.style, 'exitY', 0.5),
-      );
-      const entry = anchorOf(
-        target,
-        mxNumber(node.style, 'entryX', 0.5),
-        mxNumber(node.style, 'entryY', 0.5),
-      );
-      const rawPoints = [exit, ...node.points, entry];
-      if (rawPoints.length < 2) {
-        stats.skipped += 1;
-        continue;
-      }
-      // 管线按惯例横平竖直：近轴的拉正、斜线插肘点（对应 drawio 的 orthogonalEdgeStyle）。
-      // 出口在左右两侧先水平走、在上下两侧先垂直走，与绘图员画线的走向一致。
-      const exitX = mxNumber(node.style, 'exitX', 0.5);
-      const exitY = mxNumber(node.style, 'exitY', 0.5);
-      const points = orthogonalizePolyline(rawPoints, {
-        // 出口在左右两侧（exitX ≠ 0.5）或未指定 → 先水平；只在上下两侧 → 先垂直
-        preferHorizontalFirst: exitX !== 0.5 || exitY === 0.5,
-      });
-      const lineWidthPx = snapPipeLineWidthPx(mxNumber(node.style, 'strokeWidth', 2));
-      const pipe = createFlowPipe(idOf(node.id), points, lineWidthPx);
-      // 图纸管线默认关闭（正式图纸不需要流动条纹），需要动画时由上层再打开
-      pipe.setOpen(false);
-      // 图纸里 dashed=1 的管线画成静态虚线
-      pipe.setDashed(mxFlag(node.style, 'dashed'));
-      // 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色）
-      pipe.fill(parseDrawioColor(node.style.strokeColor));
-      // 原始单元信息跟着图元走（纯属性，不参与绘制）
-      pipe.setData({
-        cellId: node.id,
-        label: node.value.trim(),
-        kind: 'pipe',
-        style: node.style,
-        ...(node.sourceId ? { sourceId: node.sourceId } : {}),
-        ...(node.targetId ? { targetId: node.targetId } : {}),
-      } satisfies DrawioCellData);
-      scene.upsertPipe(pipe);
-      // 方向按边的 source → target 记下来，等所有图元建完再解析成阀门/设备
-      if (node.sourceId && node.targetId) {
-        pendingLinks.push({ pipeId: pipe.id, sourceId: node.sourceId, targetId: node.targetId });
-      }
-      stats.pipes += 1;
-      continue;
-    }
+    if (node.isEdge) continue;
 
     if (node.width <= 0 || node.height <= 0) {
       stats.skipped += 1;
@@ -309,8 +262,7 @@ export function toPidScene(
     const sx = mxFlag(node.style, 'flipH') ? -node.width : node.width;
     const sy = mxFlag(node.style, 'flipV') ? -node.height : node.height;
     const iconUrl = node.style.image;
-    // 阀门节点：内联图标命中「阀门图标」表 → 可选中（selectable 能力）+ 自带开/关状态，
-    // 绘制端按开关状态选用阀门贴图，而不是当成普通设备矩形
+    // 阀门节点：内联图标命中「阀门图标」表 → 可选中（selectable 能力）+ 自带开/关状态
     const valveIcon = iconUrl?.startsWith('data:image') ? matchValveIcon(iconUrl) : null;
     if (valveIcon) {
       const valve = new ValveGraphic({
@@ -332,6 +284,7 @@ export function toPidScene(
       });
       valve.clearDirty();
       scene.upsertValve(valve);
+      placedGraphics.set(node.id, { graphic: valve, kind: 'valve' });
       if (node.parentId) groupValveId.set(node.parentId, valve.id);
       stats.valves += 1;
       // 画什么完全看图纸：阀门节点用它自己的内联图标（开/关态也由图纸这张图决定）
@@ -356,6 +309,7 @@ export function toPidScene(
       });
       device.clearDirty();
       scene.upsertDevice(device);
+      placedGraphics.set(node.id, { graphic: device, kind: 'device' });
       stats.devices += 1;
 
       // 图标：drawio 的图片单元把 base64 放在 style.image 里，绘制端按它贴图
@@ -365,15 +319,144 @@ export function toPidScene(
       }
     }
 
-    // 文字：value 非空即视为位号（绘制端再决定字号与是否显示）
     const text = node.value.trim();
-    if (text) {
-      const color = parseDrawioColor(node.style.fontColor) ?? DEFAULT_COLOR;
-      const fontSizePx = Math.max(10, Math.round(mxNumber(node.style, 'fontSize', 12)));
-      // 存图元中心（drawio 默认把文字居中在图元里），绘制端据此居中排版
-      labels.push({ text, x: center.x, y: center.y, color, fontSizePx });
-      stats.labels += 1;
+    if (text) labelDrafts.push({ cellId: node.id, text, style: node.style });
+  }
+
+  // 第二遍：先按图纸算出每条边的端口，收一下「把相连单元微调一点就能对齐」的诉求
+  const cellShifts = new Map<string, { dx: number; dy: number }>();
+  /** 同一个单元可能连多条边：把各条边的诉求收集起来，最后取中位数（避免只顾第一条边） */
+  const cellDemands = new Map<string, { dx: number[]; dy: number[] }>();
+  const portOf = (node: MxNode, fx: number, fy: number) => {
+    const shift = cellShifts.get(node.id);
+    const anchor = anchorOf(node, fx, fy);
+    return { x: anchor.x + (shift?.dx ?? 0), y: anchor.y + (shift?.dy ?? 0) };
+  };
+  // 端口应当落在与相邻点同一条正交轴上：差得不多就把单元整体挪过去（图纸是手画的，允许微调图元），
+  // 差得多则不动图元，交给随后的正交化插肘点。一个单元连多条边时取平均诉求，
+  // 迭代几轮（每轮都用「已经挪过的位置」重新算），让整张网逐步拉平。
+  const average = (values: readonly number[]): number =>
+    values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
+  const runAlignRound = (): void => {
+    cellDemands.clear();
+    for (const node of document.nodes) {
+      if (!node.isEdge) continue;
+      const source = node.sourceId ? document.byId.get(node.sourceId) : undefined;
+      const target = node.targetId ? document.byId.get(node.targetId) : undefined;
+      if (!source || !target) continue;
+
+      const exitX = mxNumber(node.style, 'exitX', 0.5);
+      const exitY = mxNumber(node.style, 'exitY', 0.5);
+      const entryX = mxNumber(node.style, 'entryX', 0.5);
+      const entryY = mxNumber(node.style, 'entryY', 0.5);
+      const requestShift = (cell: MxNode, port: Point, neighbor: Point, weight: number): void => {
+        const dx = neighbor.x - port.x;
+        const dy = neighbor.y - port.y;
+        const horizontal = Math.abs(dx) >= Math.abs(dy);
+        const shift = horizontal ? dy : dx;
+        if (Math.abs(shift) > PORT_ALIGN_MAX) return;
+        const demand = cellDemands.get(cell.id) ?? { dx: [], dy: [] };
+        (horizontal ? demand.dy : demand.dx).push(shift * weight);
+        cellDemands.set(cell.id, demand);
+      };
+      const hasWaypoints = node.points.length > 0;
+      if (hasWaypoints) {
+        // 有折点：折点是固定的，端口整段对齐过去
+        requestShift(source, portOf(source, exitX, exitY), node.points[0], 1);
+        requestShift(
+          target,
+          portOf(target, entryX, entryY),
+          node.points[node.points.length - 1],
+          1,
+        );
+      } else {
+        // 两点直连：两端都是节点，各走一半，向中间那条正交线靠
+        requestShift(source, portOf(source, exitX, exitY), portOf(target, entryX, entryY), 0.5);
+        requestShift(target, portOf(target, entryX, entryY), portOf(source, exitX, exitY), 0.5);
+      }
     }
+    for (const [cellId, demand] of cellDemands) {
+      const previous = cellShifts.get(cellId) ?? { dx: 0, dy: 0 };
+      const dx = previous.dx + average(demand.dx);
+      const dy = previous.dy + average(demand.dy);
+      // 微调幅度封顶：图纸手画的偏差不大，但别让某个单元被拉太远
+      const clamp = (value: number) => Math.max(-PORT_ALIGN_MAX, Math.min(PORT_ALIGN_MAX, value));
+      cellShifts.set(cellId, { dx: clamp(dx), dy: clamp(dy) });
+    }
+  };
+  for (let round = 0; round < 4; round += 1) runAlignRound();
+
+  // 落位：微调单元（图元整体平移一点，重建空间索引），位号跟着单元中心走
+  for (const [cellId, shift] of cellShifts) {
+    const placed = placedGraphics.get(cellId);
+    if (!placed) continue;
+    placed.graphic.moveBy(shift.dx, shift.dy);
+    if (placed.kind === 'valve') scene.upsertValve(placed.graphic as ValveGraphic);
+    else scene.upsertDevice(placed.graphic);
+  }
+  for (const draft of labelDrafts) {
+    const node = document.byId.get(draft.cellId);
+    if (!node) continue;
+    const shift = cellShifts.get(draft.cellId);
+    const center = centerOf(node);
+    labels.push({
+      text: draft.text,
+      x: center.x + (shift?.dx ?? 0),
+      y: center.y + (shift?.dy ?? 0),
+      color: parseDrawioColor(draft.style.fontColor) ?? DEFAULT_COLOR,
+      fontSizePx: Math.max(10, Math.round(mxNumber(draft.style, 'fontSize', 12))),
+    });
+    stats.labels += 1;
+  }
+
+  // 第三遍：建管线（端口用微调后的位置，再按惯例横平竖直）
+  for (const node of document.nodes) {
+    if (!node.isEdge) continue;
+    const source = node.sourceId ? document.byId.get(node.sourceId) : undefined;
+    const target = node.targetId ? document.byId.get(node.targetId) : undefined;
+    if (!source || !target) {
+      stats.skipped += 1;
+      continue;
+    }
+    const rawPoints = [
+      portOf(source, mxNumber(node.style, 'exitX', 0.5), mxNumber(node.style, 'exitY', 0.5)),
+      ...node.points,
+      portOf(target, mxNumber(node.style, 'entryX', 0.5), mxNumber(node.style, 'entryY', 0.5)),
+    ];
+    if (rawPoints.length < 2) {
+      stats.skipped += 1;
+      continue;
+    }
+    // 管线按惯例横平竖直：近轴的拉正、斜线插肘点（对应 drawio 的 orthogonalEdgeStyle）。
+    // 出口在左右两侧先水平走、在上下两侧先垂直走，与绘图员画线的走向一致。
+    const exitX = mxNumber(node.style, 'exitX', 0.5);
+    const exitY = mxNumber(node.style, 'exitY', 0.5);
+    const points = orthogonalizePolyline(rawPoints, {
+      preferHorizontalFirst: exitX !== 0.5 || exitY === 0.5,
+    });
+    // 管线粗细遵守图纸：XML 里 strokeWidth 是多少就画多少；没写按 draw.io 默认的 1px
+    const lineWidthPx = mxNumber(node.style, 'strokeWidth', 1);
+    const pipe = createFlowPipe(idOf(node.id), points, lineWidthPx);
+    // 图纸管线默认关闭（正式图纸不需要流动条纹），需要动画时由上层再打开
+    pipe.setOpen(false);
+    // 图纸里 dashed=1 的管线画成静态虚线
+    pipe.setDashed(mxFlag(node.style, 'dashed'));
+    // 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色）
+    pipe.fill(parseDrawioColor(node.style.strokeColor));
+    // 原始单元信息跟着图元走（纯属性，不参与绘制）
+    pipe.setData({
+      cellId: node.id,
+      label: node.value.trim(),
+      kind: 'pipe',
+      style: node.style,
+      ...(node.sourceId ? { sourceId: node.sourceId } : {}),
+      ...(node.targetId ? { targetId: node.targetId } : {}),
+    } satisfies DrawioCellData);
+    scene.upsertPipe(pipe);
+    if (node.sourceId && node.targetId) {
+      pendingLinks.push({ pipeId: pipe.id, sourceId: node.sourceId, targetId: node.targetId });
+    }
+    stats.pipes += 1;
   }
 
   // 边建完后再解析端点：端点单元在阀门组里就挂到那个阀门上，否则用它自己的图元 id。

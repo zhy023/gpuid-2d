@@ -3,7 +3,8 @@
  *
  * 世界宽度 = 像素宽度 / 相机 pixelsPerWorldUnit（正交相机下 1 世界单位 = scale 像素），
  * 提交绘制时用 pipeLineWidthToWorld 现算，因此放大缩小后屏幕粗细恒定。
- * 粗细按档位取值：最小 2px，步长 2px，即 2 / 4 / 6 / 8 / 10。
+ * 粗细本身以数据为准（图纸 XML 里 strokeWidth 是多少就画多少，最小只保证 1px），
+ * 下面的档位只用于示例/压测数据生成，不作用于图纸。
  */
 export const PIPE_LINE_WIDTH_MIN_PX = 2;
 export const PIPE_LINE_WIDTH_MAX_PX = 10;
@@ -19,25 +20,10 @@ export const PIPE_LINE_WIDTH_STEPS: readonly number[] = Array.from(
   (_, index) => PIPE_LINE_WIDTH_MIN_PX + index * PIPE_LINE_WIDTH_STEP_PX,
 );
 
-/**
- * 把任意粗细规整到档位：先夹到 2~10px，再按 2px 步长取最近档，
- * 非法值（NaN / Infinity）回落到最小档
- */
-export function snapPipeLineWidthPx(lineWidthPx: number): number {
-  if (!Number.isFinite(lineWidthPx)) return PIPE_LINE_WIDTH_DEFAULT_PX;
-
-  const clamped = Math.min(PIPE_LINE_WIDTH_MAX_PX, Math.max(PIPE_LINE_WIDTH_MIN_PX, lineWidthPx));
-  const stepped =
-    Math.round((clamped - PIPE_LINE_WIDTH_MIN_PX) / PIPE_LINE_WIDTH_STEP_PX) *
-      PIPE_LINE_WIDTH_STEP_PX +
-    PIPE_LINE_WIDTH_MIN_PX;
-
-  return Math.min(PIPE_LINE_WIDTH_MAX_PX, Math.max(PIPE_LINE_WIDTH_MIN_PX, stepped));
-}
-
-/** 像素宽度 → 世界宽度 */
+/** 像素宽度 → 世界宽度（原样换算，不做档位吸附：粗细以数据为准） */
 export function pipeLineWidthToWorld(lineWidthPx: number, pixelsPerWorldUnit: number): number {
-  return snapPipeLineWidthPx(lineWidthPx) / Math.max(pixelsPerWorldUnit, 1e-6);
+  const width = Number.isFinite(lineWidthPx) ? lineWidthPx : PIPE_LINE_WIDTH_DEFAULT_PX;
+  return Math.max(width, 1) / Math.max(pixelsPerWorldUnit, 1e-6);
 }
 
 /**
