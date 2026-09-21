@@ -1,13 +1,13 @@
-/* Core 通用图元渲染着色器 */
+/**
+* Core 通用图元渲染着色器
+* 核心侧纹理能力：默认绑定 1×1 白纹理，color * texel 不改变未贴图图元的外观；
+* 换成真实纹理即成实例化精灵（每实例取哪块见 InstanceTransform.atlasUvRect）
+*/
 
 #include "@/core/shader/core_include/instance_transform.wgsl"
 #include "@/core/shader/core_include/vertex_math.wgsl"
 #include "@/core/shader/core_include/primitive_uniforms.wgsl"
 
-    /**
- * 核心侧纹理能力：默认绑定 1×1 白纹理，color * texel 不改变未贴图图元的外观；
- * 换成真实纹理即成实例化精灵（每实例取哪块见 InstanceTransform.atlasUvRect）
-     */
 @group(0) @binding(3) var atlasTexture: texture_2d<f32>;
 @group(0) @binding(4) var atlasSampler: sampler;
 
@@ -52,9 +52,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let shapeMask = unitInstanceMask(input.localUv, input.shape, input.borderWidthPx);
 
     /*
- * 遮罩为 0（模板三角形多出的半边）或没指定颜色的实例直接早退，省掉一次纹理采样；
- * 返回 (0,0,0,0) 与把 alpha 算成 0 等价：标准 alpha 混合下颜色乘 src-alpha，alpha 通道不乘
-     */
+    * 遮罩为 0（模板三角形多出的半边）或没指定颜色的实例直接早退，省掉一次纹理采样；
+    * 返回 (0,0,0,0) 与把 alpha 算成 0 等价：标准 alpha 混合下颜色乘 src-alpha，alpha 通道不乘
+    */
     if (shapeMask <= 0.0 || input.instanceColor.a <= 0.5) {
         return vec4f(0.0, 0.0, 0.0, 0.0);
     }
@@ -66,9 +66,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let texel = textureSampleLevel(atlasTexture, atlasSampler, uv, 0.0);
 
     /**
- * 逐实例颜色是唯一的颜色来源：alpha > 0.5 才算「指定了颜色」（上面已判过，这里直接上色）；
- * 拾取着色器用同一条判据，所以看不见的图元也点不中
-     */
+    * 逐实例颜色是唯一的颜色来源：alpha > 0.5 才算「指定了颜色」（上面已判过，这里直接上色）；
+    * 拾取着色器用同一条判据，所以看不见的图元也点不中
+    */
     var rgb = input.instanceColor.rgb;
  
     if (input.isInstanceSelected > 0.5) {

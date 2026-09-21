@@ -295,7 +295,7 @@ export class Renderer2D {
       layout: pipelineLayout,
       vertex: {
         module: shaderModule,
-        entryPoint: 'vertexMain', // ✅对齐wgsl入口函数名
+        entryPoint: 'vertexMain',
         buffers: [
           {
             arrayStride: 8,
@@ -305,7 +305,7 @@ export class Renderer2D {
       },
       fragment: {
         module: shaderModule,
-        entryPoint: 'fragmentMain', // ✅对齐wgsl入口函数名
+        entryPoint: 'fragmentMain',
         targets: [{ format: this.format, blend: ALPHA_BLEND_STATE }],
       },
       primitive: { topology: 'triangle-list' },

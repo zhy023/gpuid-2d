@@ -137,11 +137,9 @@ export class Camera2d {
       const mouseScreenX = e.clientX;
       const mouseScreenY = e.clientY;
       const worldBefore = this.screenToWorld(mouseScreenX, mouseScreenY);
-
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      let newScale = this.scale * zoomFactor;
-      newScale = Math.max(this.minScale, Math.min(this.maxScale, newScale));
-      this.scale = newScale;
+      const newScale = this.scale * zoomFactor;
+      this.scale = Math.max(this.minScale, Math.min(this.maxScale, newScale));
 
       const worldAfter = this.screenToWorld(mouseScreenX, mouseScreenY);
       this.centerX += worldBefore.x - worldAfter.x;

@@ -69,10 +69,13 @@ export async function createRendererPicker(
 ): Promise<WebGpuPicker> {
   const picker = new WebGpuPicker(device);
   await picker.init(width, height);
+
   picker.setPipelineLayout(
     device.createPipelineLayout({ bindGroupLayouts: [source.bindGroupLayout] }),
   );
+
   picker.createPipeline(source.getVertexLayout());
+
   return picker;
 }
 
@@ -269,13 +272,16 @@ export class WebGpuPicker {
       this.device.queue.submit([encoder.finish()]);
 
       await this.pickReadBuffer.mapAsync(GPUMapMode.READ);
+
       const res = new Uint32Array(this.pickReadBuffer.getMappedRange());
       const idFromTexture = res[0];
+
       this.pickReadBuffer.unmap();
 
       if (idFromTexture === 0) {
         return null;
       }
+
       return idFromTexture - 1;
     } finally {
       this._isPicking = false;

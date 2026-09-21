@@ -1,7 +1,7 @@
 /*
- * core/shader/core_include/vertex_math.wgsl
- * Core 内核：2D矩阵工具函数，纯数学，无业务
- */
+* core/shader/core_include/vertex_math.wgsl
+* Core 内核：2D矩阵工具函数，纯数学，无业务
+*/
 
 #include "./instance_transform.wgsl"
 
@@ -40,7 +40,7 @@ fn computeInstanceModelMatrix(inst: InstanceTransform) -> mat3x3f {
 }
 
 /**
- * 内核的顶点模板是「覆盖单位方形的三角形」（见 core/geometry/geometry.ts），
+ * 内核的顶点模板是三角形（见 core/geometry/geometry.ts），
  * 图形本身仍是单位方形 [-0.5, 0.5]：这里给出方形内的覆盖度（0~1）。
  * 按屏幕空间一像素做抗锯齿，所以方形边缘不会出现硬锯齿。
  */
