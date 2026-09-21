@@ -10,37 +10,17 @@
  * 就是运行期真正送进 createShaderModule 的代码。
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { findChrome, withSandboxFlags } from './find_chrome.mjs';
 import { resolveWgslIncludes } from './wgsl_include.mjs';
 
 const TARGET_DIR = 'src';
 const SHADER_SUFFIX = '.wgsl';
 const TIMEOUT_MS = 90_000;
-
-const CHROME_CANDIDATES = [
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-  '/Applications/Chromium.app/Contents/MacOS/Chromium',
-  '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-  '/usr/bin/google-chrome',
-  '/usr/bin/chromium',
-  '/usr/bin/chromium-browser',
-  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-];
-
-/** 找到可用的 Chrome，找不到返回 null。 */
-function findChrome() {
-  const fromEnv = process.env.WGSL_CHECK_CHROME;
-  if (fromEnv) {
-    return existsSync(fromEnv) ? fromEnv : null;
-  }
-  return CHROME_CANDIDATES.find((candidate) => existsSync(candidate)) ?? null;
-}
 
 /**
  * 收集 src 下所有 .wgsl 文件，并展开各自的 `#include`（支持 `@/` 别名）。
@@ -180,7 +160,7 @@ async function compileShaders(chromePath, shaders) {
     server.listen(0, '127.0.0.1', () => {
       pageUrl.port = String(server.address().port);
 
-      const args = [
+      const args = withSandboxFlags([
         '--headless=new',
         '--no-first-run',
         '--no-default-browser-check',
@@ -188,11 +168,7 @@ async function compileShaders(chromePath, shaders) {
         '--enable-unsafe-webgpu',
         `--user-data-dir=${userDataDir}`,
         pageUrl.href,
-      ];
-      // 以 root 运行时（常见于容器 / CI）需要额外放开沙箱
-      if (process.getuid?.() === 0) {
-        args.unshift('--no-sandbox');
-      }
+      ]);
 
       chrome = spawn(chromePath, args, { detached: true, stdio: ['ignore', 'ignore', 'pipe'] });
       chrome.stderr.on('data', (chunk) => {
@@ -235,7 +211,7 @@ const chromePath = findChrome();
 
 if (!chromePath) {
   console.error('未找到 Chrome / Chromium，无法校验 WGSL。');
-  console.error('  · 用 WGSL_CHECK_CHROME=/path/to/chrome 指定浏览器');
+  console.error('  · 用 CHROME_PATH=/path/to/chrome 指定浏览器');
   console.error('  · 或设置 WGSL_CHECK_SKIP=1 临时跳过');
   process.exit(1);
 }

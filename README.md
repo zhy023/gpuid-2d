@@ -146,6 +146,10 @@ src/
 | `pnpm format:check`  | Prettier 校验                                                     |
 | `pnpm check`         | 完整检查                                                          |
 
+需要浏览器实跑的两项（`pnpm lint:wgsl`、`pnpm check:device`）会在 macOS / Linux / Windows 的常见
+路径里自动探测 Chrome / Chromium（逻辑在 `scripts/find_chrome.mjs`）：可用
+`CHROME_PATH=/path/to/chrome` 指定，找不到时也可用 `WGSL_CHECK_SKIP=1` / `DEVICE_CHECK_SKIP=1` 临时跳过。
+
 ## 代码约定
 
 ### 路径别名

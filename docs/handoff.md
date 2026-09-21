@@ -74,3 +74,6 @@
   对应 `.wgsl` 的孤儿文件
 - include 关系只存在于字符串层面，打包器看不见着色器之间的依赖，所以 dev 只能整页刷新，
   不要指望细粒度 HMR
+- 需要浏览器的检查（`lint:wgsl`、`check:device`）统一走 `scripts/find_chrome.mjs` 探测，
+  **别在脚本里写死 Chrome 路径**（CI 是 ubuntu，浏览器在 `/usr/bin/google-chrome`）；
+  可用 `CHROME_PATH` 覆盖，`WGSL_CHECK_SKIP=1` / `DEVICE_CHECK_SKIP=1` 临时跳过
