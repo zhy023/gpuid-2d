@@ -86,10 +86,10 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
 
       const toggled = toggleValve(valveScene, hitValve.id);
       if (!toggled) return;
+      // 图元自带的用户数据（图纸单元信息等）：有就一并打出来
+      const detail = hitValve.data ? `，数据：${JSON.stringify(hitValve.data)}` : '';
       console.log(
-        `阀门 ${toggled.id}：${toggled.open ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'}`,
-        // 图元自带的用户数据（图纸单元信息等），选中/操作后查看详情用
-        hitValve.data ?? '',
+        `阀门 ${toggled.id}：${toggled.open ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'}${detail}`,
       );
       return;
     }

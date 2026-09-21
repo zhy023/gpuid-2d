@@ -6,7 +6,8 @@
  * 因此 tick() 不再全量扫描 5 万条图元找 dirty。
  */
 import { PidScene } from '@/business/pid_schematic/pid_scene';
-import { Graphic, toInstances } from '@/core/scene/graphic';
+import { DataGraphic } from '@/core/scene/data_graphic';
+import { toInstances } from '@/core/scene/graphic';
 import type { AABB, PrimitiveInstance } from '@/core/types';
 
 /**
@@ -16,7 +17,7 @@ import type { AABB, PrimitiveInstance } from '@/core/types';
 const STRESS_DEVICE_FILL = [0.3, 0.3, 0.3, 1] as const;
 
 export class DeviceStressTester {
-  public readonly itemMap = new Map<number, Graphic>();
+  public readonly itemMap = new Map<number, DataGraphic>();
   public readonly scene: PidScene;
   public worldBounds: AABB;
   public moveRatio: number;
@@ -50,7 +51,7 @@ export class DeviceStressTester {
       const sy = 20 + Math.random() * 80;
       const beta = Math.random() * Math.PI * 2;
 
-      const item = new Graphic({
+      const item = new DataGraphic({
         id: i,
         x: tx,
         y: ty,
@@ -75,7 +76,7 @@ export class DeviceStressTester {
   }
 
   /** 把可见设备图元转成 Renderer2D 需要的 PrimitiveInstance[] */
-  buildInstanceList(visibleItems: Graphic[]): PrimitiveInstance[] {
+  buildInstanceList(visibleItems: DataGraphic[]): PrimitiveInstance[] {
     return toInstances(visibleItems);
   }
 

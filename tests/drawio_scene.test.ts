@@ -50,13 +50,15 @@ describe('toPidScene（真实图纸）', () => {
     assert.equal(typeof cellData.style, 'object');
 
     const pipe = [...result.scene.pipes.values()][0];
-    assert.ok(pipe && isDrawioCellData(pipe.data), '管线上应挂着图纸单元信息');
-    assert.equal(pipe.data.kind, 'pipe');
+    assert.ok(pipe, '应当有管线');
+    const pipeData = pipe.data;
+    assert.ok(isDrawioCellData(pipeData), '管线上应挂着图纸单元信息');
+    assert.equal(pipeData.kind, 'pipe');
 
     // 纯属性：不影响打包出来的实例，也不触发重绘
     pipe.clearDirty();
     const before = pipe.toInstance();
-    pipe.setData({ ...pipe.data, label: '改名了' });
+    pipe.setData({ ...pipeData, label: '改名了' });
     assert.equal(pipe.dirty, false, '换数据不该置 dirty');
     assert.deepEqual(pipe.toInstance(), before, '数据不进实例');
   });

@@ -47,7 +47,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
 - 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容）、`layoutText`（字素簇排版、逐实例颜色、可选底板与描边 halo）、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB 与折线包围盒、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）
-- 图形基类：只有 `Graphic` 一层（用法参考 PixiJS 的 `Graphics`）——位置/大小/旋转 + 可见/选中/变更标记 + 外观（`fill` / `stroke`）+ 状态（开关、hover）+ 动画 + 用户自定义数据 `data`（内核不解释、不参与绘制，选中图元后查看信息用）；形状靠绘制命令表达（`rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`），方形与圆形/椭圆/三角形都按实例的 shape 通道在着色器里裁出来；实现 `QuadTreeItem`，可直接进四叉树。业务层的阀门（`ValveGraphic`）与流动管线（`FlowPipe`）都是它的实现类
+- 图形与图元：绘制层是 `Graphic` 一层（用法参考 PixiJS 的 `Graphics`）——位置/大小/旋转 + 可见/选中/变更标记 + 外观（`fill` / `stroke`）+ 状态（开关、hover）+ 动画；形状靠绘制命令表达（`rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`），方形与圆形/椭圆/三角形都按实例的 shape 通道在着色器里裁出来；实现 `QuadTreeItem`，可直接进四叉树。图元层是 `DataGraphic`（继承 `Graphic`）——目前只多带一份用户自定义数据 `data`（内核不解释、不参与绘制，选中图元后查看信息用）。业务层的阀门（`ValveGraphic`）与流动管线（`FlowPipe`）都长在 `DataGraphic` 上
 - 内置图元模板是**一个三角形**（`triangle-list`，3 顶点）而不是方形：局部空间仍是单位方形 `[-0.5, 0.5]`，模板三角形覆盖它、多出的部分由 `unitSquareMask` 按屏幕像素抗锯齿裁掉；正方形/长方形/圆形最终都由三角形拼出来，符合图形学最小图元的口径
 - 着色器工程：自研 `#include`（`@/` 别名）+ 生成期展开成字符串模块（`pnpm shaders`）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
 

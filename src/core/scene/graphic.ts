@@ -17,8 +17,8 @@
  * 约定：
  *  - 位置 = 中心点，大小 = 包围盒宽高，旋转 = 弧度（与实例化渲染契约同一套口径）
  *  - 实现 `QuadTreeItem`：图形可以直接进 `QuadTreeStore`，剔除/拾取不需要适配层
- *  - `data` 是使用方自带的自定义数据（内核不解释），选中图元后查看详情用
  *  - 几何或状态一变就 `dirty = true` 并让包围盒缓存失效
+ *  - 这一层只管「怎么画」；要携带用户数据的图元用 `@/core/scene/data_graphic` 的 `DataGraphic`
  */
 import { computeRotatedAABB } from '@/core/geometry/aabb';
 import { calcPolylineBounds, type Point } from '@/core/geometry/polyline';
@@ -41,14 +41,9 @@ export const GRAPHIC_SHAPE_RECT = 0;
 export const GRAPHIC_SHAPE_CIRCLE = 1;
 export const GRAPHIC_SHAPE_TRIANGLE = 2;
 
-export interface GraphicOptions<TData = unknown> {
+export interface GraphicOptions {
   /** 场景内唯一 id（四叉树、拾取、实例数据都按它索引） */
   id: number;
-  /**
-   * 用户自定义数据：内核不解释、不参与绘制与拾取，选中图元后查看详情用。
-   * 接口由使用方自己定义，泛型给不上时按 `unknown` 收窄。
-   */
-  data?: TData | null;
   /** 位置：世界坐标中心点，默认 (0, 0) */
   x?: number;
   y?: number;
@@ -79,14 +74,8 @@ export interface GraphicOptions<TData = unknown> {
 /** 尺寸口径：世界单位（随缩放变大变小）或屏幕像素（视觉尺寸恒定） */
 export type GraphicSizeUnit = 'world' | 'screen';
 
-export class Graphic<TData = unknown> implements QuadItem {
+export class Graphic implements QuadItem {
   readonly id: number;
-
-  /**
-   * 用户自定义数据：来源是使用方（图纸单元、后端图元记录…），内核只负责原样携带。
-   * 改它不影响渲染（不置 dirty），选中图元后按需自行收窄类型。
-   */
-  data: TData | null;
 
   /** 位置：世界坐标中心点 */
   x: number;
@@ -132,9 +121,8 @@ export class Graphic<TData = unknown> implements QuadItem {
   /** 世界包围盒缓存（四叉树插入/剔除会频繁读它，避免每次重算） */
   private aabbCache: AABB | null = null;
 
-  constructor(options: GraphicOptions<TData>) {
+  constructor(options: GraphicOptions) {
     this.id = options.id;
-    this.data = options.data ?? null;
     this.x = options.x ?? 0;
     this.y = options.y ?? 0;
     this.width = options.width ?? 0;
@@ -292,12 +280,6 @@ export class Graphic<TData = unknown> implements QuadItem {
   }
 
   // 位置 / 大小 / 基本属性
-
-  /** 挂上/替换用户自定义数据（纯数据变更，不触发重绘） */
-  setData(data: TData | null): this {
-    this.data = data;
-    return this;
-  }
 
   /** 移动到世界坐标中心点 */
   setPosition(x: number, y: number): this {

@@ -13,6 +13,7 @@ import {
   Graphic,
   toInstances,
 } from '@/core/scene/graphic';
+import { DataGraphic } from '@/core/scene/data_graphic';
 import { QuadTreeStore } from '@/core/scene/quad_tree_store';
 import { packInstances } from '@/core/gpu/renderer';
 import type { AABB } from '@/core/types';
@@ -141,7 +142,7 @@ describe('Graphic（图形基类）', () => {
   });
 
   it('自定义数据：默认 null，可挂可换，且不参与绘制', () => {
-    const g = new Graphic<{ tag: string }>({ id: 1, width: 20, height: 10 });
+    const g = new DataGraphic<{ tag: string }>({ id: 1, width: 20, height: 10 });
     assert.equal(g.data, null, '默认没有用户数据');
     assert.equal(g.toInstance().sx, 20, '没数据也照常打包');
 
@@ -151,8 +152,11 @@ describe('Graphic（图形基类）', () => {
     assert.equal(g.dirty, false, '数据变更不触发重绘');
     assert.deepEqual(g.toInstance().colorA, 0, '数据不进实例通道');
 
-    const withData = new Graphic({ id: 2, data: { tag: 'x' } });
+    const withData = new DataGraphic({ id: 2, data: { tag: 'x' } });
     assert.deepEqual(withData.data, { tag: 'x' }, '也可以从构造参数带上');
+
+    // 绘制层不带数据：Graphic 上没有 data/setData
+    assert.equal('data' in new Graphic({ id: 3 }), false, 'Graphic 只管怎么画');
   });
 
   it('外观：填充与描边', () => {

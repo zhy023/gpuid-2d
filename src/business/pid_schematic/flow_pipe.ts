@@ -14,12 +14,12 @@ import {
   snapPipeLineWidthPx,
 } from '@/business/pid_schematic/pipe_style';
 import type { Point } from '@/core/geometry/polyline';
-import { Graphic } from '@/core/scene/graphic';
+import { DataGraphic } from '@/core/scene/data_graphic';
 
 /** 静止虚线的速度约定值（着色器按符号判定三态） */
 export const PIPE_DASHED_FLOW_SPEED = -1;
 
-export class FlowPipe extends Graphic {
+export class FlowPipe<TData = unknown> extends DataGraphic<TData> {
   /** 是否画成虚线（图纸里的 dashed） */
   dashed = false;
 
@@ -39,12 +39,12 @@ export class FlowPipe extends Graphic {
 }
 
 /** 创建管线（示例与测试用的便捷工厂：id + 折线 + 像素粗细） */
-export function createFlowPipe(
+export function createFlowPipe<TData = unknown>(
   id: number,
   points: readonly Point[],
   lineWidthPx = PIPE_LINE_WIDTH_DEFAULT_PX,
-): FlowPipe {
-  const pipe = new FlowPipe({ id });
+): FlowPipe<TData> {
+  const pipe = new FlowPipe<TData>({ id });
   pipe.polyline(points, snapPipeLineWidthPx(lineWidthPx));
   return pipe;
 }
