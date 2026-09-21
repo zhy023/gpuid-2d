@@ -34,7 +34,8 @@
 
 - 管线：分段实例化（拐点补方块、流动相位连续）、像素宽度档位 2–10、逐实例 `strokeColor`、
   `flowSpeed` 三态（`>0` 流动 / `<0` 静止虚线 / `=0` 实心）
-- 阀门（`ValveGraphic`，图形基类的业务实现）：开关两态贴图精灵、拾取器托管
+- 阀门（`ValveGraphic`，图形基类的业务实现）：开关两态贴图精灵；拾取直接用内核拾取着色器
+  与内核图元模板，业务只提供自己的 bindGroup（不再有独立拾取着色器）
 - 流动管线（`FlowPipe`，图形基类的业务实现）：静止虚线 + 流速三态；设备矩形直接用内核的 `Graphic`
 - 拓扑：`applyValveFlowState` 下游广播
 - 场景：`PidScene` 统一增删改与可见集
@@ -56,7 +57,7 @@
   的 `export default '…'` 字符串模块，与 `.wgsl` 分开存放、随源码提交
 - TS 侧只 import 生成物（`@/core/shader/generated/core_render/primitive_render`），**不要再用 `?raw`**
 - `pnpm shaders:check` 已接进 `pnpm check`；dev 下改 `.wgsl`（含被 include 的片段）自动重新生成并整页刷新
-- `pnpm lint:wgsl` 用真实 Tint 校验 `src` 下全部 9 个着色器（展开后的代码）
+- `pnpm lint:wgsl` 用真实 Tint 校验 `src` 下全部 7 个着色器（展开后的代码）
 
 ## 下一步
 

@@ -2,9 +2,9 @@
  * 设备图元（阀门符号）的 GPU 资源：
  * binding0 正交投影 UBO / binding1 InstanceTransform / binding2 P&ID 业务数据
  *
- * 主渲染与拾取两条 pipeline 共用同一套绑定，因此一份 bindGroup 可以同时用于两者。
+ * 这里只建主渲染 pipeline；拾取走内核的通用拾取着色器（`WebGpuPicker`），
+ * 业务只提供这套绑定（实例变换 + 阀门业务数据），因此一份 bindGroup 两边共用。
  */
-import valvePickWgsl from '@/business/pid_schematic/shader/generated/valve_pick';
 import valveWgsl from '@/business/pid_schematic/shader/generated/valve_render';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { ALPHA_BLEND_STATE, CANVAS_SAMPLE_COUNT } from '@/core/gpu/render_state';
@@ -13,7 +13,7 @@ import { ALPHA_BLEND_STATE, CANVAS_SAMPLE_COUNT } from '@/core/gpu/render_state'
 const UNIFORM_BUFFER_SIZE = 256;
 
 /**
- * 创建设备图元 pipeline + pickPipeline
+ * 创建设备图元渲染 pipeline
  * @param device GPUDevice
  * @param canvasFormat 画布纹理格式
  * @param vertexBufferLayout 符号模板顶点布局（与内核图元模板一致）
@@ -30,7 +30,6 @@ export async function createValveRenderResources(
   });
 
   const shaderModule = device.createShaderModule({ code: valveWgsl });
-  const pickShaderModule = device.createShaderModule({ code: valvePickWgsl });
 
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
@@ -73,28 +72,7 @@ export async function createValveRenderResources(
     multisample: { count: CANVAS_SAMPLE_COUNT },
   });
 
-  // 拾取 pipeline：阀门拾取着色器用 vertex_index 自己生成 quad，无外部顶点输入
-  const pickPipeline = await device.createRenderPipelineAsync({
-    layout: pipelineLayout,
-    vertex: {
-      module: pickShaderModule,
-      entryPoint: 'vertexMain',
-      buffers: [],
-    },
-    fragment: {
-      module: pickShaderModule,
-      entryPoint: 'fragmentMain',
-      targets: [{ format: 'rgba32uint' }],
-    },
-    primitive: { topology: 'triangle-list' },
-    depthStencil: {
-      depthWriteEnabled: true,
-      depthCompare: 'less',
-      format: 'depth24plus',
-    },
-  });
-
-  return { pipeline, pickPipeline, uniformBuffer, bindGroupLayout };
+  return { pipeline, uniformBuffer, bindGroupLayout };
 }
 
 /**
@@ -143,16 +121,4 @@ export function drawValveInstanced(
   pass.setBindGroup(0, bindGroup);
   pass.setVertexBuffer(0, vertexBuffer);
   pass.draw(vertexCount, instanceCount);
-}
-
-/** 拾取绘制：着色器内部 6 个顶点组成 quad */
-export function drawValvePickInstanced(
-  pass: GPURenderPassEncoder,
-  valveRes: ValveRenderResources,
-  bindGroup: GPUBindGroup,
-  instanceCount: number,
-): void {
-  pass.setPipeline(valveRes.pickPipeline);
-  pass.setBindGroup(0, bindGroup);
-  pass.draw(3, instanceCount);
 }

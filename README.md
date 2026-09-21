@@ -54,7 +54,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 **业务（business/pid_schematic）**
 
 - 管线：按「每段一个实例」批量绘制（段中点/方向角/段长现算、拐点补方块、流动相位连续）、屏幕像素粗细档位（2~10px、步长 2px、不随缩放变化）、「流动 / 默认」两种样式由 `flowSpeed` 驱动
-- 阀门：开关两态贴图精灵、拾取器由业务模块托管、点击切换开闭
+- 阀门：开关两态贴图精灵、拾取复用内核拾取着色器（业务只提供 bindGroup）、点击切换开闭
 - 拓扑：`applyValveFlowState` 把阀门状态广播到下游管线（含环路保护）
 - 场景：`PidScene` 统一增删改（`upsertDevice` / `upsertPipe` / `upsertValve` / `remove`）与视口可见集
 - 图纸接入：`drawio/mx_document.ts` + `mx_style.ts`（零运行时依赖，`DOMParser` 注入）→ `to_pid_scene.ts` 把 mxGraphModel 翻译成 `PidScene`（绝对坐标按父链累加、折点在 `<Array as="points">`）
@@ -97,7 +97,7 @@ src/
 │  ├─ camera.ts                 # 正交相机
 │  └─ types.ts                  # AABB / QuadItem / PrimitiveInstance（16×f32 实例契约）
 ├─ business/pid_schematic/      # P&ID 业务层
-│  ├─ shader/                   # 管线、阀门着色器；generated/ 为展开后的字符串模块
+│  ├─ shader/                   # 管线、阀门渲染着色器；generated/ 为展开后的字符串模块
 │  ├─ pid_scene.ts              # 设备/管线/阀门统一增删改与可见集
 │  ├─ flow_pipe.ts              # 流动管线（图形基类的业务实现：静止虚线、流速三态）
 │  ├─ pipe_*.ts                 # 样式、实例化、pipeline、模块入口、压测数据
@@ -109,7 +109,7 @@ src/
 │  ├─ main.ts                   # 入口：装配 → 资源 → 场景 → 输入 → 帧循环 → 卸载；掉设备自动重建
 │  ├─ drawio_main.ts            # 图纸模式入口（真实 drawio 图纸 + 帧组装）
 │  ├─ scene.ts / resources.ts   # 示例场景数据 / 示例所需 GPU 资源
-│  ├─ input.ts                  # 拾取优先级（设备优先 → 矩形）
+│  ├─ input.ts                  # 拾取优先级（设备优先 → 基础图元）
 │  └─ frame.ts                  # 每帧批次与层序提交
 ├─ tests/                       # Node 用例（tests/*.test.ts）
 ├─ scripts/                     # 文件名、着色器生成、WGSL、测试运行器、掉设备检查

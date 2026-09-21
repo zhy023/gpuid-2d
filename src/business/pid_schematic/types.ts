@@ -24,10 +24,9 @@ export interface PipeRenderResources {
   bindGroupLayout: GPUBindGroupLayout;
 }
 
-/** 设备图元渲染资源：主渲染 + 拾取两条 pipeline 共用一套绑定 */
+/** 设备图元渲染资源：拾取由内核拾取器复用这套绑定，不需要业务侧再建拾取 pipeline */
 export interface ValveRenderResources {
   pipeline: GPURenderPipeline;
-  pickPipeline: GPURenderPipeline;
   uniformBuffer: GPUBuffer;
   bindGroupLayout: GPUBindGroupLayout;
 }

@@ -7,7 +7,6 @@ import {
   renderVisibleValves,
 } from '@/business/pid_schematic/valve_instances';
 import { createValveRenderResources } from '@/business/pid_schematic/valve_pipeline';
-import valvePickWgsl from '@/business/pid_schematic/shader/generated/valve_pick';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { WebGpuPicker } from '@/core/gpu/picker';
@@ -16,7 +15,7 @@ let valveRes: ValveRenderResources | null = null;
 let gpuDevice: GPUDevice | null = null;
 let valveTemplateVertexBuffer: GPUBuffer | null = null;
 let valveTemplateVertexCount = 0;
-// 阀门拾取器由业务模块自己持有（拾取着色器是业务资产）
+// 阀门拾取器由业务模块自己持有：着色器与模板顶点都用内核的，只有绑定是阀门的
 let valvePicker: WebGpuPicker | null = null;
 
 /**
@@ -42,13 +41,14 @@ export async function initValves(
   valveRes = await createValveRenderResources(device, canvasFormat, vertexLayout);
 
   if (pickSize) {
+    // 拾取复用内核拾取着色器与内核图元模板（命中区域与看到的一致），
+    // 业务只需把阀门自己的绑定（实例变换 + 开关数据）交给它
     valvePicker = new WebGpuPicker(device);
-    await valvePicker.init(pickSize.width, pickSize.height, valvePickWgsl);
+    await valvePicker.init(pickSize.width, pickSize.height);
     valvePicker.setPipelineLayout(
       device.createPipelineLayout({ bindGroupLayouts: [valveRes.bindGroupLayout] }),
     );
-    // 阀门拾取着色器自带顶点（vertex_index 生成 quad）
-    valvePicker.createPipeline();
+    valvePicker.createPipeline(vertexLayout);
   }
 }
 

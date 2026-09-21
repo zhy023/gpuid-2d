@@ -1,5 +1,5 @@
 /**
- * 创建【实例化管线渲染】pipeline + pickPipeline
+ * 创建【实例化管线渲染】pipeline（管线不做拾取，所以只有主渲染一条）
  * @param device GPUDevice
  * @param canvasFormat 画布纹理格式
  */
