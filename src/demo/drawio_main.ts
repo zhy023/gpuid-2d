@@ -46,7 +46,7 @@ export async function runDrawioApp(): Promise<void> {
       { width: canvasEl.width, height: canvasEl.height },
     );
     if (!getValvesPicker()) throw new Error('阀门拾取器未初始化');
-    const { pidScene, topology, labels, icons, bounds } = await createDrawioScene();
+    const { pidScene, topology, labels, icons, bounds, theme } = await createDrawioScene();
     const iconTextures = new IconTextureCache(device);
     const labelAtlases = new LabelAtlasCache(device);
     // demo 自己的画布底色：引擎不再给图元兜底颜色，图纸里大量浅色/白色图元
@@ -93,6 +93,7 @@ export async function runDrawioApp(): Promise<void> {
         labelAtlases,
         icons,
         iconTextures,
+        theme,
         onVisibleValves: (valves) => {
           visibleValves = [...valves];
         },

@@ -9,7 +9,12 @@
  */
 import type { PidLabel } from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';
-import { isDrawioCellData, parseDrawioColor } from '@/business/pid_schematic/drawio/to_pid_scene';
+import {
+  DEFAULT_DRAWIO_THEME,
+  isDrawioCellData,
+  parseDrawioColor,
+  type DrawioTheme,
+} from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { PidScene } from '@/business/pid_schematic/pid_scene';
 import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import { getValveResources } from '@/business/pid_schematic/valve_manager';
@@ -126,9 +131,10 @@ function parseClipInset(
 function toIconBorderGraphic(
   node: SelectableGraphic,
   graphic: SelectableGraphic,
+  theme: DrawioTheme,
 ): SelectableGraphic | null {
   const style = isDrawioCellData(node.data) ? node.data.style : null;
-  const color = parseDrawioColor(style?.imageBorder);
+  const color = parseDrawioColor(style?.imageBorder, theme);
   if (!color) return null;
   const border = new SelectableGraphic({
     id: node.id,
@@ -158,6 +164,8 @@ export interface DrawioFrameContext {
   icons: ReadonlyMap<number, string>;
   /** 图标纹理缓存（同一图标只加载一次） */
   iconTextures: IconTextureCache;
+  /** 主题：图纸颜色大多是 `light-dark(浅色, 深色)`，取支要跟翻译层一致（默认深色） */
+  theme?: DrawioTheme;
   /** 每帧回写可见阀门（输入层按同一数组下标解读拾取结果） */
   onVisibleValves?: (valves: readonly ValveGraphic[]) => void;
 }
@@ -168,6 +176,7 @@ export interface DrawioFrameContext {
  */
 export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; pipes: number } {
   const { renderer, device, camera, scene, labels, labelAtlases, icons, iconTextures } = ctx;
+  const theme = ctx.theme ?? DEFAULT_DRAWIO_THEME;
   const visible = scene.getVisible(camera.getViewportAABB());
   ctx.onVisibleValves?.(visible.valves);
 
@@ -194,7 +203,7 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     if (!texture) continue; // 未加载完，下一帧再画
     const iconGraphics = group.map((node) => toIconGraphic(node, texture));
     for (let index = 0; index < group.length; index += 1) {
-      const border = toIconBorderGraphic(group[index], iconGraphics[index]);
+      const border = toIconBorderGraphic(group[index], iconGraphics[index], theme);
       const instance = border?.toBorderInstance();
       if (instance) iconBorderInstances.push(instance);
     }

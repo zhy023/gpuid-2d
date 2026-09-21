@@ -286,31 +286,63 @@ describe('toPidScene（真实图纸）', () => {
     assert.ok(colored, 'span 里的 light-dark(rgb(...)) 颜色应当被采用');
   });
 
-  it('`light-dark(rgb(...), rgb(...))` 要取第一支：实参里的逗号不能当分隔符', () => {
+  it('`light-dark(rgb(...), rgb(...))` 的实参要按括号切，并按主题取支', () => {
     // 图纸里 `Flow` / `0.0` 这类位号：单元 fontColor=#ffffff，但内联 span 是
-    // `light-dark(rgb(0,0,0), rgb(51,153,255))` → 浅色主题下是黑字，压在白底上才看得见。
-    // 之前按逗号切会把 `rgb(0` 当颜色 → 解析失败 → 回退成白色 → 白字压白底。
-    assert.deepEqual(parseDrawioColor('light-dark(rgb(0, 0, 0), rgb(51, 153, 255))'), [0, 0, 0, 1]);
-    assert.deepEqual(parseDrawioColor('light-dark(rgb(0, 51, 102), rgb(0, 51, 102))'), [
+    // `light-dark(rgb(0,0,0), rgb(51,153,255))`；浅色主题黑字、深色主题 #3399ff。
+    // 之前按逗号切会把 `rgb(0` 当颜色 → 解析失败 → 回退成单元的白字 → 白字压白底。
+    const inline = 'light-dark(rgb(0, 0, 0), rgb(51, 153, 255))';
+    assert.deepEqual(parseDrawioColor(inline, 'light'), [0, 0, 0, 1]);
+    assert.deepEqual(parseDrawioColor(inline, 'dark'), [51 / 255, 153 / 255, 1, 1]);
+    assert.deepEqual(parseDrawioColor('light-dark(rgb(0, 51, 102), rgb(0, 51, 102))', 'dark'), [
       0,
       51 / 255,
       102 / 255,
       1,
     ]);
-    assert.deepEqual(parseDrawioColor('light-dark(#FFFFFF, #3399FF)'), [1, 1, 1, 1]);
-    assert.deepEqual(parseDrawioColor('rgba(10, 20, 30, 0.5)'), [10 / 255, 20 / 255, 30 / 255, 1]);
+    assert.deepEqual(parseDrawioColor('rgba(10, 20, 30, 0.5)', 'dark'), [
+      10 / 255,
+      20 / 255,
+      30 / 255,
+      1,
+    ]);
 
+    // 默认主题是深色（设计人员看的正是这一套），所以位号要拿到 span 的深色那一支
     const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
     const flows = withValves.labels.filter((label) => label.text === 'Flow');
     assert.ok(flows.length > 0, '样例图纸里有 `Flow` 位号');
+    assert.equal(withValves.theme, 'dark', '默认按深色主题取色');
     for (const label of flows) {
-      assert.deepEqual(label.color, [0, 0, 0, 1], '`Flow` 是内联黑字，不能回退成单元的白字色');
+      assert.deepEqual(label.color, [51 / 255, 153 / 255, 1, 1], '`Flow` 是内联的深色那一支');
     }
-    // 图纸没写 fontColor 的单元（ATM / Shutter / MFC90…）：drawio 默认是纯黑，不是我们自己调的灰
+    // 图纸没写 fontColor 的单元（ATM / Shutter / MFC90…）：默认色也是自适应的（浅色黑 / 深色白）
+    const light = toPidScene(document, { valveIcons: VALVE_ICONS, theme: 'light' });
     for (const text of ['ATM', 'Shutter', 'MFC90']) {
-      const label = withValves.labels.find((item) => item.text === text);
-      assert.deepEqual(label?.color, [0, 0, 0, 1], `${text} 无 fontColor 时应是 drawio 默认黑`);
+      const darkLabel = withValves.labels.find((item) => item.text === text);
+      const lightLabel = light.labels.find((item) => item.text === text);
+      assert.deepEqual(darkLabel?.color, [1, 1, 1, 1], `${text} 深色主题下是白字`);
+      assert.deepEqual(lightLabel?.color, [0, 0, 0, 1], `${text} 浅色主题下是黑字`);
     }
+  });
+
+  it('主题是可切换的：同一张图纸两种配色都对得上', () => {
+    const dark = toPidScene(document, { valveIcons: VALVE_ICONS, theme: 'dark' });
+    const light = toPidScene(document, { valveIcons: VALVE_ICONS, theme: 'light' });
+
+    const fillOf = (result: typeof dark, text: string) => {
+      const label = result.labels.find((item) => item.text === text);
+      return label?.color;
+    };
+    // 内联 `light-dark(rgb(0,0,0), rgb(51,153,255))`：浅色黑、深色 #3399ff
+    assert.deepEqual(fillOf(light, 'Flow'), [0, 0, 0, 1]);
+    assert.deepEqual(fillOf(dark, 'Flow'), [51 / 255, 153 / 255, 1, 1]);
+
+    // 单元样式 `fillColor=light-dark(#FFFFFF,#3399FF)` 的底盒同样跟着主题走
+    const mfc = (result: typeof dark) =>
+      [...result.scene.devices.values()].find(
+        (device) => isDrawioCellData(device.data) && device.data.label === 'MFC90',
+      );
+    assert.deepEqual(mfc(light)?.fillColor, [1, 1, 1, 1], '浅色主题：白底');
+    assert.deepEqual(mfc(dark)?.fillColor, [51 / 255, 153 / 255, 1, 1], '深色主题：蓝底');
   });
 
   it('图纸里的椭圆单元画成椭圆（形状按图，而不是一律方框）', () => {
@@ -356,11 +388,15 @@ describe('parseDrawioColor', () => {
   it('解析 #RRGGBB / #RGB / light-dark(...) / none', () => {
     assert.deepEqual(parseDrawioColor('#ff0000'), [1, 0, 0, 1]);
     assert.deepEqual(parseDrawioColor('#0f0'), [0, 1, 0, 1]);
-    const [r, g, b, a] = parseDrawioColor('light-dark(#123456,#ffffff)') ?? [];
+    // light-dark 按主题取支：浅色取第一支，深色取第二支
+    const [r, g, b, a] = parseDrawioColor('light-dark(#123456,#ffffff)', 'light') ?? [];
     assert.equal(Math.round(r * 255), 0x12);
     assert.equal(Math.round(g * 255), 0x34);
     assert.equal(Math.round(b * 255), 0x56);
     assert.equal(a, 1);
+    assert.deepEqual(parseDrawioColor('light-dark(#123456,#ffffff)', 'dark'), [1, 1, 1, 1]);
+    // 没写 light-dark 的颜色两套主题一致
+    assert.deepEqual(parseDrawioColor('#ff0000', 'dark'), [1, 0, 0, 1]);
     assert.equal(parseDrawioColor('none'), null);
     assert.equal(parseDrawioColor(undefined), null);
   });

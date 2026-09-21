@@ -69,6 +69,8 @@ export interface DrawioSceneResult {
   icons: Map<number, string>;
   /** 图纸世界范围（调用方用它给相机取景，不要去猜页宽高） */
   bounds: AABB;
+  /** 本次翻译用的主题：颜色取支的依据，绘制端要用同一套才对得上 */
+  theme: DrawioTheme;
   /** 统计：便于和 XML 里的单元数对账 */
   stats: {
     devices: number;
@@ -96,13 +98,19 @@ export interface ToPidSceneOptions {
   valveIcons?: readonly DrawioValveIcon[];
   /** 阀门初始开关状态，默认 false（图纸里的阀门默认关闭） */
   valveOpen?: boolean;
+  /** 主题：决定 `light-dark(浅色, 深色)` 取哪一支，默认跟查看者偏好 */
+  theme?: DrawioTheme;
 }
 
 /**
- * 图纸没写 `fontColor` 时的字色：drawio 的默认字色就是纯黑
- * （SVG 导出里这些单元的文字都是 `#000000`），所以不能自己调成灰的。
+ * 图纸没写 `fontColor` 时的字色：drawio 的默认字色同样自适应主题——
+ * SVG 导出里这些单元写的是 `color: light-dark(#000000, #ffffff)`（浅色黑 / 深色白），
+ * 所以不能自己调成灰的，也不能一套色走两个主题。
  */
-const DEFAULT_LABEL_COLOR: readonly [number, number, number, number] = [0, 0, 0, 1];
+const DEFAULT_LABEL_COLOR: Record<DrawioTheme, readonly [number, number, number, number]> = {
+  light: [0, 0, 0, 1],
+  dark: [1, 1, 1, 1],
+};
 /** 位号默认字号（px，与 drawio 默认一致）：图纸没写 fontSize 时用它 */
 export const DEFAULT_LABEL_FONT_PX = 12;
 /**
@@ -150,32 +158,59 @@ export function normalizeIconUrl(url: string): string {
 }
 
 /**
- * 取 `light-dark(a, b)` 的第一个实参（= 浅色主题用的那支）。
- *
- * 实参本身可能又是 `rgb(...)`：`light-dark(rgb(0, 0, 0), rgb(51, 153, 255))`，
- * 所以必须按括号深度找顶层逗号，见逗号就切会把 `rgb(0` 切出来当颜色（解析失败 → 整条颜色丢掉）。
+ * 图纸主题：drawio 的 `light-dark(a, b)` 里 a 是浅色主题、b 是深色主题，
+ * 同一张图纸在两套主题下是两种配色，所以取色前必须先定主题。
  */
-function firstLightDarkArgument(raw: string): string {
-  if (!raw.startsWith('light-dark(')) return raw;
-  const body = raw.slice('light-dark('.length);
+export type DrawioTheme = 'light' | 'dark';
+
+/**
+ * 默认主题：深色。
+ * 图纸的 SVG 导出根节点写着 `color-scheme: light dark`，即同一张图两套配色；
+ * 设计人员看的就是深色那一套（例如 `Flow` 的 `light-dark(rgb(0,0,0), rgb(51,153,255))`
+ * 实际显示为 `rgb(51,153,255)`），所以渲染跟着深色走，要浅色显式传 `'light'`。
+ */
+export const DEFAULT_DRAWIO_THEME: DrawioTheme = 'dark';
+
+/**
+ * 按顶层逗号切 `light-dark(...)` 的实参。
+ * 实参本身可能又是 `rgb(...)`：`light-dark(rgb(0, 0, 0), rgb(51, 153, 255))`，
+ * 见逗号就切会把 `rgb(0` 切出来当颜色（解析失败 → 整条颜色丢掉）。
+ */
+function splitTopLevelArguments(body: string): string[] {
+  const args: string[] = [];
   let depth = 0;
-  for (let index = 0; index < body.length; index += 1) {
-    const char = body[index];
+  let current = '';
+  for (const char of body) {
     if (char === '(') depth += 1;
     else if (char === ')') {
-      if (depth === 0) return body.slice(0, index).trim();
+      if (depth === 0) break; // light-dark(...) 自己的右括号
       depth -= 1;
-    } else if (char === ',' && depth === 0) return body.slice(0, index).trim();
+    } else if (char === ',' && depth === 0) {
+      args.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
   }
-  return body.trim();
+  if (current.trim()) args.push(current.trim());
+  return args;
 }
 
-/** drawio 颜色：`#RRGGBB` / `none` / `light-dark(a,b)`（取第一个）→ rgba 元组 */
+/** 按主题取 `light-dark(浅色, 深色)` 的那一支；不是 light-dark 就原样返回 */
+function pickThemedColor(raw: string, theme: DrawioTheme): string {
+  if (!raw.startsWith('light-dark(')) return raw;
+  const args = splitTopLevelArguments(raw.slice('light-dark('.length));
+  if (args.length < 2) return args[0] ?? raw;
+  return theme === 'dark' ? args[1] : args[0];
+}
+
+/** drawio 颜色：`#RRGGBB` / `none` / `light-dark(a,b)`（按主题取支）→ rgba 元组 */
 export function parseDrawioColor(
   raw: string | undefined,
+  theme: DrawioTheme = DEFAULT_DRAWIO_THEME,
 ): readonly [number, number, number, number] | null {
   if (!raw || raw === 'none') return null;
-  const value = firstLightDarkArgument(raw);
+  const value = pickThemedColor(raw, theme);
   // 也支持 rgb()/rgba()（drawio 的富文本标签用这种写法）
   const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value);
   if (rgb) {
@@ -228,6 +263,8 @@ export function toPidScene(
   document: MxDocument,
   options: ToPidSceneOptions = {},
 ): DrawioSceneResult {
+  // 主题先行：图纸的颜色大多是 `light-dark(浅色, 深色)`，取色前必须先定主题
+  const theme = options.theme ?? DEFAULT_DRAWIO_THEME;
   // 图纸坐标原点不一定在左上角（这份样例的 y 全是负的），范围要算出来给相机用
   const bounds = computeBounds(document.nodes);
   const scene = new PidScene(bounds);
@@ -311,7 +348,7 @@ export function toPidScene(
     const lineHeight = /line-height:\s*([\d.]+)/i.exec(raw)?.[1];
     return {
       text,
-      color: parseDrawioColor(color?.trim()),
+      color: parseDrawioColor(color?.trim(), theme),
       fontSizePx: fontSize ? Number(fontSize) : null,
       fontFamily: fontFamily || null,
       lineHeightRatio: lineHeight ? Number(lineHeight) : null,
@@ -423,9 +460,9 @@ export function toPidScene(
         width: sx,
         height: sy,
         rotation: beta,
-        fillColor: parseDrawioColor(node.style.fillColor),
+        fillColor: parseDrawioColor(node.style.fillColor, theme),
         // 描边按图纸：strokeColor / strokeWidth（没写描边就不画环）
-        strokeColor: parseDrawioColor(node.style.strokeColor),
+        strokeColor: parseDrawioColor(node.style.strokeColor, theme),
         strokeWidth: mxNumber(node.style, 'strokeWidth', 1),
         // 原始单元信息跟着图元走（纯属性，不参与绘制）
         data: {
@@ -536,7 +573,8 @@ export function toPidScene(
       text: rich.text,
       x: center.x + (shift?.dx ?? 0),
       y: center.y + (shift?.dy ?? 0),
-      color: rich.color ?? parseDrawioColor(draft.style.fontColor) ?? DEFAULT_LABEL_COLOR,
+      color:
+        rich.color ?? parseDrawioColor(draft.style.fontColor, theme) ?? DEFAULT_LABEL_COLOR[theme],
       fontSizePx:
         rich.fontSizePx ?? Math.round(mxNumber(draft.style, 'fontSize', DEFAULT_LABEL_FONT_PX)),
       // 字体与行高同样「内联样式优先、单元样式其次、最后才是 drawio 默认」：
@@ -581,7 +619,7 @@ export function toPidScene(
     // 图纸里 dashed=1 的管线画成静态虚线
     pipe.setDashed(mxFlag(node.style, 'dashed'));
     // 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色）
-    pipe.fill(parseDrawioColor(node.style.strokeColor));
+    pipe.fill(parseDrawioColor(node.style.strokeColor, theme));
     // 原始单元信息跟着图元走（纯属性，不参与绘制）
     pipe.setData({
       cellId: node.id,
@@ -612,5 +650,5 @@ export function toPidScene(
     topology.setLink({ pipelineId: link.pipeId, sourceElementId, targetElementId });
   }
 
-  return { scene, topology, labels, icons, bounds, stats };
+  return { scene, topology, labels, icons, bounds, stats, theme };
 }

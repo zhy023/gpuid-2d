@@ -77,6 +77,12 @@
 - 文字版式：字体 / 字号 / 行高都按图纸来（XML 不写 `fontFamily` 时就是 drawio 默认的 Helvetica +
   `line-height: 1.2`，与导出的 SVG 一致；中文字形挂回退链）。换行只由图纸的 `<div>` / `<br>` 决定
   （解析层折成 `\n`，`layoutTextBlock` 不再自行折行），对齐按 drawio 的「每行水平居中 + 整块垂直居中于图元中心」
+- 颜色主题：图纸的 SVG 导出根节点写着 `color-scheme: light dark`，样式里的颜色大多是
+  `light-dark(浅色值, 深色值)` —— 同一张图两套配色。`toPidScene` / `renderDrawioFrame` 的 `theme`
+  决定取哪一支（默认 `'dark'`，即设计人员在图纸里看到的那套；`'light'` 可切）。跨目录颜色解析
+  统一走 `parseDrawioColor(raw, theme)`，翻译层与绘制端必须用同一个 `theme`（场景结果里带出来了）。
+  注意作图习惯：drawio 的**默认字色**也是自适应的（`light-dark(#000000, #ffffff)`），
+  所以「没写 fontColor」不能写死成一个颜色。
 
 - 颜色：`fillColor` 有值才画，`fill=none` / 没写填充的单元保持透明（与 draw.io 导出的 SVG 一致）；
   `group` 单元（阀门 + 位号那一组）自己也没有填充，所以不会变成白底。代价是「只有描边」的单元

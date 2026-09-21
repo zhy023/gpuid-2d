@@ -9,6 +9,7 @@ import { createValveDemoScene, type ValveDemoScene } from '@/business/pid_schema
 import { parseMxDocument } from '@/business/pid_schematic/drawio/mx_document';
 import {
   toPidScene,
+  type DrawioTheme,
   type DrawioValveIcon,
   type PidLabel,
 } from '@/business/pid_schematic/drawio/to_pid_scene';
@@ -45,6 +46,8 @@ export interface DrawioDemoScene {
   icons: Map<number, string>;
   /** 图纸世界范围（相机取景用） */
   bounds: AABB;
+  /** 图纸主题（颜色取支的依据；绘制端要用同一套） */
+  theme: DrawioTheme;
   stats: {
     devices: number;
     valves: number;
@@ -81,7 +84,7 @@ export async function createDrawioScene(): Promise<DrawioDemoScene> {
   const xml = await (await fetch(DRAWIO_URL)).text();
   const document = parseMxDocument(xml, new DOMParser());
   // 阀门单元（内联的是阀门贴图）翻成 ValveGraphic：可选中 + 自带开/关状态
-  const { scene, topology, labels, icons, bounds, stats } = toPidScene(document, {
+  const { scene, topology, labels, icons, bounds, stats, theme } = toPidScene(document, {
     valveIcons: await loadValveIcons(),
   });
   // 阀门与管线都保持默认关闭：图纸一进来是静止的初始态，
@@ -91,7 +94,7 @@ export async function createDrawioScene(): Promise<DrawioDemoScene> {
       ` / 管线 ${stats.pipes} / 位号 ${stats.labels}` +
       ` / 范围 ${Math.round(bounds.maxX - bounds.minX)}×${Math.round(bounds.maxY - bounds.minY)}`,
   );
-  return { pidScene: scene, topology, labels, icons, bounds, stats };
+  return { pidScene: scene, topology, labels, icons, bounds, stats, theme };
 }
 
 /**
