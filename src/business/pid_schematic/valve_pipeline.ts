@@ -154,5 +154,5 @@ export function drawValvePickInstanced(
 ): void {
   pass.setPipeline(valveRes.pickPipeline);
   pass.setBindGroup(0, bindGroup);
-  pass.draw(6, instanceCount);
+  pass.draw(3, instanceCount);
 }

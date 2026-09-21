@@ -31,6 +31,10 @@ fn vertexMain(input: PickVertexInput, @builtin(instance_index) instanceIdx: u32)
 
 @fragment
 fn fragmentMain(input: PickVertexOutput) -> @location(0) vec4u {
+    // 模板三角形多出来的部分不参与拾取（与看到的单位方形一致）
+    if (unitSquareMask(input.localUv) < 0.5) {
+        return vec4u(0u, 0u, 0u, 0u);
+    }
     // 形状裁剪：圆/椭圆四角不参与拾取，保证命中区域和看到的样子一致
     let edge = length(input.localUv) * 2.0;
     if (input.shape > 0.5 && edge > 1.0) {

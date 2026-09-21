@@ -9,7 +9,7 @@ import { initWebGPU, type InitWebGpuOptions } from '@/core/gpu/device';
 import { createRendererPicker, type WebGpuPicker } from '@/core/gpu/picker';
 import { Renderer2D } from '@/core/gpu/renderer';
 import { CanvasSurface, type ResizableTarget } from '@/core/gpu/surface';
-import { createRectVertexBuffer } from '@/core/geometry/geometry';
+import { createTriangleVertexBuffer } from '@/core/geometry/geometry';
 
 export interface RendererContext {
   device: GPUDevice;
@@ -41,7 +41,7 @@ export async function createRendererContext(
     onDeviceLost: options.onDeviceLost,
   });
 
-  const { vertexBuffer, vertexCount } = createRectVertexBuffer(device);
+  const { vertexBuffer, vertexCount } = createTriangleVertexBuffer(device);
   const renderer = new Renderer2D(device, context, format, vertexBuffer, vertexCount);
 
   await renderer.initPipeline();

@@ -19,6 +19,9 @@
 - 纹理：`loadTextureFromUrl`、`createTextureFromBitmap`、默认白纹理、采样器
 - 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容）、`layoutText`（字素排版、颜色、底板、描边 halo）、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`、`QuadTreeStore`、AABB/折线膨胀、`composeTransform2d`、`spriteInstance`
+- 内置图元模板：**一个覆盖单位方形的三角形**（`triangle-list`，3 顶点，`core/geometry/geometry.ts`），
+  不再用 6 顶点双三角形；方形之外的部分由 `unitSquareMask`（`core_include/vertex_math.wgsl`）
+  按屏幕像素抗锯齿裁掉。渲染与拾取（含阀门拾取）走同一套掩码，命中区域与看到的一致
 - 图形基类（全库唯一一层抽象，业务无关，用法参考 PixiJS 的 `Graphics`）：`Graphic` 同时承载
   位置/大小/旋转、基本属性（可见/选中/dirty）、外观（`fill` / `stroke`）、状态（开关/hover）、
   动画（`animationSpeed` / `flowOffset`）与形状绘制命令（`rect` / `square` / `circle` / `ellipse` /

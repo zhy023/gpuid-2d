@@ -71,5 +71,6 @@ fn fragmentMain(input: ValveVertexOutput) -> @location(0) vec4f {
     if (input.isSelected > 0.5) {
         fragColor = mix(fragColor, vec4f(0.95, 0.70, 0.20, 1.0), 0.35);
     }
-    return fragColor;
+    // 符号模板用的是内核的三角形模板，方形外的部分裁掉
+    return vec4f(fragColor.rgb, fragColor.a * unitSquareMask(input.localUv));
 }

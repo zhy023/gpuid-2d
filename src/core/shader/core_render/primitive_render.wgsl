@@ -53,9 +53,11 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let hasInstanceColor = input.instanceColor.a > 0.5;
     let rgb = select(color.rgb, input.instanceColor.rgb, hasInstanceColor);
     let alpha = color.a * texel.a * select(1.0, input.instanceColor.a, hasInstanceColor);
-    // 形状裁剪：圆/椭圆按包围盒内切圆裁掉四角（localUv 是 [-0.5, 0.5]）
+    // 形状裁剪一：模板三角形比单位方形大，方形外的部分要裁掉
+    let unitMask = unitSquareMask(input.localUv);
+    // 形状裁剪二：圆/椭圆按包围盒内切圆裁掉四角（localUv 是 [-0.5, 0.5]）
     let edge = length(input.localUv) * 2.0;
     let circleMask = 1.0 - smoothstep(0.94, 1.02, edge);
     let shapeMask = select(1.0, circleMask, input.shape > 0.5);
-    return vec4f(rgb * texel.rgb, alpha * shapeMask);
+    return vec4f(rgb * texel.rgb, alpha * shapeMask * unitMask);
 }
