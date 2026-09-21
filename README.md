@@ -57,7 +57,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 阀门：开关两态贴图精灵、拾取复用内核拾取着色器（业务只提供 bindGroup）、点击切换开闭
 - 拓扑：`applyValveFlowState` 把阀门状态广播到下游管线（含环路保护）
 - 场景：`PidScene` 统一增删改（`upsertDevice` / `upsertPipe` / `upsertValve` / `remove`）与视口可见集
-- 图纸接入：`drawio/mx_document.ts` + `mx_style.ts`（零运行时依赖，`DOMParser` 注入）→ `to_pid_scene.ts` 把 mxGraphModel 翻译成 `PidScene`（绝对坐标按父链累加、折点在 `<Array as="points">`）：连线 → `FlowPipe`（flow 能力），内联图标命中阀门贴图的单元 → `ValveGraphic`（selectable 能力，自带开/关状态），其余 → `SelectableGraphic` 设备。图纸是唯一事实来源：颜色 / 图标 / 尺寸都按单元本身（图片单元按 `aspect=fixed` 等比缩放），阀门节点用图纸自己的图标画，只是模型上是可选中（selectable）的 `ValveGraphic`；阀门与管线默认关闭（静止初始态），流动由后续交互打开
+- 图纸接入：`drawio/mx_document.ts` + `mx_style.ts`（零运行时依赖，`DOMParser` 注入）→ `to_pid_scene.ts` 把 mxGraphModel 翻译成 `PidScene`（绝对坐标按父链累加、折点在 `<Array as="points">`）：连线 → `FlowPipe`（flow 能力），内联图标命中阀门贴图的单元 → `ValveGraphic`（selectable 能力，自带开/关状态），其余 → `SelectableGraphic` 设备。图纸是唯一事实来源：颜色 / 图标 / 尺寸都按单元本身（图片单元按 `aspect=fixed` 等比缩放），阀门节点用图纸自己的图标画，只是模型上是可选中（selectable）的 `ValveGraphic`；管线按惯例横平竖直（翻译时纠正绘图员的手抖：≤5° 拉正、更大插肘点）；阀门与管线默认关闭（静止初始态），流动由后续交互打开
 
 **质量保障**
 

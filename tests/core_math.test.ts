@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { Camera2d } from '@/core/camera';
 import { computeRotatedAABB } from '@/core/geometry/aabb';
+import { orthogonalizePolyline } from '@/core/geometry/polyline';
 import { QuadTree } from '@/core/geometry/quad_tree';
 import type { AABB, QuadTreeItem } from '@/core/types';
 
@@ -83,6 +84,71 @@ describe('computeRotatedAABB', () => {
           `${key} 偏差过大：${actual[key]} vs ${expected[key]}`,
         );
       }
+    }
+  });
+});
+
+describe('orthogonalizePolyline（管线横平竖直）', () => {
+  it('近水平 / 近垂直的段直接拉正，首点不动', () => {
+    const points = orthogonalizePolyline([
+      { x: 0, y: 0 },
+      { x: 100, y: 2 }, // 差 1.1°，按容差拉平
+      { x: 103, y: 80 }, // 差 2°，按容差拉直
+    ]);
+    assert.deepEqual(points[0], { x: 0, y: 0 }, '首点（吸附在设备上的端点）不动');
+    assert.equal(points[1].y, 0, '水平段被拉平');
+    assert.equal(points[2].x, points[1].x, '垂直段被拉直');
+  });
+
+  it('真正的斜线插一个肘点，变成两段正交线', () => {
+    const points = orthogonalizePolyline(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 100 },
+      ],
+      { preferHorizontalFirst: true },
+    );
+    assert.deepEqual(points, [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+    ]);
+
+    const verticalFirst = orthogonalizePolyline(
+      [
+        { x: 0, y: 0 },
+        { x: 100, y: 100 },
+      ],
+      { preferHorizontalFirst: false },
+    );
+    assert.deepEqual(verticalFirst, [
+      { x: 0, y: 0 },
+      { x: 0, y: 100 },
+      { x: 100, y: 100 },
+    ]);
+  });
+
+  it('整理后每段都是横平竖直，且不产生重复点', () => {
+    const points = orthogonalizePolyline([
+      { x: 0, y: 0 },
+      { x: 50, y: 0 },
+      { x: 50.5, y: 40 },
+      { x: 120, y: 40.4 },
+    ]);
+    for (let index = 1; index < points.length; index += 1) {
+      const dx = points[index].x - points[index - 1].x;
+      const dy = points[index].y - points[index - 1].y;
+      assert.ok(
+        Math.abs(dx) < 1e-9 || Math.abs(dy) < 1e-9,
+        `第 ${index} 段应当横平竖直（dx=${dx}, dy=${dy}）`,
+      );
+    }
+    for (let index = 1; index < points.length; index += 1) {
+      assert.ok(
+        Math.abs(points[index].x - points[index - 1].x) > 1e-9 ||
+          Math.abs(points[index].y - points[index - 1].y) > 1e-9,
+        '不应有重复点',
+      );
     }
   });
 });

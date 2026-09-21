@@ -14,6 +14,7 @@ import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
 import { Topology } from '@/business/pid_schematic/topology';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import { orthogonalizePolyline } from '@/core/geometry/polyline';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { AABB } from '@/core/types';
 
@@ -199,10 +200,18 @@ export function toPidScene(
   };
 
   /** 端点在节点矩形上的锚点：fx/fy 是 0~1 的比例（drawio 的 exitX/entryX） */
-  const anchorOf = (node: MxNode, fx: number, fy: number) => ({
-    x: node.x + node.width * fx,
-    y: node.y + node.height * fy,
-  });
+  const anchorOf = (node: MxNode, fx: number, fy: number) => {
+    // 单元的 rotation（角度，顺时针）要作用在锚点上，否则旋转过的设备会连歪
+    const beta = (mxNumber(node.style, 'rotation', 0) * Math.PI) / 180;
+    const localX = (fx - 0.5) * node.width;
+    const localY = (fy - 0.5) * node.height;
+    const cos = Math.cos(beta);
+    const sin = Math.sin(beta);
+    return {
+      x: node.x + node.width / 2 + localX * cos - localY * sin,
+      y: node.y + node.height / 2 + localX * sin + localY * cos,
+    };
+  };
 
   // 先建图元（边要查两端节点的中心）
   for (const node of document.nodes) {
@@ -228,11 +237,19 @@ export function toPidScene(
         mxNumber(node.style, 'entryX', 0.5),
         mxNumber(node.style, 'entryY', 0.5),
       );
-      const points = [exit, ...node.points, entry];
-      if (points.length < 2) {
+      const rawPoints = [exit, ...node.points, entry];
+      if (rawPoints.length < 2) {
         stats.skipped += 1;
         continue;
       }
+      // 管线按惯例横平竖直：近轴的拉正、斜线插肘点（对应 drawio 的 orthogonalEdgeStyle）。
+      // 出口在左右两侧先水平走、在上下两侧先垂直走，与绘图员画线的走向一致。
+      const exitX = mxNumber(node.style, 'exitX', 0.5);
+      const exitY = mxNumber(node.style, 'exitY', 0.5);
+      const points = orthogonalizePolyline(rawPoints, {
+        // 出口在左右两侧（exitX ≠ 0.5）或未指定 → 先水平；只在上下两侧 → 先垂直
+        preferHorizontalFirst: exitX !== 0.5 || exitY === 0.5,
+      });
       const lineWidthPx = snapPipeLineWidthPx(mxNumber(node.style, 'strokeWidth', 2));
       const pipe = createFlowPipe(idOf(node.id), points, lineWidthPx);
       // 图纸管线默认关闭（正式图纸不需要流动条纹），需要动画时由上层再打开
