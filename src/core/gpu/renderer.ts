@@ -230,6 +230,15 @@ export class Renderer2D {
     this.clearColor = color;
   }
 
+  /** 内核默认白纹理与采样器：业务要画「不贴图」的批次（例如描边环）时用它 */
+  getDefaultTexture(): Texture2d {
+    return this.defaultTexture;
+  }
+
+  getDefaultSampler(): GPUSampler {
+    return this.defaultSampler;
+  }
+
   /**
    * 初始化渲染管线：默认用内核自带的图元着色器，传入 shaderCode 可覆盖。
    * 着色器属于内核资产，使用方不必再 import WGSL。

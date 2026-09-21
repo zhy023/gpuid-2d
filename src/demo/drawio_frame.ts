@@ -9,7 +9,7 @@
  */
 import type { PidLabel } from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';
-import { isDrawioCellData } from '@/business/pid_schematic/drawio/to_pid_scene';
+import { isDrawioCellData, parseDrawioColor } from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { PidScene } from '@/business/pid_schematic/pid_scene';
 import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import { getValveResources } from '@/business/pid_schematic/valve_manager';
@@ -21,6 +21,7 @@ import type { Renderer2D } from '@/core/gpu/renderer';
 import type { Texture2d } from '@/core/gpu/texture';
 import { toInstances, type Graphic } from '@/core/scene/graphic/graphic';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
+import type { PrimitiveInstance } from '@/core/types';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import type { LabelAtlasCache } from '@/demo/label_atlases';
 import { layoutText } from '@/core/text/text_batch';
@@ -69,20 +70,78 @@ function toDrawableGraphic(
  */
 function toIconGraphic(node: SelectableGraphic, texture: Texture2d): SelectableGraphic {
   const style = isDrawioCellData(node.data) ? node.data.style : null;
-  const keepAspect = style?.aspect === 'fixed';
-  const width = Math.abs(node.width);
-  const height = Math.abs(node.height);
+  const clip = parseClipInset(style?.clipPath);
+  const fullWidth = Math.abs(node.width);
+  const fullHeight = Math.abs(node.height);
+  // 图纸的 clipPath=inset(...)：可见框往里收，中心随之偏移
+  const boxWidth = clip ? fullWidth * (1 - clip.left - clip.right) : fullWidth;
+  const boxHeight = clip ? fullHeight * (1 - clip.top - clip.bottom) : fullHeight;
+  const keepAspect = style?.aspect === 'fixed' && !clip;
   const scale = keepAspect
-    ? Math.min(width / Math.max(texture.width, 1), height / Math.max(texture.height, 1))
+    ? Math.min(boxWidth / Math.max(texture.width, 1), boxHeight / Math.max(texture.height, 1))
     : 1;
-  const graphic = toDrawableGraphic(node, ICON_FILL);
+  const graphic = new SelectableGraphic({
+    id: node.id,
+    x: clip ? node.x + (fullWidth * (clip.left - clip.right)) / 2 : node.x,
+    y: clip ? node.y + (fullHeight * (clip.top - clip.bottom)) / 2 : node.y,
+    width: boxWidth,
+    height: boxHeight,
+    rotation: node.rotation,
+    selected: node.selected,
+    fillColor: ICON_FILL,
+  }).atlasUv(node.atlasUvRect);
   // drawio 对 `rounded=1` 的图片单元会做圆形裁剪（导出 SVG 里是 inset + round 49.2%）：
   // 内核自带圆形遮罩，这里按图纸把它裁成内切圆，而不是直接贴一张方图
   if (style?.rounded === '1') {
-    graphic.ellipse(Math.abs(node.width), Math.abs(node.height));
+    graphic.ellipse(boxWidth, boxHeight);
   }
   if (!keepAspect || scale <= 0) return graphic;
   return graphic.setSize(texture.width * scale, texture.height * scale);
+}
+
+/**
+ * 解析 drawio 的 `clipPath=inset(t r b l round r%)`：
+ * 返回可见框相对单元的内缩比例（0~1）与圆角比例（0~0.5）。
+ */
+function parseClipInset(
+  raw: string | undefined,
+): { top: number; right: number; bottom: number; left: number; round: number } | null {
+  if (!raw) return null;
+  const match =
+    /inset\(\s*([\d.]+)%\s+([\d.]+)%\s+([\d.]+)%\s+([\d.]+)%(?:\s+round\s+([\d.]+)%)?/.exec(raw);
+  if (!match) return null;
+  return {
+    top: Number(match[1]) / 100,
+    right: Number(match[2]) / 100,
+    bottom: Number(match[3]) / 100,
+    left: Number(match[4]) / 100,
+    round: match[5] ? Number(match[5]) / 100 : 0,
+  };
+}
+
+/**
+ * 图片单元的边框（`imageBorder`）：按图给可见框画一圈描边环。
+ * 环要用内核的白色纹理画（不能被图标贴图染色），所以单独成批、排在图标之后。
+ */
+function toIconBorderGraphic(
+  node: SelectableGraphic,
+  graphic: SelectableGraphic,
+): SelectableGraphic | null {
+  const style = isDrawioCellData(node.data) ? node.data.style : null;
+  const color = parseDrawioColor(style?.imageBorder);
+  if (!color) return null;
+  const border = new SelectableGraphic({
+    id: node.id,
+    x: graphic.x,
+    y: graphic.y,
+    width: graphic.width,
+    height: graphic.height,
+    rotation: node.rotation,
+    strokeColor: color,
+    strokeWidth: Number(style?.strokeWidth ?? 1),
+    fillColor: null,
+  });
+  return style?.rounded === '1' ? border.ellipse(graphic.width, graphic.height) : border;
 }
 
 export interface DrawioFrameContext {
@@ -129,15 +188,19 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
   // 颜色按图纸来：fill=none / 没写填充的单元保持透明（与 SVG 导出一致，不补白底）
   const deviceInstances = toInstances(plainDevices.map((device) => toDrawableGraphic(device)));
   const iconBatches = [];
+  const iconBorderInstances: PrimitiveInstance[] = [];
   for (const [url, group] of iconGroups) {
     const texture = iconTextures.get(url);
     if (!texture) continue; // 未加载完，下一帧再画
+    const iconGraphics = group.map((node) => toIconGraphic(node, texture));
+    for (let index = 0; index < group.length; index += 1) {
+      const border = toIconBorderGraphic(group[index], iconGraphics[index]);
+      const instance = border?.toBorderInstance();
+      if (instance) iconBorderInstances.push(instance);
+    }
     iconBatches.push({
       // 图标按图纸的 aspect=fixed 等比缩放居中，原色显示（逐实例颜色给白）
-      instances: toInstances(
-        group.map((node) => toIconGraphic(node, texture)),
-        camera.scale,
-      ),
+      instances: toInstances(iconGraphics, camera.scale),
       textureView: texture.view,
       sampler: iconTextures.sampler,
     });
@@ -182,6 +245,12 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     instances: deviceInstances,
     extraBatches: [
       ...iconBatches,
+      // 图标外圈（imageBorder）：白纹理 + 描边环，压在图标之上
+      {
+        instances: iconBorderInstances,
+        textureView: renderer.getDefaultTexture().view,
+        sampler: renderer.getDefaultSampler(),
+      },
       ...[...labelBatches].map(([atlas, graphics]) => ({
         instances: toInstances(graphics, camera.scale),
         textureView: atlas.texture.view,
