@@ -214,6 +214,13 @@ export class WebGpuPicker {
       const encoder = this.device.createCommandEncoder();
       const pickView = this.pickTexture.createView();
       const depthView = this.pickDepthTexture.createView();
+      // 拾取只读 1 个像素，却要把全部实例按整张画布光栅化一遍 —— 用 scissor 把光栅化
+      // 限制到目标像素。scissor 不影响绘制顺序与深度比较，命中结果与整屏渲染一致；
+      // 越界的点击钳到边界内（scissor 必须是落在附件里的非空矩形）。
+      const pixelX = Math.floor(x);
+      const pixelY = Math.floor(y);
+      const scissorX = Math.min(Math.max(pixelX, 0), Math.max(this.pickTexture.width - 1, 0));
+      const scissorY = Math.min(Math.max(pixelY, 0), Math.max(this.pickTexture.height - 1, 0));
 
       const pass = encoder.beginRenderPass({
         colorAttachments: [
@@ -232,6 +239,7 @@ export class WebGpuPicker {
         },
       });
 
+      pass.setScissorRect(scissorX, scissorY, 1, 1);
       pass.setPipeline(this.pickPipeline);
       pass.setBindGroup(0, bindGroup);
       pass.setVertexBuffer(0, vertexBuffer);
