@@ -74,8 +74,11 @@
 ## 已知坑（避免重复踩）
 
 - `copyExternalImageToTexture` 的目标纹理必须带 `RENDER_ATTACHMENT`，否则整张上传被拒、采样全透明
-- 额外实例（文字/贴图）必须只由图集批次绘制：`setInstances` 的数量只算基础批次，否则会被白纹理批次画成实心方块
+- 额外实例（文字/贴图）必须只由图集批次绘制：`renderComposite` 的绘制数量只算基础批次，
+  否则会被白纹理批次画成实心方块
 - 实例结构体 64B：变换 8 + 图集 uv 4 + 逐实例颜色 4（颜色在 `offset 12–15`）
+- 实例缓冲容量 10 万（基础批次 + 覆盖批次共用一条）：实例打包与上传只有
+  `renderComposite` 一条通路（`packRectInstances` 供用例断言），超容量直接抛错
 - 模型层与实例契约的分工：图形基类的 `selected` 是布尔，打包成实例时才用 `selectedFlag`（0/1）
   映射；「背景」对应逐实例颜色通道，新增渲染通道要改 `InstanceTransform` 与全部打包点
 - `GPUQueue.writeBuffer` 的 `dataOffset` / `size` 对 TypedArray 是**元素数**（不是字节数），

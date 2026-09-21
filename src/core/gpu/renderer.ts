@@ -7,6 +7,11 @@ import {
 import type { RectInstance } from '@/core/types';
 import defaultRenderWgsl from '@/core/shader/generated/core_render/primitive_render';
 
+/** 实例契约：8 个基字段（变换/选中/形状/填充）+ 图集 uv(4) + 逐实例颜色(4) = 16 × f32 = 64B */
+const INSTANCE_FLOAT_COUNT = 16;
+/** 实例缓冲容量：基础批次与各覆盖批次共用这一条缓冲 */
+const MAX_INSTANCE_COUNT = 100_000;
+
 /** 一次纹理批次：绑定纹理与采样器，绘制紧随矩形批次之后的连续实例区间 */
 export interface TextureBatch {
   textureView: GPUTextureView;
@@ -21,30 +26,32 @@ export interface InstanceTextureBatch {
   sampler: GPUSampler;
 }
 
-/** 把实例列表打包成 GPU 缓冲格式（16 × f32/实例） */
+/** 把一个实例写进打包数组的第 index 个槽位，字段顺序与 WGSL `InstanceTransform` 一致 */
+function writeInstance(data: Float32Array, index: number, instance: RectInstance): void {
+  const offset = index * INSTANCE_FLOAT_COUNT;
+  data[offset] = instance.sx;
+  data[offset + 1] = instance.sy;
+  data[offset + 2] = instance.beta;
+  data[offset + 3] = instance.tx;
+  data[offset + 4] = instance.ty;
+  data[offset + 5] = instance.selected ?? 0;
+  // shape：方框 / 圆（着色器按它裁形状），pad1 仍留空
+  data[offset + 6] = instance.shape ?? 0;
+  data[offset + 7] = 0;
+  data[offset + 8] = instance.u0;
+  data[offset + 9] = instance.v0;
+  data[offset + 10] = instance.u1;
+  data[offset + 11] = instance.v1;
+  data[offset + 12] = instance.colorR;
+  data[offset + 13] = instance.colorG;
+  data[offset + 14] = instance.colorB;
+  data[offset + 15] = instance.colorA;
+}
+
+/** 把实例列表打包成 GPU 缓冲格式（每个实例 `INSTANCE_FLOAT_COUNT` 个 f32） */
 export function packRectInstances(list: readonly RectInstance[]): Float32Array {
-  const data = new Float32Array(list.length * 16);
-  for (let i = 0; i < list.length; i += 1) {
-    const instance = list[i];
-    const offset = i * 16;
-    data[offset] = instance.sx;
-    data[offset + 1] = instance.sy;
-    data[offset + 2] = instance.beta;
-    data[offset + 3] = instance.tx;
-    data[offset + 4] = instance.ty;
-    data[offset + 5] = instance.selected ?? 0;
-    // shape：方框 / 圆（着色器按它裁形状），pad1 仍留空
-    data[offset + 6] = instance.shape ?? 0;
-    data[offset + 7] = 0;
-    data[offset + 8] = instance.u0;
-    data[offset + 9] = instance.v0;
-    data[offset + 10] = instance.u1;
-    data[offset + 11] = instance.v1;
-    data[offset + 12] = instance.colorR;
-    data[offset + 13] = instance.colorG;
-    data[offset + 14] = instance.colorB;
-    data[offset + 15] = instance.colorA;
-  }
+  const data = new Float32Array(list.length * INSTANCE_FLOAT_COUNT);
+  for (let i = 0; i < list.length; i += 1) writeInstance(data, i, list[i]);
   return data;
 }
 
@@ -67,7 +74,8 @@ export class Renderer2D {
   /** MSAA 采样数：同 pass 内的业务 pipeline 必须与它一致 */
   public readonly sampleCount = CANVAS_SAMPLE_COUNT;
 
-  private instanceList: RectInstance[] = [];
+  /** 基础批次实例数：绘制数量只看它，覆盖批次由各自的纹理批次绘制 */
+  private baseInstanceCount = 0;
   // MSAA 颜色目标：渲染到它，再 resolve 到画布纹理
   private msaaTexture: GPUTexture | null = null;
   // 背景色：默认很淡的灰，工业图纸长时间观看更舒服
@@ -97,8 +105,9 @@ export class Renderer2D {
     });
 
     this.instanceStorageBuffer = device.createBuffer({
-      size: 100000 * 48, // InstanceTransform:12*4=48byte（含图集 uv 矩形）
+      size: MAX_INSTANCE_COUNT * INSTANCE_FLOAT_COUNT * 4,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+      label: 'core-instance-storage-buffer',
     });
 
     this.createMsaaTexture(context.canvas.width, context.canvas.height);
@@ -131,12 +140,11 @@ export class Renderer2D {
   }
 
   /**
-   * 一次性提交整帧：基础矩形批次 + 若干「自带纹理的实例批次」（文字、贴图符号）。
+   * 一次性提交整帧：基础图元批次 + 若干「自带纹理的实例批次」（文字、贴图符号）。
    *
-   * 调用方只按顺序给出批次，实例缓冲的拼接与绘制偏移都在内部完成：
-   * 缓冲里存放「矩形 + 各批次依次拼接」，但**绘制数量只按基础批次算**，
-   * 额外批次由各自的纹理批次绘制。
-   * （历史 bug：额外实例被基础批次用默认白纹理也画了一遍，文字于是成了实色方块。）
+   * 打包与上传都在这里做（调用方只给出批次）：缓冲里存放「基础批次 + 各覆盖批次依次拼接」，
+   * 但**绘制数量只按基础批次算**，覆盖批次由各自的纹理批次绘制。
+   * （历史 bug：覆盖实例被基础批次用默认白纹理也画了一遍，文字于是成了实色方块。）
    */
   renderComposite(options: {
     rectInstances: readonly RectInstance[];
@@ -146,14 +154,28 @@ export class Renderer2D {
     const { rectInstances, extraBatches = [], drawOverlay } = options;
     const batches = extraBatches.filter((batch) => batch.instances.length > 0);
 
-    const all: RectInstance[] = [...rectInstances];
-    for (const batch of batches) all.push(...batch.instances);
-    if (all.length > 0) {
-      this.device.queue.writeBuffer(this.instanceStorageBuffer, 0, packRectInstances(all));
+    const totalCount = batches.reduce(
+      (sum, batch) => sum + batch.instances.length,
+      rectInstances.length,
+    );
+    if (totalCount > MAX_INSTANCE_COUNT) {
+      throw new Error(`实例数超出缓冲容量：${totalCount} > ${MAX_INSTANCE_COUNT}`);
+    }
+
+    // 一次打包成连续缓冲，避免先拼一个中间数组再打包
+    const packed = new Float32Array(totalCount * INSTANCE_FLOAT_COUNT);
+    let cursor = 0;
+    for (const instance of rectInstances) writeInstance(packed, cursor++, instance);
+    for (const batch of batches) {
+      for (const instance of batch.instances) writeInstance(packed, cursor++, instance);
+    }
+
+    if (totalCount > 0) {
+      this.device.queue.writeBuffer(this.instanceStorageBuffer, 0, packed);
     }
 
     // 绘制数量只看基础批次
-    this.instanceList = [...rectInstances];
+    this.baseInstanceCount = rectInstances.length;
     this.render(
       drawOverlay,
       batches.map((batch) => ({
@@ -292,41 +314,6 @@ export class Renderer2D {
     });
   }
 
-  setInstances(list: RectInstance[]) {
-    this.instanceList = list;
-  }
-
-  uploadInstances() {
-    const count = this.instanceList.length;
-    // InstanceTransform 16个f32：sx,sy,beta,tx,ty,selected,pad0,pad1,u0,v0,u1,v1,r,g,b,a
-    const arr = new Float32Array(count * 16);
-
-    for (let i = 0; i < count; i++) {
-      const inst = this.instanceList[i];
-      const offset = i * 16;
-      arr[offset] = inst.sx;
-      arr[offset + 1] = inst.sy;
-      arr[offset + 2] = inst.beta;
-      arr[offset + 3] = inst.tx;
-      arr[offset + 4] = inst.ty;
-      arr[offset + 5] = inst.selected ?? 0;
-      arr[offset + 6] = inst.shape ?? 0; // shape：0 方框 / 1 圆（着色器按它裁形状）
-      arr[offset + 7] = 0; // pad1 ✅补齐
-      // 图集 uv：矩形图元默认整张纹理
-      arr[offset + 8] = inst.u0;
-      arr[offset + 9] = inst.v0;
-      arr[offset + 10] = inst.u1;
-      arr[offset + 11] = inst.v1;
-      // 逐实例颜色：默认 0（沿用着色器默认色）
-      arr[offset + 12] = inst.colorR;
-      arr[offset + 13] = inst.colorG;
-      arr[offset + 14] = inst.colorB;
-      arr[offset + 15] = inst.colorA;
-    }
-
-    this.device.queue.writeBuffer(this.instanceStorageBuffer, 0, arr);
-  }
-
   uploadProjectionMatrix(mat: Float32Array) {
     this.device.queue.writeBuffer(this.projectionBuffer, 0, mat);
   }
@@ -358,17 +345,17 @@ export class Renderer2D {
     });
 
     // 基础批次为空时跳过（例如某个功能测试只画管线/文字），避免 0 实例的无效绘制
-    if (this.instanceList.length > 0) {
+    if (this.baseInstanceCount > 0) {
       renderPass.setPipeline(this.pipeline);
       renderPass.setBindGroup(0, this.bindGroup);
       renderPass.setVertexBuffer(0, this.vertexBuffer);
-      renderPass.draw(this.vertexCount, this.instanceList.length);
+      renderPass.draw(this.vertexCount, this.baseInstanceCount);
     }
 
     drawOverlay?.(renderPass);
 
     // 纹理批次（文字/贴图）紧跟矩形实例之后，区间偏移在这里累加，调用方不必手算
-    let firstInstance = this.instanceList.length;
+    let firstInstance = this.baseInstanceCount;
     for (const batch of textureBatches) {
       if (batch.instanceCount <= 0) continue;
       this.drawTextureBatch(

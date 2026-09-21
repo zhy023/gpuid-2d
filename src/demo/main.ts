@@ -89,7 +89,7 @@ export async function runApp() {
     let visibleItemsSnapshot: ReturnType<typeof pidTester.tick>['visibleItems'] = [];
     let visibleValves: ValveGraphic[] = [];
 
-    /** 更新矩形可见集与实例缓冲；返回当前矩形实例列表（frame 阶段要在其后追加文字/贴图实例） */
+    /** 更新矩形可见集；返回当前矩形实例列表（上传与追加文字/贴图实例都在 frame 阶段做） */
     function updateVisibleInstances(): readonly RectInstance[] {
       const result = pidTester.tick(camera.getViewportAABB(), camera.isDrag);
       if (!result) return instanceList;
@@ -98,8 +98,6 @@ export async function runApp() {
       if (!result.changed) return instanceList;
 
       instanceList = pidTester.buildRectInstanceList(visibleItemsSnapshot);
-      renderer.setInstances(instanceList);
-      renderer.uploadInstances();
       console.log(`视口剔除：${result.visibleItems.length} / 50000 个图元`);
       return instanceList;
     }
