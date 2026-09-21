@@ -241,6 +241,25 @@ describe('toPidScene（真实图纸）', () => {
       }
     }
   });
+
+  it('图纸里的椭圆单元画成椭圆（形状按图，而不是一律方框）', () => {
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    const ellipseCells = document.nodes.filter(
+      (node) => !node.isEdge && node.style.ellipse === '1' && node.width > 0,
+    );
+    assert.ok(ellipseCells.length > 0, '样例图纸里有椭圆单元');
+
+    const shapes = [...withValves.scene.devices.values()].map((device) => device.shape);
+    assert.equal(
+      shapes.filter((shape) => shape === 'circle').length,
+      ellipseCells.length,
+      '每个椭圆单元都应翻成内切椭圆',
+    );
+    assert.ok(
+      shapes.every((shape) => shape === 'rect' || shape === 'circle'),
+      '样例图纸只出现方框与椭圆',
+    );
+  });
 });
 
 describe('normalizeIconUrl', () => {

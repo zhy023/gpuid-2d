@@ -208,6 +208,26 @@ export function toPidScene(
     return null;
   };
 
+  /**
+   * 图纸里声明的形状 → 图形绘制命令。
+   * 内核的模板是单位方形 + shape 通道裁剪，所以这里只映射「方框 / 圆（内切椭圆）/ 三角形」；
+   * 其它形状（圆角矩形、callout 等）内核暂时表达不了，保持方框。
+   */
+  const applyDrawioShape = (
+    graphic: SelectableGraphic,
+    style: MxStyle,
+    width: number,
+    height: number,
+  ): void => {
+    const absoluteWidth = Math.abs(width);
+    const absoluteHeight = Math.abs(height);
+    if (style.ellipse === '1' || style.shape === 'ellipse') {
+      graphic.ellipse(absoluteWidth, absoluteHeight);
+    } else if (style.triangle === '1' || style.shape === 'triangle') {
+      graphic.triangle(absoluteWidth, absoluteHeight);
+    }
+  };
+
   /** 端点在节点矩形上的锚点：fx/fy 是 0~1 的比例（drawio 的 exitX/entryX） */
   const anchorOf = (node: MxNode, fx: number, fy: number) => {
     // drawio 的 centerPerimeter：不管 exit/entry 给什么比例，端口都在节点中心出线。
@@ -308,6 +328,8 @@ export function toPidScene(
         } satisfies DrawioCellData,
       });
       device.clearDirty();
+      // 形状按图纸：椭圆单元画成内切椭圆，而不是方框（内核按 shape 通道裁剪，拾取同样跟着变）
+      applyDrawioShape(device, node.style, sx, sy);
       scene.upsertDevice(device);
       placedGraphics.set(node.id, { graphic: device, kind: 'device' });
       stats.devices += 1;
