@@ -61,7 +61,7 @@
 
 ## 下一步
 
-1. 边框渲染：图形模型已经有 `borderColor` / `borderWidth`，但实例结构体 16×f32 已占满
+1. 边框渲染：图形模型已经有 `strokeColor` / `strokeWidth`，但实例结构体 16×f32 已占满
    （变换 8 + 图集 uv 4 + 颜色 4），要真画边框得给 `InstanceTransform` 加一条边框通道并改着色器
 2. hover 交互：`Graphic` 已有 `hovered` 状态，还差在 demo 里把 pointermove 接到拾取
 3. 图纸交互：拾取（`PidScene` 的图元 id 已可直接喂 `pickFirst`）、框选、悬浮预览
