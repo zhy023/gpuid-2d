@@ -14,8 +14,11 @@
 ### core（业务无关）
 
 - 装配与生命周期：`createRendererContext`、`CanvasSurface`（resize 统一处理）、`recreateRendererContext`（掉设备重建，必须重新 `requestAdapter`）、`dispose` 链路
-- 渲染：`Renderer2D`（16×f32 实例 = 变换 + 图集 uv + 逐实例颜色；`renderComposite` 批次偏移内部累加；4x MSAA + alpha 混合；层契约 `RENDER_LAYER`）
-- 拾取：`WebGpuPicker.pick` / `pickAt`、`createRendererPicker`、`pickFirst`
+- 渲染：`Renderer2D`（16×f32 = 64B 实例 = 变换 + 图集 uv + 逐实例颜色；`renderComposite` 批次偏移内部累加；4x MSAA + alpha 混合；层契约 `RENDER_LAYER`）。
+  片元先算形状遮罩再采样：遮罩为 0（模板三角形多出的半边）或没指定颜色（`color.a <= 0.5`）直接早退，
+  省掉一次纹理采样——`textureSampleLevel(..., 0.0)` 不要求统一控制流，`textureSample` 要求，所以只能用前者
+- 拾取：`WebGpuPicker.pick` / `pickAt`、`createRendererPicker`、`pickFirst`；只读 1 个像素，
+  用 `setScissorRect(目标像素, 1, 1)` 把光栅化收到那一个像素（不影响绘制顺序与深度比较）
 - 纹理：`loadTextureFromUrl`、`createTextureFromBitmap`、默认白纹理、采样器
 - 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容、字体级 ascent/descent 与逐字形 `baselineOffset`）、
   `layoutText` / `layoutTextBlock`（字素排版、行高 = 字号 × `lineHeightRatio`、同一行共用一条基线、水平/垂直锚点对齐、颜色、底板、描边 halo）、
@@ -54,7 +57,7 @@
 
 ### business/pid_schematic
 
-- 管线：分段实例化（拐点补方块、流动相位连续）、像素宽度档位 2–10、逐实例 `strokeColor`、
+- 管线：分段实例化（拐点补方块、流动相位连续）、粗细按图纸 `strokeWidth`（世界单位；2–10px 档位只用于压测数据）、逐实例 `strokeColor`、
   `flowSpeed` 三态（`>0` 流动 / `<0` 静止虚线 / `=0` 实心）
 - 阀门（`ValveGraphic`，图形基类的业务实现）：开关两态贴图精灵；拾取直接用内核拾取着色器
   与内核图元模板，业务只提供自己的 bindGroup（不再有独立拾取着色器）
@@ -132,6 +135,10 @@
 5. 文字 LOD：大图缩小时隐藏位号或切换字号
 6. 数据接入：DXF / 后端图纸 JSON（`PidScene` 已就绪，只差解析器）
 7. 性能面板：draw call / 实例数 / 剔除数 / 帧时间
+8. 口径守卫脚本：`scripts/check_transform_parity.mjs`（CPU 算的屏幕包围盒 vs GPU 渲染出来的像素包围盒）、
+   注释风格检查（统一块注释，规则写在 AGENTS.md）——都按约定放在 `scripts/check_*.mjs`，不阻塞 `pnpm check`
+9. 渲染微优化（都要实测取舍）：形状遮罩只算被选中的那一个 `smoothstep`（导数仍需无条件算）、
+   圆遮罩用一阶距离场去掉 `sqrt`、填充与描边合并成一趟（要扩实例通道）、大图元改用方形模板（片元减半、顶点翻倍）
 
 样例数据：`public/assets/graph/meta_demo.xml`（532 个 mxCell，图纸范围 1238×984）
 
@@ -158,6 +165,10 @@
   但 `bufferOffset` 是字节；两者混用会写错区间
 - wgpu-matrix 的 `mat3` 是 12 个元素（不是 9）
 - `erasableSyntaxOnly`：禁止构造参数属性；嵌套函数声明拿不到外层收窄（用 `const canvasEl` 之类中转）
+- 注释统一用块注释（见 AGENTS.md）：多行、单行都是块注释，行尾注释也写 `/* … */`；
+  只有语义上必须保持行注释的指令才例外（本项目目前没有）
+- 改片元着色器时注意 WGSL 的导数/采样约束：`fwidth` 与隐式 LOD 的 `textureSample`
+  必须待在统一控制流里，想早退就得换成 `textureSampleLevel`
 - `sed` 按行号删代码出过两次事故（多删 `const camera`、留下孤立 `/**`）：大段删除先读全文再 `apply_patch`
 - drawio 的坑：
   - 内联图片写成 `data:image/png,<base64>`（**没有 `;base64`**），浏览器会当百分号编码的文本来解，

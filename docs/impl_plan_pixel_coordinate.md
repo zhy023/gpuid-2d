@@ -3,6 +3,15 @@
 > 目标读者：后续接手实现的 agent / 开发者。
 > 本文只描述「怎么做、怎么验」，代码位置都指向当前工作区的真实文件。
 
+> **状态（已同步）**
+>
+> - §2 的换算契约**已落地**：口径收在 `src/core/geometry/transform_2d.ts`
+>   （`composeProjection2d` 3×3 投影、`screenToWorld2d` / `worldToScreen2d`），
+>   `Camera2d` 只持视口中心/缩放/画布尺寸并转发；`tests/core_math.test.ts` 已覆盖
+>   中心/边界/方向/往返四条断言。
+> - §2.1 的两处不一致**仍未处理**（CSS 缩放画布的 rect 归一化、HiDPI 的 DPR）。
+> - 步骤 5 的「Grid / BBox 测试页」**仍未做**，`src/demo/` 下目前只有阀门压测页与图纸页。
+
 ## 0. 现状核对（先读这一节）
 
 我在 gpuid-2d 工作区里核对到的事实：

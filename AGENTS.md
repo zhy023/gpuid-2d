@@ -20,6 +20,10 @@ gpuid-2d 是**自研的 2D 底层 WebGPU 引擎**，直接基于 WebGPU API 实�
   展开后的字符串模块放各自 `shader/generated/`（生成物，勿手改，随源码提交）
 - WGSL 的 `#include` 支持 `@/` 别名（`pnpm shaders` 生成期展开，逻辑见 `scripts/build_shaders.mjs`），跨目录 include 用 `@/...`，不要写 `../../`
 - TS 侧只 import 生成物（`shader/generated/*.ts`），不要用 `?raw` 等打包器私有语法引入 `.wgsl`
+- 2D 变换口径只有一处：`src/core/geometry/transform_2d.ts`（模型矩阵 `composeTransform2d`、
+  正交投影 `composeProjection2d`、屏幕↔世界换算）。相机与命中检测都调它，不要在别处另写一套投影/NDC 公式；
+  GPU 侧对应 `core/shader/core_include/vertex_math.wgsl`（模型）与 `primitive_uniforms.wgsl`（投影，`mat3x3f`），
+  改约定必须两边同步（`tests/core_math.test.ts` 钉了中心/边界/方向/往返）
 - 用例与检查脚本分工：Node 可跑的逻辑用例放 `tests/*.test.ts`（`pnpm test` 运行，已并入 `pnpm run check`）；
   需要真实 WebGPU 的检查放 `scripts/check_*.mjs`（如 `pnpm run check:device`），按需运行、不阻塞 `check`
 - `src/` 之外的文件（`README.md`、`AGENTS.md`、`.github/`、`scripts/` 等）改动同样要过 `pnpm run format:check`
@@ -65,6 +69,11 @@ import heroImg from '@/assets/hero.png';
 - ESLint（flat config）负责代码质量，`eslint-plugin-prettier` 已打通，格式问题会在 lint 中报告
 - 使用函数式组件 + Hooks，遵循 `react-hooks` 规则
 - TypeScript 严格类型，避免 `any`；无法确定类型时使用 `unknown` 并做收窄
+- **注释统一用块注释**（`src/`、`tests/`、`scripts/` 一致）：
+  对着声明写的用 JSDoc 形式 `/** … */`，写在代码内部（含行尾）的用普通块注释 `/* … */`；
+  不再写 `//` 行注释（`.wgsl` 同样适用）。只有语义上必须保持行注释的指令才例外
+- 注释只描述**当前实现**：不留"以前是 X""不再用 Y""改之前如何"这类历史叙述；
+  一段注释占两行以上时写成块注释的多行形态，不要堆连续的单行
 
 ## 4. 技术栈
 

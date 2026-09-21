@@ -42,18 +42,18 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 **内核（core，业务无关）**
 
 - 装配与生命周期：`createRendererContext`（device/renderer/picker/surface/camera 一次装配）、`CanvasSurface`（resize 统一重配上下文 + 重建 MSAA/拾取纹理）、`dispose` 链路、`device.lost` 监听 + 自动重建（`recreateRendererContext`，重连必须重新 `requestAdapter`）
-- 渲染：实例化绘制（16×f32 实例：变换 + 图集 uv + 逐实例颜色）、`renderComposite`（基础批次 + 多纹理批次 + 覆盖层，偏移内部累加）、4x MSAA + 标准 alpha 混合、层契约 `RENDER_LAYER`
-- 拾取：`rgba32uint` 离屏拾取（`pick` / `pickAt`）、`createRendererPicker`（复用渲染器布局）、`pickFirst`（多图层按优先级试到命中）
+- 渲染：实例化绘制（16×f32 = 64B 实例：变换 + 图集 uv + 逐实例颜色）、`renderComposite`（基础批次 + 多纹理批次 + 覆盖层，偏移内部累加）、4x MSAA + 标准 alpha 混合、层契约 `RENDER_LAYER`；片元先算形状遮罩再采样，遮罩为 0（模板三角形多出的半边）或没指定颜色的实例直接早退，省掉一次纹理采样
+- 拾取：`rgba32uint` 离屏拾取（`pick` / `pickAt`）、`createRendererPicker`（复用渲染器布局）、`pickFirst`（多图层按优先级试到命中）；拾取只读 1 个像素，用 `setScissorRect` 把光栅化收到目标像素
 - 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
 - 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容、超采样烘焙）、`layoutText` / `layoutTextBlock`（字素簇排版、**行高与基线口径跟图纸走**：行盒高 = 字号 × `lineHeightRatio`（drawio 默认 1.2），同一行的字共用一条基线；水平 / 垂直锚点对齐、逐实例颜色、可选底板与描边 halo）、`measureTextLine`、`splitGraphemes`
-- 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB 与折线包围盒、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）
+- 几何与空间：`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB 与折线包围盒；**变换口径唯一来源** `geometry/transform_2d.ts`——模型矩阵 `composeTransform2d`（T·R·S、单位方块模板）、正交投影 `composeProjection2d`（3×3，12 个 float = 每列补 16B，直接喂 WGSL `mat3x3f`）、屏幕↔世界 `screenToWorld2d` / `worldToScreen2d`（世界 y 向下）。`Camera2d` 只持视口中心 / 缩放 / 画布尺寸，投影与换算都转发给它
 - 图形分层（`core/scene`）：`graphic/` 放图形本体——`base` `GraphicBase`（基础属性：id / 位置 / 大小 / 旋转 / 可见 / 变更标记 / 世界 AABB，实现 `QuadTreeItem`）、`graphic` `Graphic`（绘制属性：外观 `fill` / `stroke` / `atlasUv`、形状绘制命令 `rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`、唯一打包出口 `toInstance`）、`data` `DataGraphic`（用户自定义数据 `data`：纯属性，内核不解释、不参与绘制）；`capability/` 放它上层的两种互斥能力——`selectable` `SelectableGraphic`（图形：可选中 / 取消选中 + hover，无流动）与 `flow` `FlowGraphic`（管线：开关 + 流动动画 / 相位，不参与选中）；`spatial/` 放 `QuadTreeStore` 空间索引。业务层的阀门（`ValveGraphic`）长在 `SelectableGraphic` 上（开 / 关是它自己的业务状态），流动管线（`FlowPipe`）长在 `FlowGraphic` 上
 - 内置图元模板是**一个三角形**（`triangle-list`，3 顶点）而不是方形：局部空间仍是单位方形 `[-0.5, 0.5]`，模板三角形覆盖它、多出的部分由 `unitSquareMask` 按屏幕像素抗锯齿裁掉；正方形/长方形/圆形最终都由三角形拼出来，符合图形学最小图元的口径
 - 着色器工程：自研 `#include`（`@/` 别名）+ 生成期展开成字符串模块（`pnpm shaders`）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
 
 **业务（business/pid_schematic）**
 
-- 管线：按「每段一个实例」批量绘制（段中点/方向角/段长现算、拐点补方块、流动相位连续）、屏幕像素粗细档位（2~10px、步长 2px、不随缩放变化）、「流动 / 默认」两种样式由 `flowSpeed` 驱动
+- 管线：按「每段一个实例」批量绘制（段中点/方向角/段长现算、拐点补方块、流动相位连续）、粗细完全按图纸 `strokeWidth`（世界单位，跟图元一起缩放；2~10px 档位只用于压测数据生成）、「流动 / 默认」两种样式由 `flowSpeed` 驱动
 - 阀门：开关两态贴图精灵、拾取复用内核拾取着色器（业务只提供 bindGroup）、点击切换开闭
 - 拓扑：`applyValveFlowState` 把阀门状态广播到下游管线（含环路保护）
 - 场景：`PidScene` 统一增删改（`upsertDevice` / `upsertPipe` / `upsertValve` / `remove`）与视口可见集
@@ -61,18 +61,20 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 
 **质量保障**
 
-- `tests/` 31 个用例 / 12 组（几何等价性、四叉树一致性、QuadTreeStore、PidScene、拓扑广播、文字排版与字素切分、drawio 解析与翻译）
+- `tests/` 75 个用例 / 21 组（几何等价性与变换口径、四叉树一致性、QuadTreeStore、PidScene、拓扑广播、文字排版与字素切分、drawio 解析与翻译、颜色/主题取支）
 - `pnpm run check`（lint + 文件名 + 着色器模块同步 + WGSL + 用例 + format + build）与 `pnpm run check:device`（掉设备探针：destroy → lost → 新适配器 → 建管线并渲染一帧）
 - GitHub Actions：`check` job 跑完整检查，`device` job 单独跑掉设备用例（不阻塞）
 - 性能基线：5 万设备图元 + 800 管线，拖动渲染中位 16.7ms、p95 17.7ms
 
 ### 近期开发顺序
 
-1. **符号图集与状态变体**：泵/仪表/接线端等符号进同一张图集，按状态切换 uv（阀门已用两张贴图验证通路）。
-2. **图集淘汰与显存上限**：字形图集目前按需扩容，需要 LRU 或页数上限，保证长跑不涨内存。
-3. **文字 LOD**：大图缩小时隐藏位号或切换字号。
-4. **数据接入**：drawio（mxGraphModel）已接入 `PidScene`（含图标贴图与位号批次）；DXF / 后端图纸 JSON 待接。
-5. **性能面板**：draw call / 实例数 / 剔除数 / 帧时间。
+1. **口径守卫脚本**：`scripts/check_transform_parity.mjs`（CPU 算的屏幕包围盒 vs GPU 实际渲染的像素包围盒对拍）、注释风格检查（统一块注释，见 AGENTS.md）。
+2. **符号图集与状态变体**：泵/仪表/接线端等符号进同一张图集，按状态切换 uv（阀门已用两张贴图验证通路）。
+3. **图集淘汰与显存上限**：字形图集目前按需扩容，需要 LRU 或页数上限，保证长跑不涨内存。
+4. **文字 LOD**：大图缩小时隐藏位号或切换字号。
+5. **数据接入**：drawio（mxGraphModel）已接入 `PidScene`（含图标贴图与位号批次）；DXF / 后端图纸 JSON 待接。
+6. **性能面板**：draw call / 实例数 / 剔除数 / 帧时间。
+7. **渲染微优化**（需实测取舍）：形状遮罩只算被选中的那一个 smoothstep、圆用一阶距离场去掉 sqrt、填充与描边合并成一趟（要扩实例通道）、大图元改用方形模板（片元减半、顶点翻倍）。
 
 ### 后续扩展
 
