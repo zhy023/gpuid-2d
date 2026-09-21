@@ -1,4 +1,4 @@
-// Core 通用 Quad 渲染着色器
+// Core 通用图元渲染着色器
 
 #include "@/core/shader/core_include/instance_transform.wgsl"
 #include "@/core/shader/core_include/vertex_math.wgsl"

@@ -5,7 +5,7 @@
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { layoutText } from '@/core/text/text_batch';
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 
 /** 位号文字颜色（浅蓝，压在灰色设备矩形上也可辨） */
 export const VALVE_LABEL_COLOR = [0.55, 0.85, 1.0, 1] as const;
@@ -29,7 +29,7 @@ export function buildValveLabelInstances(
   atlas: GlyphAtlas,
   valves: readonly ValveGraphic[],
   options: ValveLabelOptions,
-): RectInstance[] {
+): PrimitiveInstance[] {
   const {
     pixelsPerWorldUnit,
     label = (valve: ValveGraphic) => `你好 ${valve.id % 1000}`,

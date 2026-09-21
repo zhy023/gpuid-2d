@@ -7,10 +7,10 @@
  */
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { Graphic } from '@/core/scene/graphic';
-import type { AABB, RectInstance } from '@/core/types';
+import type { AABB, PrimitiveInstance } from '@/core/types';
 
 /** 设备图元 → 实例化绘制数据（几何 + 选中态 + 形状；uv 整张纹理、颜色取填充色） */
-export function toRectInstances(items: readonly Graphic[]): RectInstance[] {
+export function toInstances(items: readonly Graphic[]): PrimitiveInstance[] {
   return items.map((item) => ({
     sx: item.width,
     sy: item.height,
@@ -90,9 +90,9 @@ export class DeviceStressTester {
     this.renderDirtyIds.add(id);
   }
 
-  /** 把可见设备图元转成 Renderer2D 需要的 RectInstance[] */
-  buildRectInstanceList(visibleItems: Graphic[]): RectInstance[] {
-    return toRectInstances(visibleItems);
+  /** 把可见设备图元转成 Renderer2D 需要的 PrimitiveInstance[] */
+  buildInstanceList(visibleItems: Graphic[]): PrimitiveInstance[] {
+    return toInstances(visibleItems);
   }
 
   /**

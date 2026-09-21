@@ -78,9 +78,10 @@
   否则会被白纹理批次画成实心方块
 - 实例结构体 64B：变换 8 + 图集 uv 4 + 逐实例颜色 4（颜色在 `offset 12–15`）
 - 实例缓冲容量 10 万（基础批次 + 覆盖批次共用一条）：实例打包与上传只有
-  `renderComposite` 一条通路（`packRectInstances` 供用例断言），超容量直接抛错
-- 模型层与实例契约的分工：图形基类的 `selected` 是布尔，打包成实例时才用 `selectedFlag`（0/1）
-  映射；「背景」对应逐实例颜色通道，新增渲染通道要改 `InstanceTransform` 与全部打包点
+  `renderComposite` 一条通路（`packInstances` 供用例断言），超容量直接抛错
+- 模型层与实例契约的分工：实例契约叫 `PrimitiveInstance`（16×f32，不带形状语义，方框/圆/三角形
+  都靠 shape 通道裁）；模型层的 `selected` 是布尔，打包成实例时才用 `selectedFlag`（0/1）映射；
+  「背景」对应逐实例颜色通道，新增渲染通道要改 `InstanceTransform` 与全部打包点
 - `GPUQueue.writeBuffer` 的 `dataOffset` / `size` 对 TypedArray 是**元素数**（不是字节数），
   但 `bufferOffset` 是字节；两者混用会写错区间
 - wgpu-matrix 的 `mat3` 是 12 个元素（不是 9）

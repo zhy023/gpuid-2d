@@ -4,7 +4,7 @@ import {
   createTextureSampler,
   type Texture2d,
 } from '@/core/gpu/texture';
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 import defaultRenderWgsl from '@/core/shader/generated/core_render/primitive_render';
 
 /** 实例契约：8 个基字段（变换/选中/形状/填充）+ 图集 uv(4) + 逐实例颜色(4) = 16 × f32 = 64B */
@@ -12,7 +12,7 @@ const INSTANCE_FLOAT_COUNT = 16;
 /** 实例缓冲容量：基础批次与各覆盖批次共用这一条缓冲 */
 const MAX_INSTANCE_COUNT = 100_000;
 
-/** 一次纹理批次：绑定纹理与采样器，绘制紧随矩形批次之后的连续实例区间 */
+/** 一次纹理批次：绑定纹理与采样器，绘制基础实例批次之后的连续实例区间 */
 export interface TextureBatch {
   textureView: GPUTextureView;
   sampler: GPUSampler;
@@ -21,13 +21,13 @@ export interface TextureBatch {
 
 /** 自带纹理的实例批次（文字图集、贴图符号等） */
 export interface InstanceTextureBatch {
-  instances: readonly RectInstance[];
+  instances: readonly PrimitiveInstance[];
   textureView: GPUTextureView;
   sampler: GPUSampler;
 }
 
 /** 把一个实例写进打包数组的第 index 个槽位，字段顺序与 WGSL `InstanceTransform` 一致 */
-function writeInstance(data: Float32Array, index: number, instance: RectInstance): void {
+function writeInstance(data: Float32Array, index: number, instance: PrimitiveInstance): void {
   const offset = index * INSTANCE_FLOAT_COUNT;
   data[offset] = instance.sx;
   data[offset + 1] = instance.sy;
@@ -49,7 +49,7 @@ function writeInstance(data: Float32Array, index: number, instance: RectInstance
 }
 
 /** 把实例列表打包成 GPU 缓冲格式（每个实例 `INSTANCE_FLOAT_COUNT` 个 f32） */
-export function packRectInstances(list: readonly RectInstance[]): Float32Array {
+export function packInstances(list: readonly PrimitiveInstance[]): Float32Array {
   const data = new Float32Array(list.length * INSTANCE_FLOAT_COUNT);
   for (let i = 0; i < list.length; i += 1) writeInstance(data, i, list[i]);
   return data;
@@ -147,16 +147,16 @@ export class Renderer2D {
    * （历史 bug：覆盖实例被基础批次用默认白纹理也画了一遍，文字于是成了实色方块。）
    */
   renderComposite(options: {
-    rectInstances: readonly RectInstance[];
+    instances: readonly PrimitiveInstance[];
     extraBatches?: readonly InstanceTextureBatch[];
     drawOverlay?: (pass: GPURenderPassEncoder) => void;
   }) {
-    const { rectInstances, extraBatches = [], drawOverlay } = options;
+    const { instances, extraBatches = [], drawOverlay } = options;
     const batches = extraBatches.filter((batch) => batch.instances.length > 0);
 
     const totalCount = batches.reduce(
       (sum, batch) => sum + batch.instances.length,
-      rectInstances.length,
+      instances.length,
     );
     if (totalCount > MAX_INSTANCE_COUNT) {
       throw new Error(`实例数超出缓冲容量：${totalCount} > ${MAX_INSTANCE_COUNT}`);
@@ -165,7 +165,7 @@ export class Renderer2D {
     // 一次打包成连续缓冲，避免先拼一个中间数组再打包
     const packed = new Float32Array(totalCount * INSTANCE_FLOAT_COUNT);
     let cursor = 0;
-    for (const instance of rectInstances) writeInstance(packed, cursor++, instance);
+    for (const instance of instances) writeInstance(packed, cursor++, instance);
     for (const batch of batches) {
       for (const instance of batch.instances) writeInstance(packed, cursor++, instance);
     }
@@ -175,7 +175,7 @@ export class Renderer2D {
     }
 
     // 绘制数量只看基础批次
-    this.baseInstanceCount = rectInstances.length;
+    this.baseInstanceCount = instances.length;
     this.render(
       drawOverlay,
       batches.map((batch) => ({
@@ -227,7 +227,7 @@ export class Renderer2D {
   }
 
   /**
-   * 初始化渲染管线：默认用内核自带的矩形着色器，传入 shaderCode 可覆盖。
+   * 初始化渲染管线：默认用内核自带的图元着色器，传入 shaderCode 可覆盖。
    * 着色器属于内核资产，使用方不必再 import WGSL。
    */
   async initPipeline(shaderCode: string = defaultRenderWgsl) {
@@ -319,7 +319,7 @@ export class Renderer2D {
   }
 
   /**
-   * 主渲染：先按实例提交矩形，再允许调用方在同一个 render pass 内追加绘制（如管线）
+   * 主渲染：先提交基础实例批次，再允许调用方在同一个 render pass 内追加绘制（如管线）
    * @param drawOverlay 追加绘制回调，在 pass.end() 之前调用
    */
   render(
@@ -354,7 +354,7 @@ export class Renderer2D {
 
     drawOverlay?.(renderPass);
 
-    // 纹理批次（文字/贴图）紧跟矩形实例之后，区间偏移在这里累加，调用方不必手算
+    // 纹理批次（文字/贴图）紧跟基础实例之后，区间偏移在这里累加，调用方不必手算
     let firstInstance = this.baseInstanceCount;
     for (const batch of textureBatches) {
       if (batch.instanceCount <= 0) continue;

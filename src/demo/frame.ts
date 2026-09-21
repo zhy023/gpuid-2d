@@ -1,6 +1,6 @@
 /**
  * 每帧组装与提交：
- *   可见集更新（矩形/管线/阀门）→ 实例组装（矩形 + 文字位号 + 标题 + 阀门精灵）
+ *   可见集更新（图元/管线/阀门）→ 实例组装（图元 + 文字位号 + 标题 + 阀门精灵）
  *   → 上传 → 按层序提交绘制（管线 → 阀门/位号/标题图集批次）
  *
  * 运行期对象通过 context 注入；这里只做「一帧的事」，不持有 demo 状态。
@@ -17,7 +17,7 @@ import type { Camera2d } from '@/core/camera';
 import { expandAABB } from '@/core/geometry/aabb';
 import type { Renderer2D } from '@/core/gpu/renderer';
 import { RENDER_LAYER, sortRenderLayerDraws, type RenderLayerDraw } from '@/core/gpu/render_layer';
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 import type { DemoResources } from '@/demo/resources';
 import type { DemoScene } from '@/demo/scene';
 
@@ -29,8 +29,8 @@ export interface DemoFrameContext {
   camera: Camera2d;
   scene: DemoScene;
   resources: DemoResources;
-  /** 更新矩形可见集与实例缓冲，返回当前矩形实例列表 */
-  updateVisibleInstances: () => readonly RectInstance[];
+  /** 更新图元可见集，返回当前基础实例列表 */
+  updateVisibleInstances: () => readonly PrimitiveInstance[];
   /** 每帧回写可见阀门（输入层拾取按同一数组下标解读） */
   onVisibleValves: (valves: readonly ValveGraphic[]) => void;
 }
@@ -106,9 +106,9 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
     const projMat = camera.getCameraProjectionMatrix();
     renderer.uploadProjectionMatrix(projMat);
 
-    // 整帧提交：基础矩形批次 + 文字/贴图批次（拼接与偏移由 core 内部完成）
+    // 整帧提交：基础实例批次 + 文字/贴图批次（打包、上传与偏移由 core 内部完成）
     renderer.renderComposite({
-      rectInstances: instanceList,
+      instances: instanceList,
       extraBatches: [
         {
           instances: titleInstances,

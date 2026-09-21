@@ -4,13 +4,11 @@
  * 每个字一个实例：格子尺寸 → 世界尺寸（除以相机缩放），图集 uv 写进 atlasUvRect，
  * 因此整段文字仍然只是一次 draw call。注册到 RENDER_LAYER.overlay 即可叠在图元之上。
  *
- * 两个已知待办（需要探针确认后再定，见文件末尾注释）：
- *   1. 垂直方向：画布 y 向下，正交相机又翻转了 y，v 轴是否正确需要像素验证
- *   2. 颜色：核心矩形的颜色目前写死在着色器里，逐实例颜色需要再扩实例字段
+ * 已知待办：垂直方向——画布 y 向下，正交相机又翻转了 y，v 轴是否正确需要像素验证
  */
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { splitGraphemes } from '@/core/text/glyph_atlas';
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 
 export interface TextLayoutOptions {
   /** 文字左上角（世界坐标，y 向下） */
@@ -37,7 +35,7 @@ export interface TextLayoutOptions {
 }
 
 export interface TextLayoutResult {
-  instances: RectInstance[];
+  instances: PrimitiveInstance[];
   /** 排版后的总宽度（世界单位） */
   width: number;
   /** 图集里缺失、本次被跳过的字 */
@@ -64,12 +62,12 @@ export function layoutText(
     outline = false as const,
   } = options;
   const worldPerPixel = 1 / Math.max(pixelsPerWorldUnit, 1e-6);
-  const instances: RectInstance[] = [];
+  const instances: PrimitiveInstance[] = [];
   const missing: string[] = [];
 
   // 底板：宽度先用排版结果算，等排完再插到最前面（保证文字压在底板上）
-  const backdropInstances: RectInstance[] = [];
-  const outlineInstances: RectInstance[] = [];
+  const backdropInstances: PrimitiveInstance[] = [];
+  const outlineInstances: PrimitiveInstance[] = [];
   let cursorX = x;
   for (const grapheme of splitGraphemes(text)) {
     const glyph = atlas.getGlyph(grapheme);

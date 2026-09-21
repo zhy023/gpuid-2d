@@ -12,7 +12,7 @@ import {
   recreateRendererContext,
   type RendererContext,
 } from '@/core/gpu/context';
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 import { createFrameRunner, type DemoFrameRunner } from '@/demo/frame';
 import { bindDemoInput } from '@/demo/input';
 import { createDemoResources } from '@/demo/resources';
@@ -85,26 +85,26 @@ export async function runApp() {
     const { deviceTester: pidTester, valveScene } = scene;
     camera.scale = 0.1;
 
-    let instanceList: RectInstance[] = [];
+    let instanceList: PrimitiveInstance[] = [];
     let visibleItemsSnapshot: ReturnType<typeof pidTester.tick>['visibleItems'] = [];
     let visibleValves: ValveGraphic[] = [];
 
-    /** 更新矩形可见集；返回当前矩形实例列表（上传与追加文字/贴图实例都在 frame 阶段做） */
-    function updateVisibleInstances(): readonly RectInstance[] {
+    /** 更新图元可见集；返回当前基础实例列表（上传与追加文字/贴图实例都在 frame 阶段做） */
+    function updateVisibleInstances(): readonly PrimitiveInstance[] {
       const result = pidTester.tick(camera.getViewportAABB(), camera.isDrag);
       if (!result) return instanceList;
       visibleItemsSnapshot = result.visibleItems;
 
       if (!result.changed) return instanceList;
 
-      instanceList = pidTester.buildRectInstanceList(visibleItemsSnapshot);
+      instanceList = pidTester.buildInstanceList(visibleItemsSnapshot);
       console.log(`视口剔除：${result.visibleItems.length} / 50000 个图元`);
       return instanceList;
     }
 
     updateVisibleInstances();
 
-    // 输入与尺寸处理：点击拾取（设备优先 → 矩形）与 resize 同步
+    // 输入与尺寸处理：点击拾取（设备优先 → 基础图元）与 resize 同步
     const unbindInput = bindDemoInput({
       canvas: canvasEl,
       context,

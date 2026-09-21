@@ -95,7 +95,7 @@ src/
 │  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText
 │  ├─ shader/                   # core_include + core_render；generated/ 为展开后的字符串模块
 │  ├─ camera.ts                 # 正交相机
-│  └─ types.ts                  # AABB / QuadItem / RectInstance（16×f32 实例契约）
+│  └─ types.ts                  # AABB / QuadItem / PrimitiveInstance（16×f32 实例契约）
 ├─ business/pid_schematic/      # P&ID 业务层
 │  ├─ shader/                   # 管线、阀门着色器；generated/ 为展开后的字符串模块
 │  ├─ pid_scene.ts              # 设备/管线/阀门统一增删改与可见集

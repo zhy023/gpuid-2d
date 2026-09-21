@@ -18,7 +18,7 @@ export interface PickCandidate {
   vertexBuffer: GPUBuffer;
   vertexCount: number;
   instanceCount: number;
-  /** 命中后回传给调用方的标记，用于区分是哪一层命中（如 'valve' / 'rect'） */
+  /** 命中后回传给调用方的标记，用于区分是哪一层命中（如 'valve' / 'primitive'） */
   label?: string;
 }
 

@@ -7,7 +7,7 @@
  */
 
 export const RENDER_LAYER = {
-  /** 主体实例批次（矩形、设备实例等由 Renderer2D 一次性提交） */
+  /** 基础实例批次（图元、设备实例等由 Renderer2D 一次性提交） */
   instance: 0,
   /** 管线 */
   pipe: 10,

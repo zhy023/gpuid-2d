@@ -23,7 +23,7 @@ let valvePicker: WebGpuPicker | null = null;
  * 初始化设备图元模块
  * @param device GPUDevice
  * @param canvasFormat 画布格式
- * @param vertexLayout 符号模板顶点布局（与核心侧矩形模板一致）
+ * @param vertexLayout 符号模板顶点布局（与内核图元模板一致）
  * @param templateVb 符号模板顶点 buffer
  * @param templateVCount 模板顶点数量
  */

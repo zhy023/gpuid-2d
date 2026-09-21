@@ -16,7 +16,7 @@ const UNIFORM_BUFFER_SIZE = 256;
  * 创建设备图元 pipeline + pickPipeline
  * @param device GPUDevice
  * @param canvasFormat 画布纹理格式
- * @param vertexBufferLayout 符号模板顶点布局（与核心侧矩形模板一致）
+ * @param vertexBufferLayout 符号模板顶点布局（与内核图元模板一致）
  */
 export async function createValveRenderResources(
   device: GPUDevice,
@@ -129,7 +129,7 @@ export function updateValveUniform(
 
 /**
  * 实例化绘制设备符号
- * @param vertexBuffer 符号模板顶点（核心侧矩形模板）
+ * @param vertexBuffer 符号模板顶点（内核图元模板）
  */
 export function drawValveInstanced(
   pass: GPURenderPassEncoder,

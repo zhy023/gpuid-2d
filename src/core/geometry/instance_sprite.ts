@@ -4,7 +4,7 @@
  * 文字字形、贴图符号、设备图元都是同一个形状，统一走这里，
  * 避免各处重复写「像素 ÷ 相机缩放」这类换算。
  */
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 
 export interface SpriteInstanceOptions {
   /** 中心点（世界坐标） */
@@ -23,7 +23,7 @@ export interface SpriteInstanceOptions {
   selected?: number;
 }
 
-export function spriteInstance(options: SpriteInstanceOptions): RectInstance {
+export function spriteInstance(options: SpriteInstanceOptions): PrimitiveInstance {
   const {
     tx,
     ty,

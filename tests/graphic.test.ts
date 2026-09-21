@@ -13,8 +13,8 @@ import {
   Graphic,
 } from '@/core/scene/graphic';
 import { QuadTreeStore } from '@/core/scene/quad_tree_store';
-import { packRectInstances } from '@/core/gpu/renderer';
-import { toRectInstances } from '@/business/pid_schematic/device_stress_test';
+import { packInstances } from '@/core/gpu/renderer';
+import { toInstances } from '@/business/pid_schematic/device_stress_test';
 import type { AABB } from '@/core/types';
 
 const RED = [1, 0, 0, 1] as const;
@@ -207,21 +207,21 @@ describe('图形可直接进四叉树', () => {
 describe('外观 → 实例数据', () => {
   it('形状与填充色都写进实例（shape 通道 = 第 7 个 float）', () => {
     const circle = new Graphic({ id: 1, x: 0, y: 0 }).circle(50).fill(RED);
-    const [instance] = toRectInstances([circle]);
+    const [instance] = toInstances([circle]);
     assert.equal(instance.shape, GRAPHIC_SHAPE_CIRCLE);
     assert.equal(instance.colorR, 1, '填充色进逐实例颜色通道');
 
     // 16 个 float/实例：0-1 缩放、2 旋转、3-4 位置、5 选中、6 形状
-    const packed = packRectInstances([instance]);
+    const packed = packInstances([instance]);
     assert.equal(packed[6], GRAPHIC_SHAPE_CIRCLE, 'shape 落在第 7 个 float');
     assert.equal(packed[12], 1);
     assert.equal(packed.length, 16);
 
     const rect = new Graphic({ id: 2 }).rect(20, 10);
-    assert.equal(toRectInstances([rect])[0].shape, GRAPHIC_SHAPE_RECT);
+    assert.equal(toInstances([rect])[0].shape, GRAPHIC_SHAPE_RECT);
 
     const triangle = new Graphic({ id: 3 }).triangle(30, 20);
-    assert.equal(toRectInstances([triangle])[0].shape, GRAPHIC_SHAPE_TRIANGLE);
+    assert.equal(toInstances([triangle])[0].shape, GRAPHIC_SHAPE_TRIANGLE);
   });
 });
 

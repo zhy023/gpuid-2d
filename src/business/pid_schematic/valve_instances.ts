@@ -11,11 +11,11 @@ import { minDeviceSymbolWorldSize } from '@/business/pid_schematic/device_style'
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { spriteInstance } from '@/core/geometry/instance_sprite';
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 
 // 设备符号数量上限，压测可按需调大
 const MAX_VALVE_INSTANCE = 4096;
-// InstanceTransform：8 个基字段 + 图集 uv 矩形(4) → 12 × f32 = 48B，与 WGSL 结构一致
+// InstanceTransform：8 个基字段 + 图集 uv 矩形(4) + 逐实例颜色(4) → 16 × f32 = 64B，与 WGSL 结构一致
 const INSTANCE_FLOAT_COUNT = 16;
 // PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float
 const BUSINESS_FLOAT_COUNT = 4;
@@ -93,12 +93,12 @@ export function disposeValveInstances(): void {
 export function buildValveSpriteInstances(
   valves: readonly ValveGraphic[],
   options: { textureWidth: number; textureHeight: number; pixelsPerWorldUnit: number },
-): { closed: RectInstance[]; open: RectInstance[] } {
+): { closed: PrimitiveInstance[]; open: PrimitiveInstance[] } {
   const { textureWidth, textureHeight, pixelsPerWorldUnit } = options;
   const widthPx = textureWidth / 2;
   const heightPx = textureHeight / 2;
-  const closed: RectInstance[] = [];
-  const open: RectInstance[] = [];
+  const closed: PrimitiveInstance[] = [];
+  const open: PrimitiveInstance[] = [];
 
   for (const valve of valves) {
     const instance = spriteInstance({
@@ -163,7 +163,7 @@ function packValveInstances(valves: readonly ValveGraphic[], pixelsPerWorldUnit:
  * 渲染可见设备图元（阀门符号）
  * @param viewProj 相机正交矩阵
  * @param visibleValves 视口剔除后的设备图元，顺序即实例下标（拾取按同一顺序解读）
- * @param vertexBuffer 符号模板顶点（核心侧矩形模板）
+ * @param vertexBuffer 符号模板顶点（内核图元模板）
  */
 export function renderVisibleValves(
   pass: GPURenderPassEncoder,

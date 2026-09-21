@@ -1,5 +1,5 @@
 /**
- * 输入与尺寸处理：画布点击拾取（设备图元优先 → 矩形图元）与窗口 resize 同步。
+ * 输入与尺寸处理：画布点击拾取（设备图元优先 → 通用图元）与窗口 resize 同步。
  *
  * 拾取机制都在 core（屏幕坐标换算 `pickAt`、按候选顺序试到命中 `pickFirst`），
  * 这里只声明「优先级顺序」与「命中后的业务动作」。
@@ -11,7 +11,7 @@ import type { Camera2d } from '@/core/camera';
 import { pickFirst, type PickCandidate, type WebGpuPicker } from '@/core/gpu/picker';
 import type { Renderer2D } from '@/core/gpu/renderer';
 import type { CanvasSurface } from '@/core/gpu/surface';
-import type { RectInstance } from '@/core/types';
+import type { PrimitiveInstance } from '@/core/types';
 
 export interface DemoInputContext {
   canvas: HTMLCanvasElement;
@@ -20,7 +20,7 @@ export interface DemoInputContext {
   format: GPUTextureFormat;
   camera: Camera2d;
   renderer: Renderer2D;
-  /** 矩形图元拾取器 */
+  /** 基础图元拾取器 */
   picker: WebGpuPicker;
   /** 设备图元拾取器 */
   valvePicker: WebGpuPicker;
@@ -29,8 +29,8 @@ export interface DemoInputContext {
   surface: CanvasSurface;
   /** 当前帧可见设备图元（拾取下标 = 数组下标） */
   getVisibleValves: () => readonly ValveGraphic[];
-  /** 当前帧矩形实例（数量用于限制拾取范围） */
-  getInstanceList: () => readonly RectInstance[];
+  /** 当前帧基础实例（数量用于限制拾取范围） */
+  getInstanceList: () => readonly PrimitiveInstance[];
   /** 命中可见数组下标后的选中处理 */
   selectByVisibleIndex: (index: number) => void;
   /** 清空全部选择 */
@@ -40,7 +40,7 @@ export interface DemoInputContext {
 }
 
 const VALVE_LABEL = 'valve';
-const RECT_LABEL = 'rect';
+const PRIMITIVE_LABEL = 'primitive';
 
 /** 绑定画布点击与窗口 resize；返回解绑函数 */
 export function bindDemoInput(ctx: DemoInputContext): () => void {
@@ -67,7 +67,7 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
       vertexBuffer: renderer.vertexBuffer,
       vertexCount: renderer.vertexCount,
       instanceCount: ctx.getInstanceList().length,
-      label: RECT_LABEL,
+      label: PRIMITIVE_LABEL,
     });
 
     return candidates;
@@ -92,7 +92,7 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
       return;
     }
 
-    // 矩形图元：先清空全部选中，再按命中下标选中
+    // 基础图元：先清空全部选中，再按命中下标选中
     ctx.clearSelection();
     if (!hit) {
       console.log('❌空白，未选中图形');

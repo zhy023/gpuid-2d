@@ -1,4 +1,10 @@
-export interface RectInstance {
+/**
+ * 实例化渲染契约：一个图元实例的完整 GPU 数据（16 × f32 = 64B）。
+ *
+ * 名字不带形状——顶点模板是「覆盖单位方形的三角形」，方框/圆/三角形都由 shape 通道
+ * 在着色器里裁出来，所以这份数据既能画矩形也能画圆、三角形、贴图精灵与文字。
+ */
+export interface PrimitiveInstance {
   tx: number;
   ty: number;
   sx: number;
@@ -15,7 +21,7 @@ export interface RectInstance {
   colorG: number;
   colorB: number;
   colorA: number;
-  /** 形状编码（见 `GRAPHIC_SHAPE_*`）：0 = 方框，1 = 圆/椭圆；缺省方框 */
+  /** 形状编码（见 `GRAPHIC_SHAPE_*`）：0 = 方框 / 1 = 圆椭圆 / 2 = 三角形；缺省方框 */
   shape?: number;
 }
 
