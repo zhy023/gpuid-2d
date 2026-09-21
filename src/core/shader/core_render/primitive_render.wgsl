@@ -20,6 +20,8 @@ struct VertexOutput {
     @location(2) atlasUvRect: vec4f,
     @location(3) instanceColor: vec4f,
     @location(4) shape: f32,
+    /** 描边宽度（屏幕像素），只有描边环用得到 */
+    @location(5) borderWidthPx: f32,
 };
 
 @vertex
@@ -36,13 +38,14 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> 
     out.atlasUvRect = inst.atlasUvRect;
     out.instanceColor = inst.color;
     out.shape = inst.shape;
+    out.borderWidthPx = inst.borderWidthPx;
     return out;
 }
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-    // 形状覆盖度（含「裁掉模板三角形多出的半边」）与拾取走同一份实现
-    let shapeMask = unitShapeMask(input.localUv, input.shape);
+    // 形状覆盖度（含「裁掉模板三角形多出的半边」与描边环）与拾取走同一份实现
+    let shapeMask = unitInstanceMask(input.localUv, input.shape, input.borderWidthPx);
 
     // 模板坐标 [-0.5,0.5] → 图集局部 uv [0,1] → 实例指定图集区域
     let localUv = input.localUv + vec2f(0.5, 0.5);
@@ -54,9 +57,11 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     // 拾取着色器用了同一条判据，所以也点不中看不见的图元。
     let hasInstanceColor = input.instanceColor.a > 0.5;
     var rgb = select(vec3f(0.0, 0.0, 0.0), input.instanceColor.rgb, hasInstanceColor);
+ 
     if (input.isInstanceSelected > 0.5) {
         rgb = mix(rgb, vec3f(0.95, 0.7, 0.2), 0.35);
     }
+ 
     let alpha = select(0.0, input.instanceColor.a, hasInstanceColor) * texel.a * shapeMask;
     return vec4f(rgb * texel.rgb, alpha);
 }

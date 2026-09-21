@@ -15,6 +15,8 @@ struct PickVertexOutput {
     @location(2) shape: f32,
     /** 逐实例颜色的 alpha：<= 0.5 表示没指定颜色，渲染侧不会画出来 */
     @location(3) @interpolate(flat) colorAlpha: f32,
+    /** 描边宽度（屏幕像素），只有描边环用得到 */
+    @location(4) @interpolate(flat) borderWidthPx: f32,
 };
 
 @vertex
@@ -29,13 +31,14 @@ fn vertexMain(input: PickVertexInput, @builtin(instance_index) instanceIdx: u32)
     out.localUv = input.localPos;
     out.shape = inst.shape;
     out.colorAlpha = inst.color.a;
+    out.borderWidthPx = inst.borderWidthPx;
     return out;
 }
 
 @fragment
 fn fragmentMain(input: PickVertexOutput) -> @location(0) vec4u {
     // 覆盖度里的 fwidth 必须在统一控制流里求值，所以先整体算出来再分支
-    let shapeMask = unitShapeMask(input.localUv, input.shape);
+    let shapeMask = unitInstanceMask(input.localUv, input.shape, input.borderWidthPx);
     // 没指定颜色的实例渲染侧也不会画（内核不再兜底灰色），拾取必须跟着一致
     if (input.colorAlpha <= 0.5) {
         return vec4u(0u, 0u, 0u, 0u);

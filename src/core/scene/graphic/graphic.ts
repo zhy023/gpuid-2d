@@ -43,6 +43,8 @@ export type GraphicShape = 'triangle' | 'rect' | 'circle' | 'polyline';
 export const GRAPHIC_SHAPE_RECT = 0;
 export const GRAPHIC_SHAPE_CIRCLE = 1;
 export const GRAPHIC_SHAPE_TRIANGLE = 2;
+/** 描边环 = 基础形状 + 3（3 = 方框环 / 4 = 圆环 / 5 = 三角环），实例用 `borderWidthPx` 给粗细 */
+export const GRAPHIC_SHAPE_RING_OFFSET = 3;
 
 /** 尺寸口径：世界单位（随缩放变大变小）或屏幕像素（视觉尺寸恒定） */
 export type GraphicSizeUnit = 'world' | 'screen';
@@ -225,6 +227,27 @@ export class Graphic extends GraphicBase {
       colorB: fill?.[2] ?? 0,
       colorA: fill?.[3] ?? 0,
       shape: this.shapeCode,
+      borderWidthPx: 0,
+    };
+  }
+
+  /**
+   * 打包成「描边环」实例：把图形当前形状的轮廓画成 borderWidthPx 像素宽的环。
+   * 没有描边时返回 null（调用方据此跳过）。
+   */
+  toBorderInstance(pixelsPerWorldUnit = 1): PrimitiveInstance | null {
+    if (!this.hasStroke) return null;
+    const instance = this.toInstance(pixelsPerWorldUnit);
+    const stroke = this.strokeColor;
+    return {
+      ...instance,
+      // 环用描边色（填充实例的颜色通道可能就是填充色），形状换成对应的环
+      colorR: stroke?.[0] ?? 0,
+      colorG: stroke?.[1] ?? 0,
+      colorB: stroke?.[2] ?? 0,
+      colorA: stroke?.[3] ?? 0,
+      shape: this.shapeCode + GRAPHIC_SHAPE_RING_OFFSET,
+      borderWidthPx: this.strokeWidth,
     };
   }
 
@@ -246,5 +269,11 @@ export function toInstances(
   graphics: readonly Graphic[],
   pixelsPerWorldUnit = 1,
 ): PrimitiveInstance[] {
-  return graphics.map((graphic) => graphic.toInstance(pixelsPerWorldUnit));
+  const instances: PrimitiveInstance[] = [];
+  for (const graphic of graphics) {
+    instances.push(graphic.toInstance(pixelsPerWorldUnit));
+    const border = graphic.toBorderInstance(pixelsPerWorldUnit);
+    if (border) instances.push(border);
+  }
+  return instances;
 }

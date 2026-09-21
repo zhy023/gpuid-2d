@@ -9,6 +9,7 @@ import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import {
   GRAPHIC_SHAPE_CIRCLE,
   GRAPHIC_SHAPE_RECT,
+  GRAPHIC_SHAPE_RING_OFFSET,
   GRAPHIC_SHAPE_TRIANGLE,
   Graphic,
   toInstances,
@@ -290,6 +291,33 @@ describe('外观 → 实例数据', () => {
     assert.equal(plain.sizeUnit, 'world', '默认世界尺寸口径');
     assert.equal(plain.toInstance().sx, 10, '世界尺寸不折算缩放');
     assert.equal(plain.toInstance().colorA, 0, '没指定颜色 → 渲染与拾取都当它不存在');
+  });
+
+  it('描边：有 stroke 的图形多产出一个「描边环」实例（用 pad1 带宽度）', () => {
+    const plain = new Graphic({ id: 1, width: 20, height: 20 }).fill(RED);
+    assert.equal(toInstances([plain]).length, 1, '没有描边就只有填充实例');
+
+    const stroked = new Graphic({ id: 2, width: 20, height: 20 })
+      .fill(RED)
+      .stroke(BLUE, 3)
+      .ellipse(20, 20);
+    const instances = toInstances([stroked]);
+    assert.equal(instances.length, 2, '有描边 = 填充 + 描边环');
+    assert.equal(instances[0].shape, GRAPHIC_SHAPE_CIRCLE, '填充实例还是圆');
+    assert.equal(
+      instances[1].shape,
+      GRAPHIC_SHAPE_CIRCLE + GRAPHIC_SHAPE_RING_OFFSET,
+      '环用圆的环码',
+    );
+    assert.equal(instances[1].borderWidthPx, 3, '环带宽度走 pad1');
+    assert.deepEqual(
+      [instances[1].colorR, instances[1].colorG, instances[1].colorB, instances[1].colorA],
+      [BLUE[0], BLUE[1], BLUE[2], BLUE[3]],
+      '环用描边色',
+    );
+    // 打包成实例缓冲后，宽度落在第 8 个 float（pad1 位置）
+    const packed = packInstances([instances[1]]);
+    assert.equal(packed[7], 3, 'pad1 位置写的是描边宽度');
   });
 
   it('形状与填充色都写进实例（shape 通道 = 第 7 个 float）', () => {

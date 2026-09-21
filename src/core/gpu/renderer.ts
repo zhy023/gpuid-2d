@@ -37,7 +37,8 @@ function writeInstance(data: Float32Array, index: number, instance: PrimitiveIns
   data[offset + 5] = instance.selected ?? 0;
   // shape：方框 / 圆（着色器按它裁形状），pad1 仍留空
   data[offset + 6] = instance.shape ?? 0;
-  data[offset + 7] = 0;
+  // pad1 改成「描边宽度（屏幕像素）」：只有描边环实例用得到，其余实例写 0
+  data[offset + 7] = instance.borderWidthPx ?? 0;
   data[offset + 8] = instance.u0;
   data[offset + 9] = instance.v0;
   data[offset + 10] = instance.u1;

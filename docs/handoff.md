@@ -107,7 +107,7 @@
 
 ## 下一步
 
-1. 边框渲染：图形模型已经有 `strokeColor` / `strokeWidth`，但实例结构体 16×f32 已占满
+1. ~~边框渲染~~（已做：实例第 8 个 float（原 pad1）放「描边宽度（屏幕像素）」，形状码 3/4/5 = 方框/圆/三角的描边环，`Graphic#toBorderInstance()` 出环、`toInstances()` 自动补一个环实例；渲染与拾取共用 `unitInstanceMask`）。旧描述：图形模型已经有 `strokeColor` / `strokeWidth`，但实例结构体 16×f32 已占满
    （变换 8 + 图集 uv 4 + 颜色 4），要真画边框得给 `InstanceTransform` 加一条边框通道并改着色器
 2. hover 交互：`Graphic` 已有 `hovered` 状态，还差在 demo 里把 pointermove 接到拾取
 3. 图纸交互：拾取（`PidScene` 的图元 id 已可直接喂 `pickFirst`）、框选、悬浮预览
@@ -123,7 +123,8 @@
 - `copyExternalImageToTexture` 的目标纹理必须带 `RENDER_ATTACHMENT`，否则整张上传被拒、采样全透明
 - 额外实例（文字/贴图）必须只由图集批次绘制：`renderComposite` 的绘制数量只算基础批次，
   否则会被白纹理批次画成实心方块
-- 实例结构体 64B：变换 8 + 图集 uv 4 + 逐实例颜色 4（颜色在 `offset 12–15`）
+- 实例结构体 64B：变换 8 + 图集 uv 4 + 逐实例颜色 4（颜色在 `offset 12–15`）；
+  变换里的第 8 个 float（原 pad1）现在是**描边宽度（屏幕像素）**，只有描边环实例用得到
 - 逐实例颜色的 alpha 是「画不画」的开关：`a <= 0.5` = 没指定颜色 → 渲染不画、拾取也不命中
   （内核不兜底灰色，`Graphic.fillColor = null` 就是「不绘制」）。demo/业务想让图元可见，
   必须在数据里显式 `fill(...)`；`device_stress_test` 就是显式给了一个中性灰

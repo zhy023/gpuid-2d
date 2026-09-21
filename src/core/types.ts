@@ -21,6 +21,11 @@ export interface PrimitiveInstance {
   colorG: number;
   colorB: number;
   colorA: number;
+  /**
+   * 描边宽度（屏幕像素）：只有 shape = `GRAPHIC_SHAPE_RING`（描边环）的实例会用到，
+   * 打包时写进 WGSL `InstanceTransform` 的第 8 个 float（原来的 pad1）。
+   */
+  borderWidthPx?: number;
   /** 形状编码（见 `GRAPHIC_SHAPE_*`）：0 = 方框 / 1 = 圆椭圆 / 2 = 三角形；缺省方框 */
   shape?: number;
 }

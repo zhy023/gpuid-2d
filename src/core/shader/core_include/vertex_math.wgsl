@@ -81,8 +81,39 @@ fn unitShapeMask(localPos: vec2f, shape: f32) -> f32 {
     if (shape > 1.5) {
         return min(squareMask, triangleMask);
     }
+
     if (shape > 0.5) {
         return min(squareMask, circleMask);
     }
+    
     return squareMask;
+}
+
+// 形状编码：与 TS 侧 `GRAPHIC_SHAPE_*` 一致；描边环 = 基础形状 + 3
+// （3 = 方框环 / 4 = 圆环 / 5 = 三角环）
+const SHAPE_RING_OFFSET: f32 = 3.0;
+
+/**
+ * 描边环的覆盖度：外形状减去「向内缩 borderWidthPx 像素」的内形状。
+ * 像素→局部单位用 fwidth 现算，所以放大缩小后描边粗细恒定（与图纸按屏幕像素给描边一致）。
+ */
+fn unitRingMask(localPos: vec2f, baseShape: f32, borderWidthPx: f32) -> f32 {
+    let outer = unitShapeMask(localPos, baseShape);
+    // 内形状：把坐标放大（等价于把形状内缩）——方框与圆/椭圆都是这样定义的，三角形近似成立
+    let inset = fwidth(localPos) * max(borderWidthPx, 0.0);
+    let innerPos = localPos / max(vec2f(1.0, 1.0) - 2.0 * inset, vec2f(1e-4, 1e-4));
+    let inner = unitShapeMask(innerPos, baseShape);
+    return max(outer - inner, 0.0);
+}
+
+/**
+ * 统一入口：普通形状走覆盖度，描边环走环带覆盖度。
+ * 两条路径都算完再 select——fwidth 必须待在统一控制流里，不能进分支。
+ */
+fn unitInstanceMask(localPos: vec2f, shape: f32, borderWidthPx: f32) -> f32 {
+    let isRing = shape >= SHAPE_RING_OFFSET - 0.5;
+    let baseShape = select(shape, shape - SHAPE_RING_OFFSET, isRing);
+    let plainMask = unitShapeMask(localPos, baseShape);
+    let ringMask = unitRingMask(localPos, baseShape, borderWidthPx);
+    return select(plainMask, ringMask, isRing);
 }

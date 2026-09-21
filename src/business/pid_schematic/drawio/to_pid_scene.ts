@@ -319,6 +319,9 @@ export function toPidScene(
         height: sy,
         rotation: beta,
         fillColor: parseDrawioColor(node.style.fillColor),
+        // 描边按图纸：strokeColor / strokeWidth（没写描边就不画环）
+        strokeColor: parseDrawioColor(node.style.strokeColor),
+        strokeWidth: mxNumber(node.style, 'strokeWidth', 1),
         // 原始单元信息跟着图元走（纯属性，不参与绘制）
         data: {
           cellId: node.id,

@@ -11,7 +11,8 @@ struct InstanceTransform {
     worldPositionY: f32,
     isSelected: f32, // 0.0 = false，1.0 = true
     shape: f32, // 形状：0 = 方框（矩形/正方形），1 = 圆/椭圆（按包围盒内切）
-    pad1: f32,
+    // 描边宽度（屏幕像素）：只有 shape = 3（描边环）的实例用得到，其余写 0
+    borderWidthPx: f32,
     // 图集 uv 矩形 (u0, v0, u1, v1)：单纹理/白纹理时填 (0,0,1,1)
     // vec4f 需要 16 字节对齐，放在 32 字节偏移处正好
     atlasUvRect: vec4f,
