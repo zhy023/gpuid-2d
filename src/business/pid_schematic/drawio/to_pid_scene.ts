@@ -281,6 +281,9 @@ export function toPidScene(
       valve.clearDirty();
       scene.upsertValve(valve);
       stats.valves += 1;
+      // 画什么完全看图纸：阀门节点用它自己的内联图标（开/关态也由图纸这张图决定）
+      icons.set(valve.id, normalizeIconUrl(iconUrl));
+      stats.icons += 1;
     } else {
       const device = new SelectableGraphic({
         id: idOf(node.id),

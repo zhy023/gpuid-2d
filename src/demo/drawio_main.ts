@@ -10,13 +10,14 @@ import {
 } from '@/core/gpu/context';
 
 import { renderDrawioFrame } from '@/demo/drawio_frame';
+import { bindDrawioInput } from '@/demo/drawio_input';
 import { createDrawioScene } from '@/demo/scene';
 import { DRAWIO_CLEAR_COLOR } from '@/demo/drawio_frame';
 import { LabelAtlasCache } from '@/demo/label_atlases';
-import { VALVE_OFF_URL, VALVE_ON_URL } from '@/demo/resources';
 import { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';
+import { disposeValves, getValvesPicker, initValves } from '@/business/pid_schematic/valve_manager';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import { initPipe } from '@/business/pid_schematic/pipe_manager';
-import { createTextureSampler, loadTextureFromUrl, type Texture2d } from '@/core/gpu/texture';
 
 /** 取景留白：整页可见还留一点边 */
 const VIEW_FIT_MARGIN = 0.92;
@@ -28,25 +29,26 @@ export async function runDrawioApp(): Promise<void> {
 
   let running = true;
   let unbindResize: (() => void) | null = null;
+  let unbindInput: (() => void) | null = null;
 
   async function start(ctx: RendererContext) {
     const { device, format, renderer, camera, surface } = ctx;
 
     // 管线模块要先初始化（管线 pipeline + 三角带模板顶点），否则 renderPipes 会直接返回
     await initPipe(device, format);
+    // 阀门模块：阀门节点按开关贴图绘制，同时给拾取准备好实例缓冲与拾取器
+    await initValves(
+      device,
+      format,
+      renderer.getVertexLayout(),
+      renderer.vertexBuffer,
+      renderer.vertexCount,
+      { width: canvasEl.width, height: canvasEl.height },
+    );
+    if (!getValvesPicker()) throw new Error('阀门拾取器未初始化');
     const { pidScene, labels, icons, bounds } = await createDrawioScene();
     const iconTextures = new IconTextureCache(device);
     const labelAtlases = new LabelAtlasCache(device);
-    // 阀门节点贴图（开关两态）：与图纸里内联的阀门图标是同一份 PNG
-    const valveOffTexture = await loadTextureFromUrl(device, VALVE_OFF_URL, 'drawio-valve-off');
-    let valveOnTexture: Texture2d | null = null;
-    try {
-      valveOnTexture = await loadTextureFromUrl(device, VALVE_ON_URL, 'drawio-valve-on');
-    } catch {
-      console.warn(`[gpuid] 未找到 ${VALVE_ON_URL}，阀门开启态暂用关闭态贴图`);
-    }
-    const valveSampler = createTextureSampler(device, 'drawio-valve-sampler');
-
     // demo 自己的画布底色：引擎不再给图元兜底颜色，图纸里大量浅色/白色图元
     // 在原来的浅灰底上几乎看不见，这里换个中性偏深的底把它们衬出来
     renderer.setClearColor(DRAWIO_CLEAR_COLOR);
@@ -62,10 +64,26 @@ export async function runDrawioApp(): Promise<void> {
     // 尺寸变化仍由内核的 CanvasSurface 统一处理
     unbindResize = surface.bindWindowResize();
 
+    // 点击阀门节点：切换选中（selectable 能力）并打印选中的图元 id
+    let visibleValves: ValveGraphic[] = [];
+    unbindInput?.();
+    unbindInput = bindDrawioInput({
+      canvas: canvasEl,
+      renderer,
+      getVisibleValves: () => visibleValves,
+      // 单选：换选/点空白时把整个场景里的阀门选中态清干净（含视口外的）
+      clearSelection: () => {
+        for (const valve of pidScene.valves.values()) {
+          if (valve.selected) valve.setSelected(false);
+        }
+      },
+    });
+
     const tick = () => {
       if (!running) return;
       requestAnimationFrame(tick);
       renderDrawioFrame({
+        device,
         renderer,
         camera,
         scene: pidScene,
@@ -73,9 +91,9 @@ export async function runDrawioApp(): Promise<void> {
         labelAtlases,
         icons,
         iconTextures,
-        valveOffTexture,
-        valveOnTexture,
-        valveSampler,
+        onVisibleValves: (valves) => {
+          visibleValves = [...valves];
+        },
       });
     };
     tick();
@@ -100,7 +118,9 @@ export async function runDrawioApp(): Promise<void> {
     () => {
       running = false;
       unbindResize?.();
+      unbindInput?.();
       ctxRef?.renderer.dispose();
+      disposeValves();
     },
     { once: true },
   );

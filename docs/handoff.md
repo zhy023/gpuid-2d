@@ -67,6 +67,15 @@
 `resources.ts`、`input.ts`、`frame.ts`、
 `label_atlases.ts`（按字号缓存位号图集）
 
+图纸绘制口径：**图纸是唯一事实来源**，渲染端不自作主张——
+
+- 颜色：`fillColor` 有值才画，`fill=none` / 没写填充的单元保持透明（与 draw.io 导出的 SVG 一致）；
+  `group` 单元（阀门 + 位号那一组）自己也没有填充，所以不会变成白底。代价是「只有描边」的单元
+  目前完全看不见（引擎还没有边框通道，见「下一步 1」）
+- 图标：图片单元一律用图纸自己的内联图，按 `aspect=fixed` 等比缩放居中，不拉伸、不换贴图；
+  阀门节点在模型上是 `ValveGraphic`（selectable 能力、自带开/关状态），但画什么、多大仍然看图纸
+- 尺寸/位置/文字：都用单元自身的几何与 `fontColor` / `fontSize`
+
 ### 着色器工程
 
 - 手写源：`src/core/shader/`、`src/business/pid_schematic/shader/` 下的 `.wgsl`，支持 `#include "..."` 与 `@/` 别名
