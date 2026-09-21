@@ -10,8 +10,7 @@ import {
 import { minDeviceSymbolWorldSize } from '@/business/pid_schematic/device_style';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
-import { spriteInstance } from '@/core/geometry/instance_sprite';
-import type { PrimitiveInstance } from '@/core/types';
+import { Graphic } from '@/core/scene/graphic';
 
 // 设备符号数量上限，压测可按需调大
 const MAX_VALVE_INSTANCE = 4096;
@@ -84,32 +83,32 @@ export function disposeValveInstances(): void {
 }
 
 /**
- * 构建阀门精灵实例：按开关态分成两组（关闭 / 开启），
- * 便于绘制时分别绑定 `famen_off` / `famen_on` 两张贴图（同一实例缓冲，只是换纹理）。
+ * 构建阀门精灵图形：按开关态分成两组（关闭 / 开启），
+ * 便于绘制时分别绑定 `famen_off` / `famen_on` 两张贴图。
  *
- * 尺寸口径：贴图按 @2x 的一半落地，屏幕尺寸与相机缩放无关。
- * 这属于业务表现（用哪张图、多大），所以放业务层；像素↔世界的换算用核心的 spriteInstance。
+ * 尺寸口径：贴图按 @2x 的一半落地，属于屏幕像素尺寸（与相机缩放无关），所以用 `screenSize()`；
+ * 颜色用贴图原色（白）。装箱交给核心的 `Graphic#toInstance`，这里只产出图形。
  */
-export function buildValveSpriteInstances(
+export function buildValveSpriteGraphics(
   valves: readonly ValveGraphic[],
-  options: { textureWidth: number; textureHeight: number; pixelsPerWorldUnit: number },
-): { closed: PrimitiveInstance[]; open: PrimitiveInstance[] } {
-  const { textureWidth, textureHeight, pixelsPerWorldUnit } = options;
+  options: { textureWidth: number; textureHeight: number },
+): { closed: Graphic[]; open: Graphic[] } {
+  const { textureWidth, textureHeight } = options;
   const widthPx = textureWidth / 2;
   const heightPx = textureHeight / 2;
-  const closed: PrimitiveInstance[] = [];
-  const open: PrimitiveInstance[] = [];
+  const closed: Graphic[] = [];
+  const open: Graphic[] = [];
 
   for (const valve of valves) {
-    const instance = spriteInstance({
-      tx: valve.x,
-      ty: valve.y,
-      widthPx,
-      heightPx,
-      pixelsPerWorldUnit,
-    });
-    if (valve.open) open.push(instance);
-    else closed.push(instance);
+    const sprite = new Graphic({
+      id: valve.id,
+      x: valve.x,
+      y: valve.y,
+      selected: valve.selected,
+      fillColor: [1, 1, 1, 1],
+    }).screenSize(widthPx, heightPx);
+    if (valve.open) open.push(sprite);
+    else closed.push(sprite);
   }
 
   return { closed, open };

@@ -18,7 +18,7 @@
 - 拾取：`WebGpuPicker.pick` / `pickAt`、`createRendererPicker`、`pickFirst`
 - 纹理：`loadTextureFromUrl`、`createTextureFromBitmap`、默认白纹理、采样器
 - 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容）、`layoutText`（字素排版、颜色、底板、描边 halo）、`splitGraphemes`
-- 几何与空间：`Camera2d`、`QuadTree`、`QuadTreeStore`、AABB 与折线包围盒、`composeTransform2d`、`spriteInstance`
+- 几何与空间：`Camera2d`、`QuadTree`、`QuadTreeStore`、AABB 与折线包围盒、`composeTransform2d`
 - 内置图元模板：**一个覆盖单位方形的三角形**（`triangle-list`，3 顶点，`core/geometry/geometry.ts`），
   不再用 6 顶点双三角形；方形之外的部分由 `unitSquareMask`（`core_include/vertex_math.wgsl`）
   按屏幕像素抗锯齿裁掉。渲染与拾取（含阀门拾取）走同一套掩码，命中区域与看到的一致
@@ -27,6 +27,9 @@
   动画（`animationSpeed` / `flowOffset`）与形状绘制命令（`rect` / `square` / `circle` / `ellipse` /
   `triangle` / `polyline`）；实现 `QuadTreeItem`，可直接进 `QuadTreeStore`。圆/椭圆与三角形把形状
   编码写进实例的 shape 通道，渲染与拾取着色器按包围盒内切圆 / 内切三角形裁剪
+- 图形是唯一的绘制入口：`Graphic#toInstance()`（批量 `toInstances()`）负责把图形装箱成实例——
+  颜色只取 `fillColor`（null = 不画）、uv 取 `atlasUvRect`、尺寸按 `sizeUnit`（世界单位 / 屏幕像素）
+  折算相机缩放。demo 与业务只负责建图形，不再手搓实例数组
 - 内核不认业务图元类型：`QuadItem` 里没有 `type`，只有变换 + 选中态 + 形状编码；
   是矩形/管线/阀门由业务类自己表达（实例打包处用 `instanceof ValveGraphic` 分流）
 

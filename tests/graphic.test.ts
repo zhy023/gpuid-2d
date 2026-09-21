@@ -11,10 +11,10 @@ import {
   GRAPHIC_SHAPE_RECT,
   GRAPHIC_SHAPE_TRIANGLE,
   Graphic,
+  toInstances,
 } from '@/core/scene/graphic';
 import { QuadTreeStore } from '@/core/scene/quad_tree_store';
 import { packInstances } from '@/core/gpu/renderer';
-import { toInstances } from '@/business/pid_schematic/device_stress_test';
 import type { AABB } from '@/core/types';
 
 const RED = [1, 0, 0, 1] as const;
@@ -205,6 +205,24 @@ describe('图形可直接进四叉树', () => {
 });
 
 describe('外观 → 实例数据', () => {
+  it('打包实例：屏幕像素尺寸按缩放折算，uv 与颜色透传，没颜色就是不画', () => {
+    const sprite = new Graphic({ id: 9, x: 10, y: 20 })
+      .screenSize(40, 24)
+      .atlasUv([0.25, 0, 0.5, 1])
+      .fill([1, 1, 1, 1]);
+
+    const instance = sprite.toInstance(0.5);
+    assert.equal(instance.sx, 80, '40 屏幕像素 ÷ 0.5 = 80 世界单位');
+    assert.equal(instance.sy, 48);
+    assert.deepEqual([instance.u0, instance.u1], [0.25, 0.5]);
+    assert.equal(instance.colorA, 1);
+
+    const plain = new Graphic({ id: 10, width: 10, height: 10 });
+    assert.equal(plain.sizeUnit, 'world', '默认世界尺寸口径');
+    assert.equal(plain.toInstance().sx, 10, '世界尺寸不折算缩放');
+    assert.equal(plain.toInstance().colorA, 0, '没指定颜色 → 渲染与拾取都当它不存在');
+  });
+
   it('形状与填充色都写进实例（shape 通道 = 第 7 个 float）', () => {
     const circle = new Graphic({ id: 1, x: 0, y: 0 }).circle(50).fill(RED);
     const [instance] = toInstances([circle]);

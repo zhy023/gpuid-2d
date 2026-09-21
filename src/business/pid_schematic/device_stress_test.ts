@@ -6,7 +6,7 @@
  * 因此 tick() 不再全量扫描 5 万条图元找 dirty。
  */
 import { PidScene } from '@/business/pid_schematic/pid_scene';
-import { Graphic } from '@/core/scene/graphic';
+import { Graphic, toInstances } from '@/core/scene/graphic';
 import type { AABB, PrimitiveInstance } from '@/core/types';
 
 /**
@@ -14,28 +14,6 @@ import type { AABB, PrimitiveInstance } from '@/core/types';
  * 所以「要能看见」这件事得由数据自己声明，这里显式给一个中性灰。
  */
 const STRESS_DEVICE_FILL = [0.3, 0.3, 0.3, 1] as const;
-
-/** 设备图元 → 实例化绘制数据（几何 + 选中态 + 形状；uv 整张纹理、颜色取填充色） */
-export function toInstances(items: readonly Graphic[]): PrimitiveInstance[] {
-  return items.map((item) => ({
-    sx: item.width,
-    sy: item.height,
-    beta: item.rotation,
-    tx: item.x,
-    ty: item.y,
-    // 模型层是布尔，实例数据里按 float 传（着色器 > 0.5 判定）
-    selected: item.selectedFlag,
-    u0: 0,
-    v0: 0,
-    u1: 1,
-    v1: 1,
-    colorR: item.fillColor?.[0] ?? 0,
-    colorG: item.fillColor?.[1] ?? 0,
-    colorB: item.fillColor?.[2] ?? 0,
-    colorA: item.fillColor?.[3] ?? 0,
-    shape: item.shapeCode,
-  }));
-}
 
 export class DeviceStressTester {
   public readonly itemMap = new Map<number, Graphic>();

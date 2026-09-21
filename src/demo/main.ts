@@ -13,7 +13,7 @@ import {
   type RendererContext,
 } from '@/core/gpu/context';
 import type { PrimitiveInstance } from '@/core/types';
-import { createFrameRunner, type DemoFrameRunner } from '@/demo/frame';
+import { createFrameRunner, DEMO_CLEAR_COLOR, type DemoFrameRunner } from '@/demo/frame';
 import { bindDemoInput } from '@/demo/input';
 import { createDemoResources } from '@/demo/resources';
 import { createDemoScene } from '@/demo/scene';
@@ -84,6 +84,8 @@ export async function runApp() {
     const scene = await createDemoScene(device, format);
     const { deviceTester: pidTester, valveScene } = scene;
     camera.scale = 0.1;
+    // demo 自己的画布底色（引擎不再给图元兜底颜色）
+    renderer.setClearColor(DEMO_CLEAR_COLOR);
 
     let instanceList: PrimitiveInstance[] = [];
     let visibleItemsSnapshot: ReturnType<typeof pidTester.tick>['visibleItems'] = [];

@@ -1,14 +1,15 @@
 /**
- * 文字排版：把字符串按字素簇排成实例数组，交给核心实例化通路绘制。
+ * 文字排版：把字符串按字素簇排成 `Graphic` 数组，交给核心实例化通路绘制。
  *
- * 每个字一个实例：格子尺寸 → 世界尺寸（除以相机缩放），图集 uv 写进 atlasUvRect，
+ * 每个字一个图形：位置是世界坐标、尺寸按屏幕像素（`sizeUnit = 'screen'`），
+ * 图集 uv 写进 `atlasUvRect`，装箱走 `Graphic#toInstance`，
  * 因此整段文字仍然只是一次 draw call。注册到 RENDER_LAYER.overlay 即可叠在图元之上。
  *
  * 已知待办：垂直方向——画布 y 向下，正交相机又翻转了 y，v 轴是否正确需要像素验证
  */
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { splitGraphemes } from '@/core/text/glyph_atlas';
-import type { PrimitiveInstance } from '@/core/types';
+import { Graphic } from '@/core/scene/graphic';
 
 export interface TextLayoutOptions {
   /** 文字左上角（世界坐标，y 向下） */
@@ -35,7 +36,8 @@ export interface TextLayoutOptions {
 }
 
 export interface TextLayoutResult {
-  instances: PrimitiveInstance[];
+  /** 排版结果：每字一个图形（含可选底板与描边），顺序为「底板 → 描边 → 主色」 */
+  graphics: Graphic[];
   /** 排版后的总宽度（世界单位） */
   width: number;
   /** 图集里缺失、本次被跳过的字 */
@@ -62,12 +64,12 @@ export function layoutText(
     outline = false as const,
   } = options;
   const worldPerPixel = 1 / Math.max(pixelsPerWorldUnit, 1e-6);
-  const instances: PrimitiveInstance[] = [];
+  const glyphGraphics: Graphic[] = [];
   const missing: string[] = [];
 
   // 底板：宽度先用排版结果算，等排完再插到最前面（保证文字压在底板上）
-  const backdropInstances: PrimitiveInstance[] = [];
-  const outlineInstances: PrimitiveInstance[] = [];
+  const backdropGraphics: Graphic[] = [];
+  const outlineGraphics: Graphic[] = [];
   let cursorX = x;
   for (const grapheme of splitGraphemes(text)) {
     const glyph = atlas.getGlyph(grapheme);
@@ -78,31 +80,31 @@ export function layoutText(
 
     const worldWidth = glyph.cellWidth * worldPerPixel;
     const worldHeight = glyph.cellHeight * worldPerPixel;
-    instances.push({
-      // 实例是中心点对齐，格子左上角在 (cursorX, y)
-      tx: cursorX + worldWidth / 2,
-      ty: y + worldHeight / 2,
-      sx: worldWidth,
-      sy: worldHeight,
-      beta: 0,
-      selected: 0,
-      // uv 按图集当前尺寸换算（图集扩容后旧字形依然正确）
-      u0: glyph.x / atlas.texture.width,
-      v0: glyph.y / atlas.texture.height,
-      u1: (glyph.x + glyph.cellWidth) / atlas.texture.width,
-      v1: (glyph.y + glyph.cellHeight) / atlas.texture.height,
-      colorR: color[0],
-      colorG: color[1],
-      colorB: color[2],
-      colorA: color[3],
-    });
+    glyphGraphics.push(
+      new Graphic({
+        // 实例是中心点对齐，格子左上角在 (cursorX, y)
+        id: glyphGraphics.length,
+        x: cursorX + worldWidth / 2,
+        y: y + worldHeight / 2,
+        fillColor: color,
+      })
+        // 格子尺寸就是屏幕像素：贴到画布上视觉大小恒定
+        .screenSize(glyph.cellWidth, glyph.cellHeight)
+        // uv 按图集当前尺寸换算（图集扩容后旧字形依然正确）
+        .atlasUv([
+          glyph.x / atlas.texture.width,
+          glyph.y / atlas.texture.height,
+          (glyph.x + glyph.cellWidth) / atlas.texture.width,
+          (glyph.y + glyph.cellHeight) / atlas.texture.height,
+        ]),
+    );
     cursorX += (glyph.advance + letterSpacingPx) * worldPerPixel;
   }
 
   const width = cursorX - x;
 
   // 描边：把主色字形按上下左右各偏一点、用描边色先画一遍
-  if (outline && instances.length > 0) {
+  if (outline && glyphGraphics.length > 0) {
     const offset = (outline.widthPx ?? 1) / Math.max(pixelsPerWorldUnit, 1e-6);
     const offsets: ReadonlyArray<readonly [number, number]> = [
       [-offset, 0],
@@ -110,44 +112,36 @@ export function layoutText(
       [0, -offset],
       [0, offset],
     ];
-    for (const instance of instances) {
+    for (const glyph of glyphGraphics) {
       for (const [dx, dy] of offsets) {
-        outlineInstances.push({
-          ...instance,
-          tx: instance.tx + dx,
-          ty: instance.ty + dy,
-          colorR: outline.color[0],
-          colorG: outline.color[1],
-          colorB: outline.color[2],
-          colorA: outline.color[3],
-        });
+        outlineGraphics.push(
+          new Graphic({
+            id: outlineGraphics.length,
+            x: glyph.x + dx,
+            y: glyph.y + dy,
+            fillColor: outline.color,
+          })
+            .screenSize(glyph.width, glyph.height)
+            .atlasUv(glyph.atlasUvRect),
+        );
       }
     }
   }
-  if (backdrop && instances.length > 0) {
-    const padWorld = backdropPaddingPx * worldPerPixel;
-    const heightWorld = atlas.lineHeight * worldPerPixel + padWorld * 2;
-    backdropInstances.push({
-      tx: x + width / 2,
-      ty: y + atlas.lineHeight * worldPerPixel * 0.5,
-      sx: width + padWorld * 2,
-      sy: heightWorld,
-      beta: 0,
-      selected: 0,
-      // 整张纹理（白）→ 颜色完全由逐实例颜色决定
-      u0: 0,
-      v0: 0,
-      u1: 1,
-      v1: 1,
-      colorR: backdrop[0],
-      colorG: backdrop[1],
-      colorB: backdrop[2],
-      colorA: backdrop[3],
-    });
+  if (backdrop && glyphGraphics.length > 0) {
+    // 底板的宽度是世界单位，这里换算回「屏幕像素」口径（外扩本来就是像素）
+    const padPx = backdropPaddingPx;
+    backdropGraphics.push(
+      new Graphic({
+        id: 0,
+        x: x + width / 2,
+        y: y + atlas.lineHeight * worldPerPixel * 0.5,
+        fillColor: backdrop,
+      }).screenSize(width * pixelsPerWorldUnit + padPx * 2, atlas.lineHeight + padPx * 2),
+    );
   }
 
   return {
-    instances: [...backdropInstances, ...outlineInstances, ...instances],
+    graphics: [...backdropGraphics, ...outlineGraphics, ...glyphGraphics],
     width,
     missing,
   };

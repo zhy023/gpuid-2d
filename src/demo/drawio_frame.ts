@@ -3,19 +3,55 @@
  *
  * 与 `frame.ts`（阀门示例 / 压测场景）并列：两者都只消费 `PidScene` 与 core 的能力，
  * 差别只在「这一帧要画哪些批次」。
+ *
+ * 绘制一律先建 `Graphic`（颜色/uv/尺寸口径都写在图形上）再统一装箱；
+ * 引擎不再给图元兜底颜色，所以「图纸没给填充色」这种图元由 demo 决定补什么底色。
  */
 import type { PidLabel } from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';
-import { toInstances } from '@/business/pid_schematic/device_stress_test';
 import type { PidScene } from '@/business/pid_schematic/pid_scene';
 import { renderPipes } from '@/business/pid_schematic/pipe_manager';
 import type { Camera2d } from '@/core/camera';
 import { RENDER_LAYER, sortRenderLayerDraws } from '@/core/gpu/render_layer';
 import type { Renderer2D } from '@/core/gpu/renderer';
-import type { PrimitiveInstance } from '@/core/types';
+import { Graphic, toInstances } from '@/core/scene/graphic';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import type { LabelAtlasCache } from '@/demo/label_atlases';
 import { layoutText } from '@/core/text/text_batch';
+
+/**
+ * demo 自己的画布底色。图纸里大量图元是白色/浅色填充，压在原来那块 0.96 的浅灰底上
+ * 几乎看不见，所以换一个中性偏深的底把它们衬出来。
+ */
+export const DRAWIO_CLEAR_COLOR: GPUColor = { r: 0.11, g: 0.13, b: 0.16, a: 1 };
+
+/** 图纸没给填充色时（drawio 的 fill=none）由 demo 补的底色，否则这些单元根本看不见 */
+const DRAWIO_DEVICE_FILL = [1, 1, 1, 1] as const;
+/** 图标按原色显示：逐实例颜色用白色，不做二次染色 */
+const ICON_FILL = [1, 1, 1, 1] as const;
+
+/**
+ * 把图纸图元转成「可绘制图形」：补上 demo 的默认底色 + 尺寸口径。
+ * 返回的是新对象，不改动场景里的图元本身。
+ */
+function toDrawableGraphics(
+  devices: readonly Graphic[],
+  fallbackFill: readonly [number, number, number, number],
+): Graphic[] {
+  return devices.map((device) =>
+    new Graphic({
+      id: device.id,
+      x: device.x,
+      y: device.y,
+      width: device.width,
+      height: device.height,
+      rotation: device.rotation,
+      selected: device.selected,
+      fillColor: device.fillColor ?? fallbackFill,
+      sizeUnit: device.sizeUnit,
+    }).atlasUv(device.atlasUvRect),
+  );
+}
 
 export interface DrawioFrameContext {
   renderer: Renderer2D;
@@ -52,20 +88,15 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     else iconGroups.set(url, [device]);
   }
 
-  const deviceInstances = toInstances(plainDevices);
+  // 图纸没给填充色的单元补上 demo 底色，否则它们在深色底上完全看不见
+  const deviceInstances = toInstances(toDrawableGraphics(plainDevices, DRAWIO_DEVICE_FILL));
   const iconBatches = [];
   for (const [url, devices] of iconGroups) {
     const texture = iconTextures.get(url);
     if (!texture) continue; // 未加载完，下一帧再画
     iconBatches.push({
-      // 图标按图元自身的矩形尺寸铺满（原色：colorA = 1 + 白色）
-      instances: toInstances(devices).map((instance) => ({
-        ...instance,
-        colorR: 1,
-        colorG: 1,
-        colorB: 1,
-        colorA: 1,
-      })),
+      // 图标按图元自身的矩形尺寸铺满，原色显示（逐实例颜色给白）
+      instances: toInstances(toDrawableGraphics(devices, ICON_FILL)),
       textureView: texture.view,
       sampler: iconTextures.sampler,
     });
@@ -73,7 +104,7 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
 
   // 位号：每字一个实例，整批一次绘制（字号由 label.fontSizePx 决定，这里固定用同一张图集）
   // 按字号分到各自图集，再按图集分组提交（图纸里字号通常只有两三档）
-  const labelBatches = new Map<GlyphAtlas, PrimitiveInstance[]>();
+  const labelBatches = new Map<GlyphAtlas, Graphic[]>();
   for (const label of labels) {
     const atlas = labelAtlases.get(label.fontSizePx);
     const common = {
@@ -82,15 +113,15 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     };
     // 先量宽再居中：drawio 的文字默认居中在图元内（label.x 存的是图元中心）
     const measured = layoutText(atlas, label.text, { ...common, x: 0, y: label.y });
-    const instances = layoutText(atlas, label.text, {
+    const graphics = layoutText(atlas, label.text, {
       ...common,
       x: label.x - measured.width / 2,
       y: label.y,
-    }).instances;
+    }).graphics;
 
     const bucket = labelBatches.get(atlas);
-    if (bucket) bucket.push(...instances);
-    else labelBatches.set(atlas, instances);
+    if (bucket) bucket.push(...graphics);
+    else labelBatches.set(atlas, graphics);
   }
 
   const projMat = camera.getCameraProjectionMatrix();
@@ -99,8 +130,8 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     instances: deviceInstances,
     extraBatches: [
       ...iconBatches,
-      ...[...labelBatches].map(([atlas, instances]) => ({
-        instances,
+      ...[...labelBatches].map(([atlas, graphics]) => ({
+        instances: toInstances(graphics, camera.scale),
         textureView: atlas.texture.view,
         sampler: atlas.sampler,
       })),

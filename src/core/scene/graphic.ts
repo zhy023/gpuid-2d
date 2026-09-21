@@ -21,10 +21,16 @@
  */
 import { computeRotatedAABB } from '@/core/geometry/aabb';
 import { calcPolylineBounds, type Point } from '@/core/geometry/polyline';
-import type { AABB, QuadItem } from '@/core/types';
+import type { AABB, PrimitiveInstance, QuadItem } from '@/core/types';
+
+/** 图集 uv 矩形 (u0, v0, u1, v1)：贴图/字形用，默认整张纹理 */
+export type AtlasUvRect = readonly [number, number, number, number];
 
 /** 逐实例颜色 (r, g, b, a)，分量取值 0~1 */
 export type Rgba = readonly [number, number, number, number];
+
+/** 整张纹理（不贴图/白纹理时用）：uv 全覆盖 */
+const FULL_TEXTURE_UV: AtlasUvRect = [0, 0, 1, 1];
 
 /** 形状：三角形、矩形、圆、折线 */
 export type GraphicShape = 'triangle' | 'rect' | 'circle' | 'polyline';
@@ -51,6 +57,10 @@ export interface GraphicOptions {
   selected?: boolean;
   /** 填充色（管线里就是管身底色）；null 表示不填——该图元不绘制，也不参与拾取 */
   fillColor?: Rgba | null;
+  /** 图集 uv 矩形，默认整张纹理 */
+  atlasUvRect?: AtlasUvRect;
+  /** width/height 的单位：world = 世界单位（默认），screen = 屏幕像素（打包时按相机缩放折算） */
+  sizeUnit?: GraphicSizeUnit;
   /** 描边色与宽度（strokeWidth <= 0 视为不描边） */
   strokeColor?: Rgba | null;
   strokeWidth?: number;
@@ -59,6 +69,9 @@ export interface GraphicOptions {
   /** 打开时的动画速度倍率（0 表示不流动） */
   animationSpeed?: number;
 }
+
+/** 尺寸口径：世界单位（随缩放变大变小）或屏幕像素（视觉尺寸恒定） */
+export type GraphicSizeUnit = 'world' | 'screen';
 
 export class Graphic implements QuadItem {
   readonly id: number;
@@ -81,6 +94,10 @@ export class Graphic implements QuadItem {
 
   /** 外观：填充色 */
   fillColor: Rgba | null;
+  /** 外观：图集 uv 矩形（贴图/字形），默认整张纹理 */
+  atlasUvRect: AtlasUvRect;
+  /** 尺寸口径：world = 世界单位，screen = 屏幕像素（打包时按相机缩放折算） */
+  sizeUnit: GraphicSizeUnit;
   /** 外观：描边色与宽度 */
   strokeColor: Rgba | null;
   strokeWidth: number;
@@ -115,6 +132,8 @@ export class Graphic implements QuadItem {
     this.dirty = true;
 
     this.fillColor = options.fillColor ?? null;
+    this.atlasUvRect = options.atlasUvRect ?? FULL_TEXTURE_UV;
+    this.sizeUnit = options.sizeUnit ?? 'world';
     this.strokeColor = options.strokeColor ?? null;
     this.strokeWidth = options.strokeWidth ?? 0;
 
@@ -191,6 +210,13 @@ export class Graphic implements QuadItem {
   stroke(color: Rgba | null, width = this.strokeWidth): this {
     this.strokeColor = color;
     this.strokeWidth = width;
+    this.dirty = true;
+    return this;
+  }
+
+  /** 图集 uv 矩形（贴图/字形）；不贴图时保持默认的整张纹理 */
+  atlasUv(rect: AtlasUvRect): this {
+    this.atlasUvRect = rect;
     this.dirty = true;
     return this;
   }
@@ -281,6 +307,15 @@ export class Graphic implements QuadItem {
     return this;
   }
 
+  /**
+   * 按屏幕像素定尺寸：视觉尺寸不随相机缩放变化（贴图符号、文字用）。
+   * 世界包围盒仍按当前 width/height 算，所以这里的像素尺寸只在打包成实例时折算。
+   */
+  screenSize(widthPx: number, heightPx: number): this {
+    this.sizeUnit = 'screen';
+    return this.setSize(widthPx, heightPx);
+  }
+
   /** 设置旋转（弧度） */
   setRotation(rotation: number): this {
     if (this.rotation === rotation) return this;
@@ -330,6 +365,33 @@ export class Graphic implements QuadItem {
 
   // 渲染契约
 
+  /**
+   * 打包成一个实例：内核唯一的「图形 → 实例」出口。
+   * 颜色只用 `fillColor`（null = 没颜色 = 不绘制），尺寸按 `sizeUnit` 决定是否折算相机缩放。
+   */
+  toInstance(pixelsPerWorldUnit = 1): PrimitiveInstance {
+    const unitScale = this.sizeUnit === 'screen' ? 1 / Math.max(pixelsPerWorldUnit, 1e-6) : 1;
+    const [u0, v0, u1, v1] = this.atlasUvRect;
+    const fill = this.fillColor;
+    return {
+      sx: this.width * unitScale,
+      sy: this.height * unitScale,
+      beta: this.rotation,
+      tx: this.x,
+      ty: this.y,
+      selected: this.selectedFlag,
+      u0,
+      v0,
+      u1,
+      v1,
+      colorR: fill?.[0] ?? 0,
+      colorG: fill?.[1] ?? 0,
+      colorB: fill?.[2] ?? 0,
+      colorA: fill?.[3] ?? 0,
+      shape: this.shapeCode,
+    };
+  }
+
   /** 形状编码：交给渲染侧裁形状 */
   get shapeCode(): number {
     if (this.shape === 'triangle') return GRAPHIC_SHAPE_TRIANGLE;
@@ -377,4 +439,12 @@ export class Graphic implements QuadItem {
     this.aabbCache = null;
     this.dirty = true;
   }
+}
+
+/** 批量打包：上层只负责建 `Graphic`，装箱统一走这里 */
+export function toInstances(
+  graphics: readonly Graphic[],
+  pixelsPerWorldUnit = 1,
+): PrimitiveInstance[] {
+  return graphics.map((graphic) => graphic.toInstance(pixelsPerWorldUnit));
 }

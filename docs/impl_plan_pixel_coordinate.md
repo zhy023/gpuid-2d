@@ -79,14 +79,15 @@ py = canvas.height / 2 + (worldY - camera.centerY) * camera.scale
   - **世界网格**：间距取 10 的幂次并按 `scale` 选档（保证屏幕上 ≈ 40~80px 一格）；
     细分线（1/10 间距）用更低的 alpha。
   - **屏幕像素网格**：每 50 canvas 像素一条，位置由当前 `center/scale` 反算成世界坐标。
-- 画法：生成 `PrimitiveInstance[]`（细长矩形，`shape` 缺省 = 方框，`u0..v1 = 0,0,1,1`，
-  `colorA = 1` 用逐实例颜色），线宽按屏幕像素折算成世界宽度：`worldWidth = pxWidth / camera.scale`。
+- 画法：建 `Graphic`（细长矩形 + **显式颜色**，引擎不再给图元兜底颜色），再统一走
+  `toInstances()` 装箱；线宽按屏幕像素折算成世界宽度：`worldWidth = pxWidth / camera.scale`
+  （或直接用 `screenSize(px)` 让 `toInstance()` 在装箱时折算）。
 - 数量控制：只生成落在 `camera.getViewportAABB()` 内的线（缩放很小时否则会爆掉实例数）。
 
 ### 步骤 3：BBox overlay
 
 - 数据源：`Graphic.worldAABB`（`src/core/scene/graphic.ts`，已做缓存与旋转后 AABB）。
-- 画法：每个 AABB 画 **4 条细长矩形实例**。
+- 画法：每个 AABB 画 **4 条细长矩形图形**（同样先建 `Graphic` 再装箱）。
   :warning: 不能用 `Graphic.stroke` —— 实例契约 16×f32 已经排满（变换 8 + 图集 uv 4 + 颜色 4），
   没有边框通道（`docs/handoff.md`「下一步 1」记着这件事）。
 - 数量控制：只画可见集内的图元；压测场景要加上限（例如最多 5000 个）。
@@ -131,6 +132,11 @@ py = canvas.height / 2 + (worldY - camera.centerY) * camera.scale
 `/private/tmp/gpuid_valve_selfpick_probe.mjs` 就是一个可直接抄的样板（阀门拾取自检）。
 
 ### 步骤 6：React 入口集成
+
+> 画布底色由 demo 自己给：引擎不给图元兜底颜色（`fillColor = null` 就是不画），
+> 而图纸里大量图元是白色/浅色填充，原来的 0.96 浅灰底几乎看不出内容。现有 demo 的做法
+> （`DEMO_CLEAR_COLOR` / `DRAWIO_CLEAR_COLOR` + `renderer.setClearColor()`）可以直接照抄，
+> 测试页也按同样口径设一个中性偏深的底。
 
 `:warning:` 现在的集成方式是「改 `src/app.tsx` 里的注释」二选一，不适合长期：
 

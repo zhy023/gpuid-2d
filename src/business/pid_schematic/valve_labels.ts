@@ -3,9 +3,9 @@
  * 排版本身交给 core 的文字模块（layoutText），这里只给业务口径。
  */
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import type { Graphic } from '@/core/scene/graphic';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { layoutText } from '@/core/text/text_batch';
-import type { PrimitiveInstance } from '@/core/types';
 
 /** 位号文字颜色（浅蓝，压在灰色设备矩形上也可辨） */
 export const VALVE_LABEL_COLOR = [0.55, 0.85, 1.0, 1] as const;
@@ -21,15 +21,15 @@ export interface ValveLabelOptions {
 }
 
 /**
- * 构建阀门位号实例（每字一个实例，一次绘制整批文字）
+ * 构建阀门位号图形（每字一个 `Graphic`，装箱后一次绘制整批文字）
  * @param atlas 位号字号对应的字形图集
  * @param valves 可见阀门
  */
-export function buildValveLabelInstances(
+export function buildValveLabelGraphics(
   atlas: GlyphAtlas,
   valves: readonly ValveGraphic[],
   options: ValveLabelOptions,
-): PrimitiveInstance[] {
+): Graphic[] {
   const {
     pixelsPerWorldUnit,
     label = (valve: ValveGraphic) => `你好 ${valve.id % 1000}`,
@@ -44,6 +44,6 @@ export function buildValveLabelInstances(
         y: valve.ty + offsetY,
         pixelsPerWorldUnit,
         color: VALVE_LABEL_COLOR,
-      }).instances,
+      }).graphics,
   );
 }

@@ -1,6 +1,7 @@
 /**
  * 文字排版用例：用假图集（不依赖 canvas / WebGPU）验证
  * advance 累进、图集 uv 透传、缺字收集、字素切分。
+ * 排版产出的是 `Graphic`（尺寸按屏幕像素），世界尺寸由 `toInstance()` 按缩放折算。
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
@@ -31,24 +32,25 @@ function makeFakeAtlas(characters: string): GlyphAtlas {
 }
 
 describe('layoutText', () => {
-  it('按 advance 累进，并把图集 uv 写进实例', () => {
+  it('按 advance 累进，并把图集 uv 写进图形', () => {
     const atlas = makeFakeAtlas('你好');
     const result = layoutText(atlas, '你好', { x: 0, y: 0, pixelsPerWorldUnit: 1 });
 
-    assert.equal(result.instances.length, 2, '两个字应产生两个实例');
+    assert.equal(result.graphics.length, 2, '两个字应产生两个图形');
     assert.equal(result.missing.length, 0);
     assert.equal(result.width, 16, '总宽 = 2 × advance');
 
-    const [first, second] = result.instances;
+    const [first, second] = result.graphics;
     // 实例是中心点对齐：格子左上角在 x=0 / x=8
-    assert.equal(first.tx, 5);
-    assert.equal(second.tx, 13);
-    assert.equal(first.sx, 10);
-    assert.equal(first.sy, 12);
+    assert.equal(first.x, 5);
+    assert.equal(second.x, 13);
+    assert.equal(first.width, 10, '尺寸按屏幕像素存');
+    assert.equal(first.height, 12);
+    assert.equal(first.sizeUnit, 'screen');
     // uv 分别来自两个字，且互不重叠
-    assert.deepEqual([first.u0, first.u1], [0, 0.1]);
-    assert.deepEqual([second.u0, second.u1], [0.1, 0.2]);
-    assert.ok(first.u1 <= second.u0, '相邻字的 uv 不应重叠');
+    assert.deepEqual([first.atlasUvRect[0], first.atlasUvRect[2]], [0, 0.1]);
+    assert.deepEqual([second.atlasUvRect[0], second.atlasUvRect[2]], [0.1, 0.2]);
+    assert.ok(first.atlasUvRect[2] <= second.atlasUvRect[0], '相邻字的 uv 不应重叠');
   });
 
   it('文字颜色与尺寸按相机缩放换算', () => {
@@ -59,7 +61,8 @@ describe('layoutText', () => {
       pixelsPerWorldUnit: 0.5,
       color: [1, 0, 0, 1],
     });
-    const [instance] = zoomedOut.instances;
+    const [glyph] = zoomedOut.graphics;
+    const instance = glyph.toInstance(0.5);
     assert.equal(instance.sx, 20, '像素 ÷ 缩放 = 世界尺寸');
     assert.equal(instance.sy, 24);
     assert.equal(instance.colorR, 1);
@@ -71,14 +74,14 @@ describe('layoutText', () => {
     const result = layoutText(atlas, '你好', { x: 0, y: 0, pixelsPerWorldUnit: 1 });
 
     assert.deepEqual(result.missing, ['好']);
-    assert.equal(result.instances.length, 1);
+    assert.equal(result.graphics.length, 1);
     assert.equal(result.width, 8, '缺字不推进光标');
   });
 
   it('默认不铺底板；开启后底板排在文字之前', () => {
     const atlas = makeFakeAtlas('你');
     const withoutBackdrop = layoutText(atlas, '你', { x: 0, y: 0, pixelsPerWorldUnit: 1 });
-    assert.equal(withoutBackdrop.instances.length, 1);
+    assert.equal(withoutBackdrop.graphics.length, 1);
 
     const withBackdrop = layoutText(atlas, '你', {
       x: 0,
@@ -86,12 +89,12 @@ describe('layoutText', () => {
       pixelsPerWorldUnit: 1,
       backdrop: [0, 0, 0, 0.5],
     });
-    assert.equal(withBackdrop.instances.length, 2);
-    const [backdrop, glyph] = withBackdrop.instances;
-    assert.equal(backdrop.u0, 0, '底板用整张纹理');
-    assert.equal(backdrop.u1, 1);
-    assert.equal(backdrop.colorA, 0.5, '底板半透明');
-    assert.equal(backdrop.sx > glyph.sx, true, '底板比文字宽');
+    assert.equal(withBackdrop.graphics.length, 2);
+    const [backdrop, glyph] = withBackdrop.graphics;
+    assert.equal(backdrop.atlasUvRect[0], 0, '底板用整张纹理');
+    assert.equal(backdrop.atlasUvRect[2], 1);
+    assert.equal(backdrop.fillColor?.[3], 0.5, '底板半透明');
+    assert.equal(backdrop.width > glyph.width, true, '底板比文字宽');
   });
 });
 

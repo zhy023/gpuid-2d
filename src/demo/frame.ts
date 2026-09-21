@@ -1,7 +1,10 @@
 /**
  * 每帧组装与提交：
- *   可见集更新（图元/管线/阀门）→ 实例组装（图元 + 文字位号 + 标题 + 阀门精灵）
+ *   可见集更新（图元/管线/阀门）→ 图形组装（图元 + 文字位号 + 标题 + 阀门精灵）
  *   → 上传 → 按层序提交绘制（管线 → 阀门/位号/标题图集批次）
+ *
+ * 所有绘制都先建 `Graphic`（含颜色/uv/尺寸口径），再统一走 `toInstances()` 装箱，
+ * 这里不手搓实例数组。
  *
  * 运行期对象通过 context 注入；这里只做「一帧的事」，不持有 demo 状态。
  */
@@ -10,9 +13,10 @@ import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import { getValveResources } from '@/business/pid_schematic/valve_manager';
 import { PIPE_LINE_WIDTH_MAX_PX, pipeLineWidthToWorld } from '@/business/pid_schematic/pipe_style';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import { toInstances } from '@/core/scene/graphic';
 import { layoutText } from '@/core/text/text_batch';
-import { buildValveSpriteInstances } from '@/business/pid_schematic/valve_instances';
-import { buildValveLabelInstances } from '@/business/pid_schematic/valve_labels';
+import { buildValveSpriteGraphics } from '@/business/pid_schematic/valve_instances';
+import { buildValveLabelGraphics } from '@/business/pid_schematic/valve_labels';
 import type { Camera2d } from '@/core/camera';
 import { expandAABB } from '@/core/geometry/aabb';
 import type { Renderer2D } from '@/core/gpu/renderer';
@@ -22,6 +26,13 @@ import type { DemoResources } from '@/demo/resources';
 import type { DemoScene } from '@/demo/scene';
 
 const TITLE = '你好';
+/** 标题颜色（金黄，压在浅底上可辨） */
+const TITLE_COLOR = [1.0, 0.78, 0.25, 1] as const;
+/**
+ * demo 自己的画布背景色：引擎不再给图元兜底颜色，白底看不出浅色图标，
+ * 所以这里给一个中性偏深的底，和图纸的浅色图形形成对比。
+ */
+export const DEMO_CLEAR_COLOR: GPUColor = { r: 0.11, g: 0.13, b: 0.16, a: 1 };
 
 export interface DemoFrameContext {
   device: GPUDevice;
@@ -57,27 +68,27 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
     return valveScene.scene.getVisible(camera.getViewportAABB()).pipes;
   }
 
-  /** 位号与标题的实例（每字一个，图集 uv 写在实例里） */
-  function buildTextInstances(valves: readonly ValveGraphic[]) {
+  /** 位号与标题的图形（每字一个 `Graphic`，图集 uv 写在图形里） */
+  function buildTextGraphics(valves: readonly ValveGraphic[]) {
     const pixelsPerWorldUnit = camera.scale;
-    const titleInstances = layoutText(titleAtlas, TITLE, {
+    const titleGraphics = layoutText(titleAtlas, TITLE, {
       x: -260,
       y: -900,
       pixelsPerWorldUnit,
-      color: [1.0, 0.78, 0.25, 1],
-    }).instances;
+      color: TITLE_COLOR,
+    }).graphics;
     // 位号文案/颜色/偏移是业务表现，交给业务层
-    const tagInstances = buildValveLabelInstances(glyphAtlas, valves, { pixelsPerWorldUnit });
-    return { titleInstances, tagInstances };
+    const tagGraphics = buildValveLabelGraphics(glyphAtlas, valves, { pixelsPerWorldUnit });
+    return { titleGraphics, tagGraphics };
   }
 
-  /** 阀门精灵：口径（开关态分组、@2x 一半尺寸）由业务层决定 */
+  /** 阀门精灵：口径（开关态分组、@2x 一半尺寸）由业务层决定，这里只装箱 */
   function buildValveSprites(valves: readonly ValveGraphic[]) {
-    return buildValveSpriteInstances(valves, {
+    const { closed, open } = buildValveSpriteGraphics(valves, {
       textureWidth: resources.valveTextureWidth,
       textureHeight: resources.valveTextureHeight,
-      pixelsPerWorldUnit: camera.scale,
     });
+    return { closed: toInstances(closed, camera.scale), open: toInstances(open, camera.scale) };
   }
 
   function frame() {
@@ -101,8 +112,10 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
       );
     }
 
-    const { titleInstances, tagInstances } = buildTextInstances(visibleValves);
+    const { titleGraphics, tagGraphics } = buildTextGraphics(visibleValves);
     const { closed, open } = buildValveSprites(visibleValves);
+    const titleInstances = toInstances(titleGraphics, camera.scale);
+    const tagInstances = toInstances(tagGraphics, camera.scale);
     const projMat = camera.getCameraProjectionMatrix();
     renderer.uploadProjectionMatrix(projMat);
 
