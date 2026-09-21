@@ -5,8 +5,10 @@ import type { AABB } from '@/core/types';
 const UNIT_CORNER_X = [-0.5, 0.5, 0.5, -0.5];
 const UNIT_CORNER_Y = [-0.5, -0.5, 0.5, 0.5];
 
-// 复用缓冲
-// wgpu-matrix 的 mat3 是 12 个元素（3×4，行尾留 1 个填充）
+/**
+ * 复用缓冲
+ * wgpu-matrix 的 mat3 是 12 个元素（3×4，行尾留 1 个填充）
+ */
 const transformMatrix = new Float64Array(12);
 const cornerPoint = new Float64Array(2);
 

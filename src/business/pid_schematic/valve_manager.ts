@@ -41,8 +41,10 @@ export async function initValves(
   valveRes = await createValveRenderResources(device, canvasFormat, vertexLayout);
 
   if (pickSize) {
-    // 拾取复用内核拾取着色器与内核图元模板（命中区域与看到的一致），
-    // 业务只需把阀门自己的绑定（实例变换 + 开关数据）交给它
+    /*
+     * 拾取复用内核拾取着色器与内核图元模板（命中区域与看到的一致），
+     * 业务只需把阀门自己的绑定（实例变换 + 开关数据）交给它
+     */
     valvePicker = new WebGpuPicker(device);
     await valvePicker.init(pickSize.width, pickSize.height);
     valvePicker.setPipelineLayout(

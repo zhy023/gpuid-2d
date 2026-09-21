@@ -1,5 +1,7 @@
-// core/shader/core_include/vertex_math.wgsl
-// Core 内核：2D矩阵工具函数，纯数学，无业务
+/*
+ * core/shader/core_include/vertex_math.wgsl
+ * Core 内核：2D矩阵工具函数，纯数学，无业务
+ */
 
 #include "./instance_transform.wgsl"
 
@@ -37,17 +39,21 @@ fn computeInstanceModelMatrix(inst: InstanceTransform) -> mat3x3f {
     return translateMat * rotateMat * scaleMat;
 }
 
-// 内核的顶点模板是「覆盖单位方形的三角形」（见 core/geometry/geometry.ts），
-// 图形本身仍是单位方形 [-0.5, 0.5]：这里给出方形内的覆盖度（0~1）。
-// 按屏幕空间一像素做抗锯齿，所以方形边缘不会出现硬锯齿。
+/**
+ * 内核的顶点模板是「覆盖单位方形的三角形」（见 core/geometry/geometry.ts），
+ * 图形本身仍是单位方形 [-0.5, 0.5]：这里给出方形内的覆盖度（0~1）。
+ * 按屏幕空间一像素做抗锯齿，所以方形边缘不会出现硬锯齿。
+ */
 fn unitSquareMask(localPos: vec2f) -> f32 {
     let edgeDistance = max(abs(localPos.x), abs(localPos.y));
     let pixelWidth = max(fwidth(edgeDistance), 1e-6);
     return 1.0 - smoothstep(0.5 - pixelWidth, 0.5, edgeDistance);
 }
 
-// 单位方形内切三角形（底边在下、尖端在上）的覆盖度：0~1，同样按屏幕像素抗锯齿。
-// 三条边的有符号距离取最小值即「到三角形边界」的距离，再按像素宽度做平滑。
+/**
+ * 单位方形内切三角形（底边在下、尖端在上）的覆盖度：0~1，同样按屏幕像素抗锯齿。
+ * 三条边的有符号距离取最小值即「到三角形边界」的距离，再按像素宽度做平滑。
+ */
 fn unitTriangleMask(localPos: vec2f) -> f32 {
     let slopeScale = 0.89442718; // 1 / sqrt(1.25)：把两条斜边的距离换算成局部单位
     let leftEdge = (localPos.x + 0.5 * localPos.y + 0.25) * slopeScale;
@@ -89,8 +95,10 @@ fn unitShapeMask(localPos: vec2f, shape: f32) -> f32 {
     return squareMask;
 }
 
-// 形状编码：与 TS 侧 `GRAPHIC_SHAPE_*` 一致；描边环 = 基础形状 + 3
-// （3 = 方框环 / 4 = 圆环 / 5 = 三角环）
+/**
+ * 形状编码：与 TS 侧 `GRAPHIC_SHAPE_*` 一致；描边环 = 基础形状 + 3
+ * （3 = 方框环 / 4 = 圆环 / 5 = 三角环）
+ */
 const SHAPE_RING_OFFSET: f32 = 3.0;
 
 /**

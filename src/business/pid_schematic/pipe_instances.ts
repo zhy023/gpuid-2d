@@ -170,8 +170,10 @@ function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
 
     const pipe: FlowPipe = item;
     const flowSpeed = pipe.flowSpeed;
-    // 屏幕像素粗细 → 世界宽度，逐帧跟随缩放
-    // 管宽是世界单位：只跟图纸 strokeWidth 有关，不随相机缩放浮动
+    /**
+     * 屏幕像素粗细 → 世界宽度，逐帧跟随缩放
+     * 管宽是世界单位：只跟图纸 strokeWidth 有关，不随相机缩放浮动
+     */
     const lineWidthWorld = pipeLineWidthWorld(pipe.lineWidthPx);
     // 以管宽为单位的累计里程，喂给 flowOffset，保证拐点两侧条纹相位接得上
     let travelled = 0;
@@ -205,8 +207,10 @@ function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
       travelled += segmentLength;
       writeIdx += 1;
 
-      // 直角拐点补一个「管宽 × 管宽」方块：两段都是平头结束，
-      // 没有它右边角的缺口会露出背景（管越粗越明显）
+      /**
+       * 直角拐点补一个「管宽 × 管宽」方块：两段都是平头结束，
+       * 没有它右边角的缺口会露出背景（管越粗越明显）
+       */
       const isJoint = pointIdx < pipe.points.length - 1;
       if (isJoint && writeIdx < MAX_PIPE_INSTANCE) {
         writeInstanceTransform(

@@ -3,8 +3,10 @@
 #include "@/core/shader/core_include/instance_transform.wgsl"
 #include "@/core/shader/core_include/vertex_math.wgsl"
 
-// 管线渲染专用UBO：正交矩阵 + 动画时间，与 updatePipeUniform/pipe_render_pass 写入布局一致
-// orthoMatrix 是 3×3（每列补到 16 字节 = 48 字节），后面四个 f32 从第 48 字节开始
+    /**
+ * 管线渲染专用UBO：正交矩阵 + 动画时间，与 updatePipeUniform/pipe_render_pass 写入布局一致
+ * orthoMatrix 是 3×3（每列补到 16 字节 = 48 字节），后面四个 f32 从第 48 字节开始
+     */
 struct PidPipelineAnimationUniform {
     orthoMatrix: mat3x3f,
     timeSeconds: f32,
@@ -47,8 +49,10 @@ fn vertexMain(input: PipelineVertexInput, @builtin(instance_index) instanceIdx: 
     let clip = pipelineAnimUbo.orthoMatrix * worldVec3;
     out.clipPos = vec4f(clip.xy, 0.5, 1.0);
 
-    // 模板 uv.x 在段内是 0..1，这里换算成世界里程（段长取自实例矩阵第一列缩放）；
-    // 配合 flowOffset（CPU 侧累计里程）让折线拐点处的流动相位连续
+    /*
+ * 模板 uv.x 在段内是 0..1，这里换算成世界里程（段长取自实例矩阵第一列缩放）；
+ * 配合 flowOffset（CPU 侧累计里程）让折线拐点处的流动相位连续
+     */
     let segmentLength = length(modelMat[0]);
     out.flowUv = vec2f(input.flowUv.x * segmentLength, input.flowUv.y);
     out.instanceIndex = instanceIdx;
@@ -62,8 +66,10 @@ fn fragmentMain(input: PipelineVertexOutput) -> @location(0) vec4f {
     const pipelineFlowColor = vec4f(0.45, 1.0, 0.55, 1.0);
     const pipelineSelectedColor = vec4f(0.95, 0.70, 0.20, 1.0);
 
-    // 每条管线独立流速 / 相位，来自 binding2 业务数据；
-    // flowUv.x 是段内里程、flowOffset 是该段起点在整条管线上的里程（都是世界单位），相加即整条管线的里程
+    /*
+ * 每条管线独立流速 / 相位，来自 binding2 业务数据；
+ * flowUv.x 是段内里程、flowOffset 是该段起点在整条管线上的里程（都是世界单位），相加即整条管线的里程
+     */
     let pidData = pidSchematicStorage[input.instanceIndex];
     let distanceInWorld = input.flowUv.x + pidData.flowOffset;
     let cycles =
@@ -71,13 +77,17 @@ fn fragmentMain(input: PipelineVertexOutput) -> @location(0) vec4f {
         - pipelineAnimUbo.timeSeconds * max(pidData.flowSpeed, 0.0)
             * pipelineAnimUbo.flowCyclesPerSec;
 
-    // 硬边矩形条带：直接用 step 切出实心长方形。
-    // 管线只有 2~10px 粗，smoothstep 那种渐变边缘在细管上会糊成一片，看起来发虚。
+    /*
+ * 硬边矩形条带：直接用 step 切出实心长方形。
+ * 管线只有 2~10px 粗，smoothstep 那种渐变边缘在细管上会糊成一片，看起来发虚。
+     */
     let band = fract(cycles);
     let isDash = band < pipelineAnimUbo.flowDashDuty;
 
-    // 阀门关闭（flowSpeed = 0）→ 默认样式：纯管身色，不画流动条纹
-    // flowSpeed > 0：流动条纹；< 0：静止虚线；= 0：默认样式（实心）
+    /*
+ * 阀门关闭（flowSpeed = 0）→ 默认样式：纯管身色，不画流动条纹
+ * flowSpeed > 0：流动条纹；< 0：静止虚线；= 0：默认样式（实心）
+     */
     let showDash = pidData.flowSpeed != 0.0;
     var color = select(pipelineBaseColor, pipelineFlowColor, showDash && isDash);
 

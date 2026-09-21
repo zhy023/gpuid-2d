@@ -95,8 +95,10 @@ function toIconGraphic(node: SelectableGraphic, texture: Texture2d): SelectableG
     selected: node.selected,
     fillColor: ICON_FILL,
   }).atlasUv(node.atlasUvRect);
-  // drawio 对 `rounded=1` 的图片单元会做圆形裁剪（导出 SVG 里是 inset + round 49.2%）：
-  // 内核自带圆形遮罩，这里按图纸把它裁成内切圆，而不是直接贴一张方图
+  /**
+   * drawio 对 `rounded=1` 的图片单元会做圆形裁剪（导出 SVG 里是 inset + round 49.2%）：
+   * 内核自带圆形遮罩，这里按图纸把它裁成内切圆，而不是直接贴一张方图
+   */
   if (style?.rounded === '1') {
     graphic.ellipse(boxWidth, boxHeight);
   }
@@ -180,8 +182,10 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
   const visible = scene.getVisible(camera.getViewportAABB());
   ctx.onVisibleValves?.(visible.valves);
 
-  // 节点分两组：带内联图标的（图纸里的图片单元，含阀门节点）按 dataURL 分组、各成一个纹理批次，
-  // 其余走基础批次。阀门在模型上是 ValveGraphic（selectable 能力），但画什么图、多大，完全看图纸。
+  /**
+   * 节点分两组：带内联图标的（图纸里的图片单元，含阀门节点）按 dataURL 分组、各成一个纹理批次，
+   * 其余走基础批次。阀门在模型上是 ValveGraphic（selectable 能力），但画什么图、多大，完全看图纸。
+   */
   const nodes: SelectableGraphic[] = [...visible.devices, ...visible.valves];
   const plainDevices = visible.devices.filter((device) => !icons.has(device.id));
   const iconGroups = new Map<string, SelectableGraphic[]>();
@@ -215,21 +219,25 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     });
   }
 
-  // 位号：每字一个实例，整批一次绘制。
-  // 图集按「字号 + 字体 + 行高」取（字体换了图集就得换，否则量宽还是旧字体），
-  // 再按图集分组提交（图纸里字号通常只有两三档）
-  // 位号文字是纯图形（不可选中），所以是 Graphic 而不是 SelectableGraphic
+  /**
+   * 位号：每字一个实例，整批一次绘制。
+   * 图集按「字号 + 字体 + 行高」取（字体换了图集就得换，否则量宽还是旧字体），
+   * 再按图集分组提交（图纸里字号通常只有两三档）
+   * 位号文字是纯图形（不可选中），所以是 Graphic 而不是 SelectableGraphic
+   */
   const labelBatches = new Map<GlyphAtlas, Graphic[]>();
   for (const label of labels) {
     const atlas = labelAtlases.get(label.fontSizePx, {
       fontFamily: label.fontFamily,
       lineHeightRatio: label.lineHeightRatio,
     });
-    // 文字按图纸的世界单位排版（图纸坐标就是 px，字号 12 就是 12 世界单位）：
-    // 这样文字的缩放和图元完全一致——相机放大缩小时，文字跟着图一起缩放
-    // 对齐也按图纸/SVG 导出的口径：每行水平居中、整块垂直居中于图元中心
-    // （label.x / label.y 存的是图元中心，对应 drawio 的 align-items: unsafe center）。
-    // 换行只认解析层折出来的 \n，排版器不擅自折行。
+    /**
+     * 文字按图纸的世界单位排版（图纸坐标就是 px，字号 12 就是 12 世界单位）：
+     * 这样文字的缩放和图元完全一致——相机放大缩小时，文字跟着图一起缩放
+     * 对齐也按图纸/SVG 导出的口径：每行水平居中、整块垂直居中于图元中心
+     * （label.x / label.y 存的是图元中心，对应 drawio 的 align-items: unsafe center）。
+     * 换行只认解析层折出来的 \n，排版器不擅自折行。
+     */
     const graphics = layoutTextBlock(atlas, label.text, {
       x: label.x,
       y: label.y,

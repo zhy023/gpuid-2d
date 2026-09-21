@@ -43,8 +43,10 @@ export function orthogonalizePolyline(
     const dy = raw.y - prev.y;
     if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) continue;
 
-    // 末点是端口，不能挪：按主导方向插一个肘点，让最后一段沿端口方向进出
-    // （近轴段只会产生一小段摆正用的短肘，肉眼看不出来）
+    /**
+     * 末点是端口，不能挪：按主导方向插一个肘点，让最后一段沿端口方向进出
+     * （近轴段只会产生一小段摆正用的短肘，肉眼看不出来）
+     */
     if (index === points.length - 1) {
       if (Math.abs(dy) <= Math.abs(dx)) push({ x: prev.x, y: raw.y });
       else push({ x: raw.x, y: prev.y });

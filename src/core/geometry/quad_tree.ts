@@ -74,8 +74,10 @@ class QuadTreeNode {
       this.se!.insert(item, nodeIndex);
     if (inserted) return true;
 
-    // 图元跨象限边界：没有子节点能完整容纳它，留在本节点（允许超出容量），
-    // 否则这个图元会被四叉树丢掉，导致剔除/拾取漏图元
+    /*
+     * 图元跨象限边界：没有子节点能完整容纳它，留在本节点（允许超出容量），
+     * 否则这个图元会被四叉树丢掉，导致剔除/拾取漏图元
+     */
     this.items.push(item);
     nodeIndex.set(item.id, this);
     return true;
@@ -112,8 +114,10 @@ class QuadTreeNode {
 
 export class QuadTree {
   root: QuadTreeNode;
-  // id → 所属节点：更新/删除（拖动时每帧上百次）直接定位节点，
-  // 不必递归全树——5 万图元下那样每次删除要访问上千个节点。
+  /**
+   * id → 所属节点：更新/删除（拖动时每帧上百次）直接定位节点，
+   * 不必递归全树——5 万图元下那样每次删除要访问上千个节点。
+   */
   private readonly nodeById = new Map<number, QuadTreeNode>();
 
   constructor(worldBounds: AABB) {

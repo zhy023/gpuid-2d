@@ -272,8 +272,10 @@ export function toPidScene(
   const labels: PidLabel[] = [];
   const icons = new Map<number, string>();
   const numericIds = new Map<string, number>();
-  // 图纸把一个阀门画成「关节单元 + 位号 + 阀门图标」一组：边的两端指向组里的关节单元，
-  // 所以要把「单元 → 所属组 → 组里的阀门」串起来，管线才能挂到阀门上
+  /**
+   * 图纸把一个阀门画成「关节单元 + 位号 + 阀门图标」一组：边的两端指向组里的关节单元，
+   * 所以要把「单元 → 所属组 → 组里的阀门」串起来，管线才能挂到阀门上
+   */
   const cellGroupId = new Map<string, string>();
   const groupValveId = new Map<string, number>();
   const pendingLinks: Array<{ pipeId: number; sourceId: string; targetId: string }> = [];
@@ -366,8 +368,10 @@ export function toPidScene(
 
   /** 端点在节点矩形上的锚点：fx/fy 是 0~1 的比例（drawio 的 exitX/entryX） */
   const anchorOf = (node: MxNode, fx: number, fy: number) => {
-    // drawio 的 centerPerimeter：不管 exit/entry 给什么比例，端口都在节点中心出线。
-    // 图纸里的连接点（waypoint）就是这么连的，两条管线必须在同一点接上，否则会断开。
+    /**
+     * drawio 的 centerPerimeter：不管 exit/entry 给什么比例，端口都在节点中心出线。
+     * 图纸里的连接点（waypoint）就是这么连的，两条管线必须在同一点接上，否则会断开。
+     */
     const centerPort = node.style.perimeter === 'centerPerimeter';
     // 单元的 rotation（角度，顺时针）要作用在锚点上，否则旋转过的设备会连歪
     const beta = (mxNumber(node.style, 'rotation', 0) * Math.PI) / 180;
@@ -403,8 +407,10 @@ export function toPidScene(
       continue;
     }
 
-    // 纯连接点（drawio 的 shape=waypoint）：图纸里只作为接边用的节点，没有实际含义，
-    // 所以只保留 id 让管线拓扑能串过去，不建成可绘制的图元
+    /**
+     * 纯连接点（drawio 的 shape=waypoint）：图纸里只作为接边用的节点，没有实际含义，
+     * 所以只保留 id 让管线拓扑能串过去，不建成可绘制的图元
+     */
     if (node.style.shape === 'waypoint') {
       idOf(node.id);
       stats.connectionPoints += 1;
@@ -493,9 +499,11 @@ export function toPidScene(
     const anchor = anchorOf(node, fx, fy);
     return { x: anchor.x + (shift?.dx ?? 0), y: anchor.y + (shift?.dy ?? 0) };
   };
-  // 端口应当落在与相邻点同一条正交轴上：差得不多就把单元整体挪过去（图纸是手画的，允许微调图元），
-  // 差得多则不动图元，交给随后的正交化插肘点。一个单元连多条边时取平均诉求，
-  // 迭代几轮（每轮都用「已经挪过的位置」重新算），让整张网逐步拉平。
+  /**
+   * 端口应当落在与相邻点同一条正交轴上：差得不多就把单元整体挪过去（图纸是手画的，允许微调图元），
+   * 差得多则不动图元，交给随后的正交化插肘点。一个单元连多条边时取平均诉求，
+   * 迭代几轮（每轮都用「已经挪过的位置」重新算），让整张网逐步拉平。
+   */
   const average = (values: readonly number[]): number =>
     values.length === 0 ? 0 : values.reduce((sum, value) => sum + value, 0) / values.length;
   const runAlignRound = (): void => {
@@ -571,8 +579,10 @@ export function toPidScene(
         rich.color ?? parseDrawioColor(draft.style.fontColor, theme) ?? DEFAULT_LABEL_COLOR[theme],
       fontSizePx:
         rich.fontSizePx ?? Math.round(mxNumber(draft.style, 'fontSize', DEFAULT_LABEL_FONT_PX)),
-      // 字体与行高同样「内联样式优先、单元样式其次、最后才是 drawio 默认」：
-      // 图纸没写字体时就是 Helvetica + 1.2 行高，不能替换成别的字体，否则字宽与行距都会变
+      /*
+       * 字体与行高同样「内联样式优先、单元样式其次、最后才是 drawio 默认」：
+       * 图纸没写字体时就是 Helvetica + 1.2 行高，不能替换成别的字体，否则字宽与行距都会变
+       */
       fontFamily: toFontFamilyChain(rich.fontFamily ?? draft.style.fontFamily),
       lineHeightRatio:
         rich.lineHeightRatio ?? mxNumber(draft.style, 'lineHeight', DRAWIO_LINE_HEIGHT_RATIO),
@@ -598,8 +608,10 @@ export function toPidScene(
       stats.skipped += 1;
       continue;
     }
-    // 管线按惯例横平竖直：近轴的拉正、斜线插肘点（对应 drawio 的 orthogonalEdgeStyle）。
-    // 出口在左右两侧先水平走、在上下两侧先垂直走，与绘图员画线的走向一致。
+    /**
+     * 管线按惯例横平竖直：近轴的拉正、斜线插肘点（对应 drawio 的 orthogonalEdgeStyle）。
+     * 出口在左右两侧先水平走、在上下两侧先垂直走，与绘图员画线的走向一致。
+     */
     const exitX = mxNumber(node.style, 'exitX', 0.5);
     const exitY = mxNumber(node.style, 'exitY', 0.5);
     const points = orthogonalizePolyline(rawPoints, {
@@ -630,8 +642,10 @@ export function toPidScene(
     stats.pipes += 1;
   }
 
-  // 边建完后再解析端点：端点单元在阀门组里就挂到那个阀门上，否则用它自己的图元 id。
-  // 链路保持 source → target 的方向，下游广播（applyValveFlowState）按这个方向走。
+  /**
+   * 边建完后再解析端点：端点单元在阀门组里就挂到那个阀门上，否则用它自己的图元 id。
+   * 链路保持 source → target 的方向，下游广播（applyValveFlowState）按这个方向走。
+   */
   const resolveElementId = (cellId: string): number | undefined => {
     const groupId = cellGroupId.get(cellId);
     const groupedValve = groupId ? groupValveId.get(groupId) : undefined;

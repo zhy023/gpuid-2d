@@ -87,8 +87,10 @@ export async function createDrawioScene(): Promise<DrawioDemoScene> {
   const { scene, topology, labels, icons, bounds, stats, theme } = toPidScene(document, {
     valveIcons: await loadValveIcons(),
   });
-  // 阀门与管线都保持默认关闭：图纸一进来是静止的初始态，
-  // 流动（flow 能力）由后续交互再打开
+  /*
+   * 阀门与管线都保持默认关闭：图纸一进来是静止的初始态，
+   * 流动（flow 能力）由后续交互再打开
+   */
   console.log(
     `[drawio] 设备 ${stats.devices} / 阀门 ${stats.valves} / 连接点 ${stats.connectionPoints}` +
       ` / 管线 ${stats.pipes} / 位号 ${stats.labels}` +

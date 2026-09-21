@@ -11,9 +11,11 @@
  */
 import { mat3, vec2 } from 'wgpu-matrix';
 
-// 复用缓冲：这些函数每帧都会调用，避免反复 new
-// 注意：wgpu-matrix 的 mat3 是 12 个元素（3×4，行尾留 1 个填充），不是 9 个
-// CPU 侧用 Float64Array，避免 float32 中间量在 2 万量级世界坐标上引入毫厘级偏差
+/**
+ * 复用缓冲：这些函数每帧都会调用，避免反复 new
+ * 注意：wgpu-matrix 的 mat3 是 12 个元素（3×4，行尾留 1 个填充），不是 9 个
+ * CPU 侧用 Float64Array，避免 float32 中间量在 2 万量级世界坐标上引入毫厘级偏差
+ */
 const translationMatrix = new Float64Array(12);
 const rotationMatrix = new Float64Array(12);
 const scaleMatrix = new Float64Array(12);

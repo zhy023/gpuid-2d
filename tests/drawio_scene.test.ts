@@ -130,8 +130,10 @@ describe('toPidScene（真实图纸）', () => {
   });
 
   it('字体 / 行高按图纸走：默认 Helvetica + 1.2，不能被替换成别的字体', () => {
-    // 复刻 SVG 导出里的 `font-family: Helvetica; line-height: 1.2`：
-    // 换字体会改字宽（每行宽度、换行位置都跟着变）与行距，所以默认值必须钉在图纸口径上
+    /**
+     * 复刻 SVG 导出里的 `font-family: Helvetica; line-height: 1.2`：
+     * 换字体会改字宽（每行宽度、换行位置都跟着变）与行距，所以默认值必须钉在图纸口径上
+     */
     const fontFamilies = new Set(result.labels.map((label) => label.fontFamily));
     assert.deepEqual([...fontFamilies], [DRAWIO_DEFAULT_FONT_FAMILY]);
     assert.ok(DRAWIO_DEFAULT_FONT_FAMILY.startsWith('Helvetica'));
@@ -287,9 +289,11 @@ describe('toPidScene（真实图纸）', () => {
   });
 
   it('`light-dark(rgb(...), rgb(...))` 的实参要按括号切，并按主题取支', () => {
-    // 图纸里 `Flow` / `0.0` 这类位号：单元 fontColor=#ffffff，但内联 span 是
-    // `light-dark(rgb(0,0,0), rgb(51,153,255))`；浅色主题黑字、深色主题 #3399ff。
-    // 之前按逗号切会把 `rgb(0` 当颜色 → 解析失败 → 回退成单元的白字 → 白字压白底。
+    /**
+     * 图纸里 `Flow` / `0.0` 这类位号：单元 fontColor=#ffffff，但内联 span 是
+     * `light-dark(rgb(0,0,0), rgb(51,153,255))`；浅色主题黑字、深色主题 #3399ff。
+     * 之前按逗号切会把 `rgb(0` 当颜色 → 解析失败 → 回退成单元的白字 → 白字压白底。
+     */
     const inline = 'light-dark(rgb(0, 0, 0), rgb(51, 153, 255))';
     assert.deepEqual(parseDrawioColor(inline, 'light'), [0, 0, 0, 1]);
     assert.deepEqual(parseDrawioColor(inline, 'dark'), [51 / 255, 153 / 255, 1, 1]);

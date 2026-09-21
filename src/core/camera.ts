@@ -8,8 +8,10 @@ import {
 } from '@/core/geometry/transform_2d';
 import type { AABB } from '@/core/types';
 
-// hitTestRect 的复用缓冲（静态方法不能用实例字段）
-// wgpu-matrix 的 mat3 是 12 个元素（3×4，行尾留 1 个填充）
+/**
+ * hitTestRect 的复用缓冲（静态方法不能用实例字段）
+ * wgpu-matrix 的 mat3 是 12 个元素（3×4，行尾留 1 个填充）
+ */
 const hitTestMatrix = new Float64Array(12);
 const hitTestInverse = new Float64Array(12);
 const hitTestPoint = new Float64Array(2);
@@ -77,8 +79,10 @@ export class Camera2d {
     tx: number,
     ty: number,
   ): boolean {
-    // 世界点 → 图元局部空间（T·R·S 的逆矩阵），再判断是否落在单位方块 [-0.5, 0.5] 内。
-    // 逆变换交给 wgpu-matrix，与 computeRotatedAABB、着色器共用同一套 2D 变换约定。
+    /**
+     * 世界点 → 图元局部空间（T·R·S 的逆矩阵），再判断是否落在单位方块 [-0.5, 0.5] 内。
+     * 逆变换交给 wgpu-matrix，与 computeRotatedAABB、着色器共用同一套 2D 变换约定。
+     */
     composeTransform2d(tx, ty, beta, sx, sy, hitTestMatrix);
     const inverse = mat3.invert(hitTestMatrix, hitTestInverse);
     const local = transformPoint2d(worldPt.x, worldPt.y, inverse, hitTestPoint);

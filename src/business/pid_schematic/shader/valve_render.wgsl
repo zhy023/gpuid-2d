@@ -4,8 +4,10 @@
 #include "@/core/shader/core_include/vertex_math.wgsl"
 #include "@/core/shader/core_include/primitive_uniforms.wgsl"
 
-// P&ID业务层：图元业务数据结构，仅本feature内可见
-// 字段与 CPU 侧 PidSchematicInstanceData 一一对应（4 × f32 = 16B）
+/**
+ * P&ID业务层：图元业务数据结构，仅本feature内可见
+ * 字段与 CPU 侧 PidSchematicInstanceData 一一对应（4 × f32 = 16B）
+ */
 struct PidSchematicInstanceData {
     valveOpen: f32, // 0.0关闭 / 1.0打开
     flowSpeed: f32, // 阀门不走流动动画，恒为 0

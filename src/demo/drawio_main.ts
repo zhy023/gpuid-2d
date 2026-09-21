@@ -52,8 +52,10 @@ export async function runDrawioApp(): Promise<void> {
     // demo 自己的画布底色：引擎不兜底颜色，图纸里大量浅色/白色图元需要底色衬托
     renderer.setClearColor(DRAWIO_CLEAR_COLOR);
 
-    // 按真实图纸范围取景：drawio 的坐标原点不一定在左上角（样例图纸 y 全是负的），
-    // 写死页宽高会把整张图剔除掉，只剩画不出来的空白
+    /**
+     * 按真实图纸范围取景：drawio 的坐标原点不一定在左上角（样例图纸 y 全是负的），
+     * 写死页宽高会把整张图剔除掉，只剩画不出来的空白
+     */
     const width = Math.max(bounds.maxX - bounds.minX, 1e-6);
     const height = Math.max(bounds.maxY - bounds.minY, 1e-6);
     camera.scale = Math.min(canvasEl.width / width, canvasEl.height / height) * VIEW_FIT_MARGIN;

@@ -20,8 +20,10 @@ export async function createPipeRenderResources(
 
   const shaderModule = device.createShaderModule({ code: pipeWgsl });
 
-  // 显式 layout：主渲染与拾取两条 pipeline 共用同一套绑定，
-  // 这样 createPipeBindGroup 生成的 bindGroup 可以同时用于两者
+  /**
+   * 显式 layout：主渲染与拾取两条 pipeline 共用同一套绑定，
+   * 这样 createPipeBindGroup 生成的 bindGroup 可以同时用于两者
+   */
   const bindGroupLayout = device.createBindGroupLayout({
     entries: [
       {

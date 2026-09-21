@@ -52,8 +52,10 @@ export function bindDrawioInput(ctx: DrawioInputContext): () => void {
       return;
     }
 
-    // 阀门节点是可选中图元（selectable 能力）：一次只允许选中一个——
-    // 点未选中的阀门 = 清掉其它再选中它；点已选中的阀门 = 取消选中
+    /**
+     * 阀门节点是可选中图元（selectable 能力）：一次只允许选中一个——
+     * 点未选中的阀门 = 清掉其它再选中它；点已选中的阀门 = 取消选中
+     */
     const valve = valves[hit.index];
     if (!valve) return;
     const nextSelected = !valve.selected;
