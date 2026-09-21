@@ -41,7 +41,7 @@ fn vertexMain(input: PickVertexInput, @builtin(instance_index) instanceIdx: u32)
 fn fragmentMain(input: PickVertexOutput) -> @location(0) vec4u {
     // 覆盖度里的 fwidth 必须在统一控制流里求值，所以先整体算出来再分支
     let shapeMask = unitInstanceMask(input.localUv, input.shape, input.borderWidthPx);
-    // 没指定颜色的实例渲染侧也不会画（内核不再兜底灰色），拾取必须跟着一致
+    // 没指定颜色的实例渲染侧也不画（内核不兜底颜色），拾取必须跟着一致
     if (input.colorAlpha <= 0.5) {
         return vec4u(0u, 0u, 0u, 0u);
     }

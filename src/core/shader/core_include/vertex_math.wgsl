@@ -1,4 +1,4 @@
-// core/shader/include/vertex_math.wgsl
+// core/shader/core_include/vertex_math.wgsl
 // Core 内核：2D矩阵工具函数，纯数学，无业务
 
 #include "./instance_transform.wgsl"

@@ -3,7 +3,7 @@
  *
  * 空间索引走 PidScene（内部是 core 的 QuadTreeStore）；「哪些图元需要重画」
  * 由本类自己维护（选中态或几何变化都会触发），索引层不掺和。
- * 因此 tick() 不再全量扫描 5 万条图元找 dirty。
+ * tick() 因此不必全量扫描 5 万条图元找 dirty。
  */
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { toInstances } from '@/core/scene/graphic/graphic';
@@ -11,8 +11,8 @@ import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { AABB, PrimitiveInstance } from '@/core/types';
 
 /**
- * 压测设备图元的填充色：内核不再兜底颜色（没指定颜色就整块不画），
- * 所以「要能看见」这件事得由数据自己声明，这里显式给一个中性灰。
+ * 压测设备图元的填充色：内核不兜底颜色（没指定颜色就整块不画），
+ * 「要能看见」得由数据自己声明，这里显式给一个中性灰。
  */
 const STRESS_DEVICE_FILL = [0.3, 0.3, 0.3, 1] as const;
 

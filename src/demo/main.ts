@@ -84,7 +84,7 @@ export async function runApp() {
     const scene = await createDemoScene(device, format);
     const { deviceTester: pidTester, valveScene } = scene;
     camera.scale = 0.1;
-    // demo 自己的画布底色（引擎不再给图元兜底颜色）
+    // demo 自己的画布底色（引擎不兜底颜色）
     renderer.setClearColor(DEMO_CLEAR_COLOR);
 
     let instanceList: PrimitiveInstance[] = [];

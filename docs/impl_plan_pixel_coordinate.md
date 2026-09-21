@@ -34,14 +34,14 @@
 
 ## 2. 三套坐标空间与换算契约
 
-| 空间     | 定义                                   | 换算                                                     | 代码位置                                          |
-| -------- | -------------------------------------- | -------------------------------------------------------- | ------------------------------------------------- |
-| 世界坐标 | 图纸坐标（drawio x/y，**y 向下为正**） | —                                                        | `toPidScene` 产出的坐标                           |
-| 画布像素 | `canvas` 元素内的像素（后备像素）      | `px = (clientX - rect.left) * canvas.width / rect.width` | `WebGpuPicker.pickAt`（`src/core/gpu/picker.ts`） |
-| NDC      | WebGPU 裁剪空间                        | `ndcX = 2·px/w - 1`，`ndcY = 1 - 2·py/h`                 | `Camera2d.screenToWorld`（`src/core/camera.ts`）  |
+| 空间     | 定义                                   | 换算                                                     | 代码位置                                                 |
+| -------- | -------------------------------------- | -------------------------------------------------------- | -------------------------------------------------------- |
+| 世界坐标 | 图纸坐标（drawio x/y，**y 向下为正**） | —                                                        | `toPidScene` 产出的坐标                                  |
+| 画布像素 | `canvas` 元素内的像素（后备像素）      | `px = (clientX - rect.left) * canvas.width / rect.width` | `WebGpuPicker.pickAt`（`src/core/gpu/picker.ts`）        |
+| NDC      | WebGPU 裁剪空间                        | `ndcX = 2·px/w - 1`，`ndcY = 1 - 2·py/h`                 | `screenToWorld2d`（`src/core/geometry/transform_2d.ts`） |
 
-世界 → 画布像素（`mat4.ortho(left, right, bottom, top, …)` 里 `bottom = centerY + viewH/2`、
-`top = centerY - viewH/2`，即 y 轴翻转，所以两项都是加号）：
+世界 → 画布像素（`composeProjection2d` 里投影的 y 缩放带负号，即世界 y 向下；
+屏幕 y 与世界 y 同向，所以两项都是加号）：
 
 ```
 px = canvas.width  / 2 + (worldX - camera.centerX) * camera.scale
@@ -79,7 +79,7 @@ py = canvas.height / 2 + (worldY - camera.centerY) * camera.scale
   - **世界网格**：间距取 10 的幂次并按 `scale` 选档（保证屏幕上 ≈ 40~80px 一格）；
     细分线（1/10 间距）用更低的 alpha。
   - **屏幕像素网格**：每 50 canvas 像素一条，位置由当前 `center/scale` 反算成世界坐标。
-- 画法：建 `Graphic`（细长矩形 + **显式颜色**，引擎不再给图元兜底颜色），再统一走
+- 画法：建 `Graphic`（细长矩形 + **显式颜色**，引擎不兜底颜色），再统一走
   `toInstances()` 装箱；线宽按屏幕像素折算成世界宽度：`worldWidth = pxWidth / camera.scale`
   （或直接用 `screenSize(px)` 让 `toInstance()` 在装箱时折算）。
 - 数量控制：只生成落在 `camera.getViewportAABB()` 内的线（缩放很小时否则会爆掉实例数）。
@@ -133,8 +133,8 @@ py = canvas.height / 2 + (worldY - camera.centerY) * camera.scale
 
 ### 步骤 6：React 入口集成
 
-> 画布底色由 demo 自己给：引擎不给图元兜底颜色（`fillColor = null` 就是不画），
-> 而图纸里大量图元是白色/浅色填充，原来的 0.96 浅灰底几乎看不出内容。现有 demo 的做法
+> 画布底色由 demo 自己给：引擎不兜底颜色（`fillColor = null` 就是不画），
+> 而图纸里大量图元是白色/浅色填充，浅灰底几乎看不出内容。现有 demo 的做法
 > （`DEMO_CLEAR_COLOR` / `DRAWIO_CLEAR_COLOR` + `renderer.setClearColor()`）可以直接照抄，
 > 测试页也按同样口径设一个中性偏深的底。
 

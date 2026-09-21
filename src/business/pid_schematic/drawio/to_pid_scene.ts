@@ -310,13 +310,8 @@ export function toPidScene(
   };
 
   /**
-   * 图纸里声明的形状 → 图形绘制命令。
-   * 内核的模板是单位方形 + shape 通道裁剪，所以这里只映射「方框 / 圆（内切椭圆）/ 三角形」；
-   * 其它形状（圆角矩形、callout 等）内核暂时表达不了，保持方框。
-   */
-  /**
    * 图纸的位号 `value` 常常是富文本（`<span style="color: …">AV70</span>`、`<div>` 多行）：
-   * 去掉标签、把 `<br>` / `</div>` 换成换行，并取出内联的
+   * 去掉标签、把 `<br>` / `<div>` 换成换行，并取出内联的
    * color / font-size / font-family / line-height——字体字号行高都决定版式，缺一不可。
    */
   const parseDrawioLabel = (
@@ -330,9 +325,7 @@ export function toPidScene(
   } => {
     const text = raw
       .replace(/<br\s*\/?>/gi, '\n')
-      // drawio 的多行是块级 `<div>`：**开标签才是换行位置**，闭标签只收尾。
-      // 只把 `</div>` 当换行会把 `<div>10</div>` 拼成 `10`，和上一行黏成 `N210`——
-      // 图纸里 `N2<div>10</div><div>FL71</div>` 是三行，不是两行。
+      // drawio 的多行是块级 `<div>`：开标签才是换行位置（只认 `</div>` 会把 `N2` 和 `10` 黏成 `N210`）
       .replace(/<div[^>]*>/gi, '\n')
       .replace(/<\/div>/gi, '')
       .replace(/<\/p>/gi, '\n')
@@ -361,6 +354,7 @@ export function toPidScene(
     width: number,
     height: number,
   ): void => {
+    // 内核只认「方框 / 圆（内切椭圆）/ 三角形」，其它形状（圆角矩形、callout 等）保持方框
     const absoluteWidth = Math.abs(width);
     const absoluteHeight = Math.abs(height);
     if (style.ellipse === '1' || style.shape === 'ellipse') {

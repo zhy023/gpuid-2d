@@ -275,7 +275,7 @@ export function renderAllVisiblePipes(
   updatePipeUniform(device, pipeRes, {
     projection: viewProj,
     timeSeconds: timeSec,
-    // 条纹周期是 world 单位，不再按相机缩放折算
+    // 条纹周期是世界单位（与图元同一套单位）
     flowPeriodWorld: PIPE_FLOW_PERIOD_WORLD,
     flowCyclesPerSec: PIPE_FLOW_CYCLES_PER_SEC,
     flowDashDuty: PIPE_FLOW_DASH_DUTY,

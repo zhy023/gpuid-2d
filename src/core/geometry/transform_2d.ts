@@ -8,7 +8,6 @@
  *
  * GPU 侧的对应实现：`core/shader/core_include/vertex_math.wgsl`（模型矩阵）
  * 与 `core/shader/core_include/primitive_uniforms.wgsl`（投影 UBO，mat3x3f）。
- * CPU 与 GPU 用的是同一套 3×3 矩阵，不再有 4×4 那一层。
  */
 import { mat3, vec2 } from 'wgpu-matrix';
 

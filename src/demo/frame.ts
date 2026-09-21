@@ -29,9 +29,9 @@ const TITLE = '你好';
 /** 标题颜色（金黄，压在浅底上可辨） */
 const TITLE_COLOR = [1.0, 0.78, 0.25, 1] as const;
 /**
- * 示例里文字按**世界字号**排版（跟着图元一起缩放）：
- * 初始缩放 0.1（1 世界单位 = 0.1 屏幕像素），位号取 120 世界单位、标题取 320，
- * 在初始视距下分别约等于 12px / 32px，和改之前观感一致。
+ * 示例里文字按**世界字号**排版（跟着图元一起缩放）：初始缩放 0.1
+ * （1 世界单位 = 0.1 屏幕像素），位号取 120 世界单位、标题取 320，
+ * 在初始视距下分别约等于 12px / 32px。
  */
 const LABEL_WORLD_FONT = 120;
 const TITLE_WORLD_FONT = 320;
@@ -101,7 +101,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
     requestAnimationFrame(frame);
 
     const instanceList = ctx.updateVisibleInstances();
-    // 视口剔除交给 PidScene（内部走 core 的四叉树），demo 不再自己过滤
+    // 视口剔除交给 PidScene（内部走 core 的四叉树），demo 不自己过滤
     const visibleValves = valveScene.scene.getVisible(camera.getViewportAABB()).valves;
     ctx.onVisibleValves(visibleValves);
 

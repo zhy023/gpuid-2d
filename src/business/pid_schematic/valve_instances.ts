@@ -138,7 +138,7 @@ function packValveInstances(valves: readonly ValveGraphic[]): number {
     instanceCpuBuffer[instanceOffset + 10] = 1;
     instanceCpuBuffer[instanceOffset + 11] = 1;
     // 逐实例颜色：这里必须给一个非零 alpha——拾取着色器把「没指定颜色」当成不可绘制、
-    // 因而也不可拾取（内核不再兜底灰色，见 primitive_pick.wgsl）。
+    // 因而也不可拾取（内核不兜底颜色，见 primitive_pick.wgsl）。
     // 阀门符号自身的配色由 valve_render.wgsl 决定，颜色通道只参与这条判据。
     instanceCpuBuffer[instanceOffset + 12] = 1;
     instanceCpuBuffer[instanceOffset + 13] = 1;

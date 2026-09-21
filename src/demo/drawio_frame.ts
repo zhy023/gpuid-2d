@@ -5,7 +5,7 @@
  * 差别只在「这一帧要画哪些批次」。
  *
  * 绘制一律先建 `Graphic`（颜色/uv/尺寸口径都写在图形上）再统一装箱；
- * 引擎不再给图元兜底颜色，所以「图纸没给填充色」这种图元由 demo 决定补什么底色。
+ * 引擎不兜底颜色，所以「图纸没给填充色」这种图元由 demo 决定补什么底色。
  */
 import type { PidLabel } from '@/business/pid_schematic/drawio/to_pid_scene';
 import type { IconTextureCache } from '@/business/pid_schematic/drawio/icon_textures';

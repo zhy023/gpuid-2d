@@ -36,9 +36,9 @@ function writeInstance(data: Float32Array, index: number, instance: PrimitiveIns
   data[offset + 3] = instance.tx;
   data[offset + 4] = instance.ty;
   data[offset + 5] = instance.selected ?? 0;
-  // shape：方框 / 圆（着色器按它裁形状），pad1 仍留空
+  // shape：方框 / 圆（着色器按它裁形状）
   data[offset + 6] = instance.shape ?? 0;
-  // pad1 改成「描边宽度（屏幕像素）」：只有描边环实例用得到，其余实例写 0
+  // 描边宽度（屏幕像素）：只有描边环实例用得到，其余实例写 0
   data[offset + 7] = instance.borderWidthPx ?? 0;
   data[offset + 8] = instance.u0;
   data[offset + 9] = instance.v0;
@@ -143,7 +143,6 @@ export class Renderer2D {
    *
    * 打包与上传都在这里做（调用方只给出批次）：缓冲里存放「基础批次 + 各覆盖批次依次拼接」，
    * 但**绘制数量只按基础批次算**，覆盖批次由各自的纹理批次绘制。
-   * （历史 bug：覆盖实例被基础批次用默认白纹理也画了一遍，文字于是成了实色方块。）
    */
   renderComposite(options: {
     instances: readonly PrimitiveInstance[];

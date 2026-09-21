@@ -112,8 +112,8 @@ class QuadTreeNode {
 
 export class QuadTree {
   root: QuadTreeNode;
-  // id → 所属节点。更新图元（拖动时每帧上百次）时直接定位节点，
-  // 避免原来递归全树查找：5 万图元下每次删除要访问上千个节点。
+  // id → 所属节点：更新/删除（拖动时每帧上百次）直接定位节点，
+  // 不必递归全树——5 万图元下那样每次删除要访问上千个节点。
   private readonly nodeById = new Map<number, QuadTreeNode>();
 
   constructor(worldBounds: AABB) {

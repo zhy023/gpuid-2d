@@ -6,8 +6,7 @@
  *  - 速度约定：交给管线着色器的 `flowSpeed` 用符号区分三态
  *    `> 0` 流动 / `< 0` 静止虚线 / `= 0` 实心默认样式
  *
- * 几何：只保留折线顶点；渲染侧按「每段一个单位方块实例」展开
- * （见 `pipe_instances.ts`），业务对象不再持有 CPU 膨胀顶点。
+ * 几何：只保留折线顶点；渲染侧按「每段一个单位方块实例」展开（见 `pipe_instances.ts`）。
  */
 import { PIPE_LINE_WIDTH_DEFAULT_PX } from '@/business/pid_schematic/pipe_style';
 import type { Point } from '@/core/geometry/polyline';

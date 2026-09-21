@@ -49,8 +49,7 @@ export async function runDrawioApp(): Promise<void> {
     const { pidScene, topology, labels, icons, bounds, theme } = await createDrawioScene();
     const iconTextures = new IconTextureCache(device);
     const labelAtlases = new LabelAtlasCache(device);
-    // demo 自己的画布底色：引擎不再给图元兜底颜色，图纸里大量浅色/白色图元
-    // 在原来的浅灰底上几乎看不见，这里换个中性偏深的底把它们衬出来
+    // demo 自己的画布底色：引擎不兜底颜色，图纸里大量浅色/白色图元需要底色衬托
     renderer.setClearColor(DRAWIO_CLEAR_COLOR);
 
     // 按真实图纸范围取景：drawio 的坐标原点不一定在左上角（样例图纸 y 全是负的），
