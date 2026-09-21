@@ -140,6 +140,21 @@ describe('Graphic（图形基类）', () => {
     assert.equal(g.selectedFlag, 1);
   });
 
+  it('自定义数据：默认 null，可挂可换，且不参与绘制', () => {
+    const g = new Graphic<{ tag: string }>({ id: 1, width: 20, height: 10 });
+    assert.equal(g.data, null, '默认没有用户数据');
+    assert.equal(g.toInstance().sx, 20, '没数据也照常打包');
+
+    g.clearDirty();
+    g.setData({ tag: 'P-101' });
+    assert.deepEqual(g.data, { tag: 'P-101' });
+    assert.equal(g.dirty, false, '数据变更不触发重绘');
+    assert.deepEqual(g.toInstance().colorA, 0, '数据不进实例通道');
+
+    const withData = new Graphic({ id: 2, data: { tag: 'x' } });
+    assert.deepEqual(withData.data, { tag: 'x' }, '也可以从构造参数带上');
+  });
+
   it('外观：填充与描边', () => {
     const g = new Graphic({ id: 1, width: 10, height: 10 });
     assert.equal(g.fillColor, null);

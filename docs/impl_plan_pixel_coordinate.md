@@ -158,6 +158,8 @@ py = canvas.height / 2 + (worldY - camera.centerY) * camera.scale
 3. 测试页里点选图元需要「id → 拾取候选」的映射：`pickFirst` 已支持有序候选数组，
    图纸场景可直接用 `PidScene.getVisible(camera.getViewportAABB())` 的三个数组拼候选，
    并按 `RENDER_LAYER` 定优先级（设备 → 管线）；命中后用 `QuadTreeStore.get(id)` 反查。
+   命中后要展示的「图元信息」直接读命中图元的 `data`：图纸翻译层已把 mxCell 的
+   id / 文字 / 样式 / 端点挂成 `DrawioCellData`（纯属性，不参与绘制）。
 
 ## 5. 手动验收清单
 

@@ -9,6 +9,7 @@ import { describe, it } from 'node:test';
 import { DOMParser } from '@xmldom/xmldom';
 import { parseMxDocument } from '@/business/pid_schematic/drawio/mx_document';
 import {
+  isDrawioCellData,
   normalizeIconUrl,
   parseDrawioColor,
   toPidScene,
@@ -37,6 +38,27 @@ describe('toPidScene（真实图纸）', () => {
     for (const pipe of result.scene.pipes.values()) {
       assert.equal(pipe.flowSpeed, 0, `管线 ${pipe.id} 应为静止样式`);
     }
+  });
+
+  it('图元带着原始单元信息（data 纯属性，不参与绘制）', () => {
+    const device = [...result.scene.devices.values()][0];
+    assert.ok(device, '应当有设备图元');
+    assert.ok(isDrawioCellData(device.data), '设备上应挂着图纸单元信息');
+    const cellData = device.data;
+    assert.equal(cellData.kind, 'device');
+    assert.ok(cellData.cellId.length > 0, '保留 drawio 的字符串 id');
+    assert.equal(typeof cellData.style, 'object');
+
+    const pipe = [...result.scene.pipes.values()][0];
+    assert.ok(pipe && isDrawioCellData(pipe.data), '管线上应挂着图纸单元信息');
+    assert.equal(pipe.data.kind, 'pipe');
+
+    // 纯属性：不影响打包出来的实例，也不触发重绘
+    pipe.clearDirty();
+    const before = pipe.toInstance();
+    pipe.setData({ ...pipe.data, label: '改名了' });
+    assert.equal(pipe.dirty, false, '换数据不该置 dirty');
+    assert.deepEqual(pipe.toInstance(), before, '数据不进实例');
   });
 
   it('图标 key 都是合法图元 id，且是 data URL', () => {

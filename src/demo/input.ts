@@ -88,6 +88,8 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
       if (!toggled) return;
       console.log(
         `阀门 ${toggled.id}：${toggled.open ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'}`,
+        // 图元自带的用户数据（图纸单元信息等），选中/操作后查看详情用
+        hitValve.data ?? '',
       );
       return;
     }

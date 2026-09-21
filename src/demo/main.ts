@@ -129,7 +129,15 @@ export async function runApp() {
         const hitItem = visibleItemsSnapshot[index];
         if (!hitItem) return;
         pidTester.setItemSelected(hitItem.id, true);
-        console.log('✅GPU拾取，全局图元ID：', hitItem.id, '可见数组下标', index);
+        // 图元自带的用户数据：选中后查看详情就靠它（内核不解释，纯属性）
+        console.log(
+          '✅GPU拾取，全局图元ID：',
+          hitItem.id,
+          '可见数组下标',
+          index,
+          '自定义数据：',
+          hitItem.data,
+        );
       },
       refresh: updateVisibleInstances,
     });

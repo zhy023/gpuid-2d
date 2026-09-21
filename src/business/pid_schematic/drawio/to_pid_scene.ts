@@ -8,7 +8,7 @@
  * mxCell 的 id 是字符串，这里统一分配数字 id（四叉树按数字索引）。
  */
 import type { MxDocument, MxNode } from '@/business/pid_schematic/drawio/mx_document';
-import { mxFlag, mxNumber } from '@/business/pid_schematic/drawio/mx_style';
+import { mxFlag, mxNumber, type MxStyle } from '@/business/pid_schematic/drawio/mx_style';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
@@ -22,6 +22,33 @@ export interface PidLabel {
   y: number;
   color: readonly [number, number, number, number];
   fontSizePx: number;
+}
+
+/**
+ * 挂在图元 `Graphic#data` 上的图纸来源信息（纯业务数据，内核不解释、不参与绘制）。
+ *
+ * 图纸里一个 mxCell 翻译成一个图元后，原始 id / 文字 / 样式 / 端点都跟着图元走，
+ * 这样「选中图元 → 查看信息」不必再回头查 XML。
+ */
+export interface DrawioCellData {
+  /** mxCell 的原始 id（drawio 的字符串 id，和内核的数字 id 不是一回事） */
+  cellId: string;
+  /** 单元显示文字（位号/名称），可能为空串 */
+  label: string;
+  /** 这个单元被翻成了哪类图元 */
+  kind: 'device' | 'pipe';
+  /** drawio 原始样式键值（fillColor / strokeColor / fontSize / image …） */
+  style: MxStyle;
+  /** 连线的两端单元 id（设备没有） */
+  sourceId?: string;
+  targetId?: string;
+}
+
+/** 判断挂在图元上的自定义数据是不是图纸来源信息（跨场景取数据时用） */
+export function isDrawioCellData(value: unknown): value is DrawioCellData {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<DrawioCellData>;
+  return typeof candidate.cellId === 'string' && typeof candidate.kind === 'string';
 }
 
 export interface DrawioSceneResult {
@@ -166,6 +193,15 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
       pipe.setDashed(mxFlag(node.style, 'dashed'));
       // 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色）
       pipe.fill(parseDrawioColor(node.style.strokeColor));
+      // 原始单元信息跟着图元走（纯属性，不参与绘制）
+      pipe.setData({
+        cellId: node.id,
+        label: node.value.trim(),
+        kind: 'pipe',
+        style: node.style,
+        ...(node.sourceId ? { sourceId: node.sourceId } : {}),
+        ...(node.targetId ? { targetId: node.targetId } : {}),
+      } satisfies DrawioCellData);
       scene.upsertPipe(pipe);
       stats.pipes += 1;
       continue;
@@ -190,6 +226,13 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
       height: sy,
       rotation: beta,
       fillColor: parseDrawioColor(node.style.fillColor),
+      // 原始单元信息跟着图元走（纯属性，不参与绘制）
+      data: {
+        cellId: node.id,
+        label: node.value.trim(),
+        kind: 'device',
+        style: node.style,
+      } satisfies DrawioCellData,
     });
     device.clearDirty();
     scene.upsertDevice(device);

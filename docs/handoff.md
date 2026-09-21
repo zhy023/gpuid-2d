@@ -30,6 +30,9 @@
 - 图形是唯一的绘制入口：`Graphic#toInstance()`（批量 `toInstances()`）负责把图形装箱成实例——
   颜色只取 `fillColor`（null = 不画）、uv 取 `atlasUvRect`、尺寸按 `sizeUnit`（世界单位 / 屏幕像素）
   折算相机缩放。demo 与业务只负责建图形，不再手搓实例数组
+- 图元可挂用户自定义数据 `Graphic#data`（泛型 `Graphic<TData>`，默认 `unknown`）：纯属性，
+  内核不解释、不进实例、不改 dirty，供「选中图元 → 查看信息」使用；图纸翻译层
+  （`to_pid_scene.ts`）已经把 mxCell 的 id/文字/样式/端点作为 `DrawioCellData` 挂在每个图元上
 - 内核不认业务图元类型：`QuadItem` 里没有 `type`，只有变换 + 选中态 + 形状编码；
   是矩形/管线/阀门由业务类自己表达（实例打包处用 `instanceof ValveGraphic` 分流）
 
