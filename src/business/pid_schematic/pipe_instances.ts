@@ -10,13 +10,14 @@ import {
   pipeLineWidthToWorld,
 } from '@/business/pid_schematic/pipe_style';
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
-import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
 import type { Rgba } from '@/core/scene/graphic';
 
 /**
  * 一轮管线条带实例化能出现的图元：管线本身（FlowPipe）
  * 与画在同一批次里的阀门符号（ValveGraphic）。
+ * 两者靠业务类区分（`instanceof`），内核不提供图元类型判别。
  */
 export type PipeBatchItem = FlowPipe | ValveGraphic;
 
@@ -152,10 +153,8 @@ function packPipeInstanceItems(
 
   for (const item of visibleItems) {
     if (writeIdx >= MAX_PIPE_INSTANCE) break;
-    // pipeline + valve 都打进实例数组
-    if (item.type !== 'pipeline' && item.type !== 'valve') continue;
 
-    if (item.type === 'valve') {
+    if (item instanceof ValveGraphic) {
       writeInstanceTransform(
         writeIdx,
         item.width,
@@ -166,12 +165,12 @@ function packPipeInstanceItems(
         item.selectedFlag,
       );
       // 阀门：valveOpen 有效，流速置 0（阀门本身不做流动动画）
-      writePidInstanceData(writeIdx, (item as ValveGraphic).valveOpen, 0, 0);
+      writePidInstanceData(writeIdx, item.valveOpen, 0, 0);
       writeIdx += 1;
       continue;
     }
 
-    const pipe = item as FlowPipe;
+    const pipe: FlowPipe = item;
     const flowSpeed = pipe.flowSpeed;
     // 屏幕像素粗细 → 世界宽度，逐帧跟随缩放
     const lineWidthWorld = pipeLineWidthToWorld(pipe.lineWidthPx, pixelsPerWorldUnit);

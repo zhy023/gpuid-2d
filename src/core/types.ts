@@ -40,11 +40,13 @@ export interface QuadTreeItem {
 }
 
 /**
- * 实例化渲染图元：字段顺序与 WGSL `InstanceTransform` 严格一致（8 × f32 = 32B）
- * scaleX, scaleY, rotateRad, worldPositionX, worldPositionY, isSelected, pad0, pad1
+ * 实例化渲染图元：只描述「怎么摆到 GPU 上」——变换与选中态，
+ * 字段顺序与 WGSL `InstanceTransform` 一致（8 × f32 = 32B）。
+ *
+ * 图元是矩形、管线还是阀门属于上层分类（业务彼此不同），内核不感知：
+ * 内核只认一件事——用三角形模板画出来的实例。
  */
 export interface QuadItem extends QuadTreeItem {
-  type: 'rect' | 'pipeline' | 'valve';
   tx: number;
   ty: number;
   sx: number;

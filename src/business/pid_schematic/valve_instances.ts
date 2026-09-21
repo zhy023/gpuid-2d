@@ -126,7 +126,6 @@ function packValveInstances(valves: readonly ValveGraphic[], pixelsPerWorldUnit:
 
   for (const valve of valves) {
     if (writeIdx >= MAX_VALVE_INSTANCE) break;
-    if (valve.type !== 'valve') continue;
 
     const instanceOffset = writeIdx * INSTANCE_FLOAT_COUNT;
     instanceCpuBuffer[instanceOffset + 0] = Math.max(valve.width, minSymbolWorld);

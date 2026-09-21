@@ -27,6 +27,8 @@
   动画（`animationSpeed` / `flowOffset`）与形状绘制命令（`rect` / `square` / `circle` / `ellipse` /
   `triangle` / `polyline`）；实现 `QuadTreeItem`，可直接进 `QuadTreeStore`。圆/椭圆与三角形把形状
   编码写进实例的 shape 通道，渲染与拾取着色器按包围盒内切圆 / 内切三角形裁剪
+- 内核不认业务图元类型：`QuadItem` 里没有 `type`，只有变换 + 选中态 + 形状编码；
+  是矩形/管线/阀门由业务类自己表达（实例打包处用 `instanceof ValveGraphic` 分流）
 
 ### business/pid_schematic
 

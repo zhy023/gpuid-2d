@@ -5,13 +5,9 @@
  * 打开（中心挖空，透出下层管线）或关闭（红色十字封堵）；
  * 下游管线的流动样式由拓扑层（`topology.ts`）沿流向派生。
  */
-import { Graphic, type GraphicType } from '@/core/scene/graphic';
+import { Graphic } from '@/core/scene/graphic';
 
 export class ValveGraphic extends Graphic {
-  get type(): GraphicType {
-    return 'valve';
-  }
-
   /** 实例数据口径：1 = 打开，0 = 关闭（着色器按 f32 判定） */
   get valveOpen(): number {
     return this.open ? 1 : 0;

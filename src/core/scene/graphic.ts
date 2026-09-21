@@ -3,7 +3,8 @@
  *
  * 一个图形 = 位置 / 大小 / 基本属性 + 外观（填充、描边）+ 状态（开关、hover）+ 形状。
  * **形状不靠继承区分，而是绘制命令**——正方形、长方形、圆形、折线都画在同一个对象上，
- * 差别只是外观与几何；渲染通路由形状（或业务子类）决定。
+ * 差别只是外观与几何。内核不认「这是阀门还是管线」：渲染只按形状编码裁实例，
+ * 图元属于哪类业务概念、该走哪条管线，都由上层自己决定。
  *
  * ```ts
  * const g = new Graphic({ id: 1, x: 100, y: 100 });
@@ -25,11 +26,8 @@ import type { AABB, QuadItem } from '@/core/types';
 /** 逐实例颜色 (r, g, b, a)，分量取值 0~1 */
 export type Rgba = readonly [number, number, number, number];
 
-/** 图形类型：与实例化渲染契约（`QuadItem.type`）一致，决定走哪条渲染通路 */
-export type GraphicType = QuadItem['type'];
-
 /** 形状：矩形（正方形是宽高相等的一种）、圆（宽高不等即椭圆）、三角形、折线 */
-export type GraphicShape = 'rect' | 'circle' | 'triangle' | 'polyline';
+export type GraphicShape = 'triangle' | 'rect' | 'circle' | 'polyline';
 
 /** 形状编码：写进实例的 shape 通道，着色器按它裁形状 */
 export const GRAPHIC_SHAPE_RECT = 0;
@@ -331,11 +329,6 @@ export class Graphic implements QuadItem {
   }
 
   // ---- 渲染契约 ----
-
-  /** 渲染通路：折线走管线通路，其余走通用方框通路；业务子类可覆盖（如阀门） */
-  get type(): GraphicType {
-    return this.shape === 'polyline' ? 'pipeline' : 'rect';
-  }
 
   /** 形状编码：交给渲染侧裁形状 */
   get shapeCode(): number {

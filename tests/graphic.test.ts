@@ -37,7 +37,6 @@ describe('Graphic（图形基类）', () => {
     assert.equal(g.visible, true);
     assert.equal(g.selected, false);
     assert.equal(g.shape, 'rect');
-    assert.equal(g.type, 'rect');
 
     g.setPosition(10, 20)
       .setSize(30, 40)
@@ -72,12 +71,10 @@ describe('Graphic（图形基类）', () => {
     const chain = new Graphic({ id: 5 }).rect(10, 10).fill(RED).stroke(BLUE, 2);
     assert.deepEqual(chain.fillColor, RED);
     assert.equal(chain.hasStroke, true);
-    // 矩形默认走通用方框通路
     assert.equal(square.shapeCode, GRAPHIC_SHAPE_RECT);
-    assert.equal(square.type, 'rect');
   });
 
-  it('折线：形状换成折线后走管线通路，包围盒按折线算', () => {
+  it('折线：形状换成折线后包围盒按折线算', () => {
     const g = new Graphic({ id: 1 });
     g.polyline(
       [
@@ -87,7 +84,6 @@ describe('Graphic（图形基类）', () => {
       6,
     );
     assert.equal(g.shape, 'polyline');
-    assert.equal(g.type, 'pipeline');
     assert.equal(g.lineWidthPx, 6);
     assert.deepEqual(round(g.worldAABB), { minX: 0, minY: 0, maxX: 100, maxY: 0 });
 
@@ -232,7 +228,8 @@ describe('外观 → 实例数据', () => {
 describe('业务实现（阀门 / 流动管线）', () => {
   it('阀门：开闭走图形基类状态，valveOpen 是实例数据口径', () => {
     const valve = new ValveGraphic({ id: 1, x: 0, y: 0, width: 40, height: 40 });
-    assert.equal(valve.type, 'valve');
+    // 阀门符号用方框模板画，业务分类由类本身表达，内核不感知
+    assert.equal(valve.shape, 'rect');
     assert.equal(valve.valveOpen, 1);
     valve.toggleOpen();
     assert.equal(valve.open, false);
@@ -245,7 +242,7 @@ describe('业务实现（阀门 / 流动管线）', () => {
       { x: 0, y: 0 },
       { x: 100, y: 0 },
     ]);
-    assert.equal(pipe.type, 'pipeline');
+    assert.equal(pipe.shape, 'polyline');
     pipe.setOpen(false);
     assert.equal(pipe.flowSpeed, 0, '关闭且非虚线 → 实心默认样式');
 
