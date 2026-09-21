@@ -144,13 +144,18 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
       pixelsPerWorldUnit: camera.scale,
       color: label.color,
     };
-    // 先量宽再居中：drawio 的文字默认居中在图元内（label.x 存的是图元中心）
-    const measured = layoutText(atlas, label.text, { ...common, x: 0, y: label.y });
-    const graphics = layoutText(atlas, label.text, {
-      ...common,
-      x: label.x - measured.width / 2,
-      y: label.y,
-    }).graphics;
+    // 先量宽再居中：drawio 的文字默认居中在图元内（label.x 存的是图元中心）。
+    // 富文本换行后的多行文字按行高居中排布（block 围绕图元中心）
+    const lines = label.text.split('\n');
+    const lineHeightWorld = atlas.lineHeight / Math.max(camera.scale, 1e-6);
+    const graphics = lines.flatMap((line, index) => {
+      const measured = layoutText(atlas, line, { ...common, x: 0, y: 0 });
+      return layoutText(atlas, line, {
+        ...common,
+        x: label.x - measured.width / 2,
+        y: label.y + (index - (lines.length - 1) / 2) * lineHeightWorld,
+      }).graphics;
+    });
 
     const bucket = labelBatches.get(atlas);
     if (bucket) bucket.push(...graphics);

@@ -241,6 +241,24 @@ describe('toPidScene（真实图纸）', () => {
       }
     }
   });
+  it('位号里的富文本标签会被解析成文字与样式（颜色 / 字号）', () => {
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    const rich = withValves.labels.filter((label) => label.text.includes('\n'));
+    assert.ok(rich.length > 0, '样例里有 `<div>` 多行位号');
+    assert.ok(
+      withValves.labels.every((label) => !label.text.includes('<') && !label.text.includes('&')),
+      '位号文字里不应残留 HTML 标签或实体',
+    );
+
+    const colored = withValves.labels.find((label) =>
+      ['#003366', '#3399ff'].some(
+        (hex) =>
+          Math.round(label.color[2] * 255) === Number.parseInt(hex.slice(5, 7), 16) &&
+          Math.round(label.color[0] * 255) === Number.parseInt(hex.slice(1, 3), 16),
+      ),
+    );
+    assert.ok(colored, 'span 里的 light-dark(rgb(...)) 颜色应当被采用');
+  });
 
   it('图纸里的椭圆单元画成椭圆（形状按图，而不是一律方框）', () => {
     const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });

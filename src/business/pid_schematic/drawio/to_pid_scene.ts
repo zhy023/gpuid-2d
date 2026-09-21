@@ -117,6 +117,11 @@ export function parseDrawioColor(
   const value = raw.startsWith('light-dark(')
     ? raw.slice('light-dark('.length).split(',')[0].trim()
     : raw;
+  // 也支持 rgb()/rgba()（drawio 的富文本标签用这种写法）
+  const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value);
+  if (rgb) {
+    return [Number(rgb[1]) / 255, Number(rgb[2]) / 255, Number(rgb[3]) / 255, 1];
+  }
   const hex = value.replace('#', '');
   if (hex.length !== 6 && hex.length !== 3) return null;
   const full =
@@ -213,6 +218,35 @@ export function toPidScene(
    * 内核的模板是单位方形 + shape 通道裁剪，所以这里只映射「方框 / 圆（内切椭圆）/ 三角形」；
    * 其它形状（圆角矩形、callout 等）内核暂时表达不了，保持方框。
    */
+  /**
+   * 图纸的位号 `value` 常常是富文本（`<span style="color: …">AV70</span>`、`<div>` 多行）：
+   * 去掉标签、把 `<br>` / `</div>` 换成换行，并取出内联的 color / font-size。
+   */
+  const parseDrawioLabel = (
+    raw: string,
+  ): {
+    text: string;
+    color: readonly [number, number, number, number] | null;
+    fontSizePx: number | null;
+  } => {
+    const text = raw
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/(div|p)>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .join('\n');
+    const color = /color:\s*([^;"]+)/i.exec(raw)?.[1];
+    const fontSize = /font-size:\s*([\d.]+)px/i.exec(raw)?.[1];
+    return {
+      text,
+      color: parseDrawioColor(color?.trim()),
+      fontSizePx: fontSize ? Number(fontSize) : null,
+    };
+  };
+
   const applyDrawioShape = (
     graphic: SelectableGraphic,
     style: MxStyle,
@@ -424,12 +458,16 @@ export function toPidScene(
     if (!node) continue;
     const shift = cellShifts.get(draft.cellId);
     const center = centerOf(node);
+    // 位号可能是富文本：文字取纯文本，颜色/字号优先用内联样式，其次才是单元的 fontColor/fontSize
+    const rich = parseDrawioLabel(draft.text);
+    if (!rich.text) continue;
     labels.push({
-      text: draft.text,
+      text: rich.text,
       x: center.x + (shift?.dx ?? 0),
       y: center.y + (shift?.dy ?? 0),
-      color: parseDrawioColor(draft.style.fontColor) ?? DEFAULT_COLOR,
-      fontSizePx: Math.max(10, Math.round(mxNumber(draft.style, 'fontSize', 12))),
+      color: rich.color ?? parseDrawioColor(draft.style.fontColor) ?? DEFAULT_COLOR,
+      fontSizePx:
+        rich.fontSizePx ?? Math.max(10, Math.round(mxNumber(draft.style, 'fontSize', 12))),
     });
     stats.labels += 1;
   }
