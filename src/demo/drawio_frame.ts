@@ -212,14 +212,16 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
   const labelBatches = new Map<GlyphAtlas, Graphic[]>();
   for (const label of labels) {
     const atlas = labelAtlases.get(label.fontSizePx);
+    // 文字按图纸的世界单位排版（图纸坐标就是 px，字号 12 就是 12 世界单位）：
+    // 这样文字的缩放和图元完全一致——相机放大缩小时，文字跟着图一起缩放
     const common = {
-      pixelsPerWorldUnit: camera.scale,
+      pixelsPerWorldUnit: 1,
       color: label.color,
     };
     // 先量宽再居中：drawio 的文字默认居中在图元内（label.x 存的是图元中心）。
     // 富文本换行后的多行文字按行高居中排布（block 围绕图元中心）
     const lines = label.text.split('\n');
-    const lineHeightWorld = atlas.lineHeight / Math.max(camera.scale, 1e-6);
+    const lineHeightWorld = atlas.lineHeight;
     const graphics = lines.flatMap((line, index) => {
       const measured = layoutText(atlas, line, { ...common, x: 0, y: 0 });
       return layoutText(atlas, line, {

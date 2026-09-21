@@ -92,6 +92,8 @@ export interface ToPidSceneOptions {
 }
 
 const DEFAULT_COLOR: readonly [number, number, number, number] = [0.12, 0.12, 0.14, 1];
+/** 位号默认字号（px，与 drawio 默认一致）：图纸没写 fontSize 时用它 */
+export const DEFAULT_LABEL_FONT_PX = 12;
 
 /**
  * drawio 存内联图片时写的是 `data:image/png,<base64>`（少了 `;base64`），
@@ -467,7 +469,7 @@ export function toPidScene(
       y: center.y + (shift?.dy ?? 0),
       color: rich.color ?? parseDrawioColor(draft.style.fontColor) ?? DEFAULT_COLOR,
       fontSizePx:
-        rich.fontSizePx ?? Math.max(10, Math.round(mxNumber(draft.style, 'fontSize', 12))),
+        rich.fontSizePx ?? Math.round(mxNumber(draft.style, 'fontSize', DEFAULT_LABEL_FONT_PX)),
     });
     stats.labels += 1;
   }
