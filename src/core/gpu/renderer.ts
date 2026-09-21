@@ -150,9 +150,11 @@ export class Renderer2D {
   renderComposite(options: {
     instances: readonly PrimitiveInstance[];
     extraBatches?: readonly InstanceTextureBatch[];
+    /** 在基础实例批次**之前**绘制（管线这类要被设备压住的层） */
+    drawUnderlay?: (pass: GPURenderPassEncoder) => void;
     drawOverlay?: (pass: GPURenderPassEncoder) => void;
   }) {
-    const { instances, extraBatches = [], drawOverlay } = options;
+    const { instances, extraBatches = [], drawUnderlay, drawOverlay } = options;
     const batches = extraBatches.filter((batch) => batch.instances.length > 0);
 
     const totalCount = batches.reduce(
@@ -178,6 +180,7 @@ export class Renderer2D {
     // 绘制数量只看基础批次
     this.baseInstanceCount = instances.length;
     this.render(
+      drawUnderlay,
       drawOverlay,
       batches.map((batch) => ({
         textureView: batch.textureView,
@@ -324,6 +327,7 @@ export class Renderer2D {
    * @param drawOverlay 追加绘制回调，在 pass.end() 之前调用
    */
   render(
+    drawUnderlay?: (pass: GPURenderPassEncoder) => void,
     drawOverlay?: (pass: GPURenderPassEncoder) => void,
     textureBatches: readonly TextureBatch[] = [],
   ) {
@@ -346,6 +350,8 @@ export class Renderer2D {
     });
 
     // 基础批次为空时跳过（例如某个功能测试只画管线/文字），避免 0 实例的无效绘制
+    // 顺序：先画 over/under 里声明的底层（管线），再画主体实例（设备），最后是纹理批次（符号/文字）
+    drawUnderlay?.(renderPass);
     if (this.baseInstanceCount > 0) {
       renderPass.setPipeline(this.pipeline);
       renderPass.setBindGroup(0, this.bindGroup);

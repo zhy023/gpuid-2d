@@ -179,7 +179,8 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
         sampler: atlas.sampler,
       })),
     ],
-    drawOverlay: (pass) => {
+    // 管线最先画：设备填充、符号、位号都压在它上面（层契约见 render_layer.ts）
+    drawUnderlay: (pass) => {
       const draws = sortRenderLayerDraws([
         {
           layer: RENDER_LAYER.pipe,
