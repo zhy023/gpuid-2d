@@ -61,9 +61,9 @@
 ### demo
 
 `main.ts`（阀门示例 + 压测：装配 → 资源 → 场景 → 输入 → 帧循环 → 卸载，含掉设备自动重建）、
-`drawio_main.ts`（图纸模式入口，按 `bounds` 取景；阀门节点按开/关贴图绘制，管线走流动条纹）、
+`drawio_main.ts`（图纸模式入口，按 `bounds` 取景；阀门节点按开/关贴图绘制，阀门与管线默认关闭）、
 `drawio_frame.ts`（设备批次 + 图标批次 + 阀门精灵批次 + 管线层 + 位号批次）、
-`scene.ts`（图纸 → PidScene，并把阀门图标表交给翻译层、打开非虚线管线的 flow）、
+`scene.ts`（图纸 → PidScene，并把阀门图标表交给翻译层；阀门/管线保持默认关闭，静止初始态）、
 `resources.ts`、`input.ts`、`frame.ts`、
 `label_atlases.ts`（按字号缓存位号图集）
 

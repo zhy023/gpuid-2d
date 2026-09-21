@@ -66,10 +66,7 @@ async function loadValveIcons(): Promise<DrawioValveIcon[]> {
     return base64;
   };
 
-  return [
-    { url: await toDataUrl(VALVE_OFF_URL), open: false },
-    { url: await toDataUrl(VALVE_ON_URL), open: true },
-  ];
+  return [{ url: await toDataUrl(VALVE_OFF_URL) }, { url: await toDataUrl(VALVE_ON_URL) }];
 }
 
 /**
@@ -83,10 +80,8 @@ export async function createDrawioScene(): Promise<DrawioDemoScene> {
   const { scene, labels, icons, bounds, stats } = toPidScene(document, {
     valveIcons: await loadValveIcons(),
   });
-  // 管线走 flow 能力：图纸默认静止，demo 把它打开（dashed 的保持静止虚线）
-  for (const pipe of scene.pipes.values()) {
-    if (!pipe.dashed) pipe.setOpen(true);
-  }
+  // 阀门与管线都保持默认关闭：图纸一进来是静止的初始态，
+  // 流动（flow 能力）由后续交互再打开
   console.log(
     `[drawio] 设备 ${stats.devices} / 阀门 ${stats.valves} / 管线 ${stats.pipes}` +
       ` / 位号 ${stats.labels}` +

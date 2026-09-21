@@ -24,10 +24,7 @@ function toDataUrl(filePath: string): string {
   return `data:image/png,${readFileSync(filePath).toString('base64')}`;
 }
 
-const VALVE_ICONS = [
-  { url: toDataUrl(VALVE_OFF_PATH), open: false },
-  { url: toDataUrl(VALVE_ON_PATH), open: true },
-];
+const VALVE_ICONS = [{ url: toDataUrl(VALVE_OFF_PATH) }, { url: toDataUrl(VALVE_ON_PATH) }];
 
 describe('toPidScene（真实图纸）', () => {
   const document = parseMxDocument(
@@ -118,7 +115,11 @@ describe('toPidScene（真实图纸）', () => {
 
     assert.equal(withValves.stats.valves, 40, '样例图纸有 40 个阀门单元（39 关 + 1 开）');
     assert.equal(valves.length, 40);
-    assert.equal(valves.filter((valve) => valve.open).length, 1, '其中 1 个是开启态图标');
+    assert.equal(
+      valves.filter((valve) => valve.open).length,
+      0,
+      '阀门默认关闭（图纸是静止的初始态）',
+    );
     // 阀门从设备里摘出来了：设备数 = 原来的设备数 - 阀门数
     assert.equal(
       withValves.stats.devices,
@@ -130,6 +131,14 @@ describe('toPidScene（真实图纸）', () => {
     assert.equal(typeof valve.setSelected, 'function', '阀门可选中');
     assert.equal(typeof valve.setOpen, 'function', '阀门有自己的开/关状态');
     assert.ok(isDrawioCellData(valve.data) && valve.data.kind === 'valve');
+
+    // 需要初始打开时由调用方显式声明
+    const opened = toPidScene(document, { valveIcons: VALVE_ICONS, valveOpen: true });
+    assert.equal(
+      [...opened.scene.valves.values()].every((valve) => valve.open),
+      true,
+      'valveOpen: true 时阀门初始为开',
+    );
   });
 });
 

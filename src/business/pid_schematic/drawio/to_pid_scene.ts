@@ -71,19 +71,19 @@ export interface DrawioSceneResult {
 }
 
 /**
- * 阀门图标：图纸用内联图片表示阀门时，调用方把「哪张图是阀门、代表开还是关」告诉翻译层。
+ * 阀门图标：图纸用内联图片表示阀门时，调用方把「哪张图是阀门」告诉翻译层。
  * 比较时忽略 base64 里的空白，所以调用方给本地贴图文件编码出来的 data URL 即可。
  */
 export interface DrawioValveIcon {
   /** 内联图片 data URL（`data:image/png,...`） */
   url: string;
-  /** 这张图代表阀门打开还是关闭 */
-  open: boolean;
 }
 
 export interface ToPidSceneOptions {
   /** 识别为阀门的内联图标；不传则所有非连线单元都按普通设备处理 */
   valveIcons?: readonly DrawioValveIcon[];
+  /** 阀门初始开关状态，默认 false（图纸里的阀门默认关闭） */
+  valveOpen?: boolean;
 }
 
 const DEFAULT_COLOR: readonly [number, number, number, number] = [0.12, 0.12, 0.14, 1];
@@ -268,7 +268,8 @@ export function toPidScene(
         width: sx,
         height: sy,
         rotation: beta,
-        open: valveIcon.open,
+        // 图纸里的阀门默认关闭；需要初始打开时由调用方显式传 valveOpen
+        open: options.valveOpen ?? false,
         // 原始单元信息跟着图元走（纯属性，不参与绘制）
         data: {
           cellId: node.id,
