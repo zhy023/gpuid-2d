@@ -4,7 +4,7 @@
  * @param canvasFormat 画布纹理格式
  */
 
-import pipeWgsl from '@/business/pid_schematic/shader/pipeline_render.wgsl?raw';
+import pipeWgsl from '@/business/pid_schematic/shader/generated/pipeline_render';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
 import { ALPHA_BLEND_STATE, CANVAS_SAMPLE_COUNT } from '@/core/gpu/render_state';
 

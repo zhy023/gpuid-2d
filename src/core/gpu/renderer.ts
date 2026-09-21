@@ -5,7 +5,7 @@ import {
   type Texture2d,
 } from '@/core/gpu/texture';
 import type { RectInstance } from '@/core/types';
-import defaultRenderWgsl from '@/core/shader/core_render/primitive_render.wgsl?raw';
+import defaultRenderWgsl from '@/core/shader/generated/core_render/primitive_render';
 
 /** 一次纹理批次：绑定纹理与采样器，绘制紧随矩形批次之后的连续实例区间 */
 export interface TextureBatch {
@@ -233,7 +233,8 @@ export class Renderer2D {
         sampler: { type: 'filtering' },
       },
     ];
-    // ✅如果存在pid业务buffer，则追加binding2
+
+    // 如果存在pid业务buffer，则追加binding2
     if (this.pidInstanceStorageBuffer) {
       bindGroupLayoutEntries.push({
         binding: 2,
@@ -245,6 +246,7 @@ export class Renderer2D {
     const bindGroupLayout = device.createBindGroupLayout({
       entries: bindGroupLayoutEntries,
     });
+
     this.bindGroupLayout = bindGroupLayout;
 
     // build bindGroup entries
@@ -254,6 +256,7 @@ export class Renderer2D {
       { binding: 3, resource: this.defaultTexture.view },
       { binding: 4, resource: this.defaultSampler },
     ];
+
     if (this.pidInstanceStorageBuffer) {
       bindGroupEntries.push({ binding: 2, resource: { buffer: this.pidInstanceStorageBuffer! } });
     }

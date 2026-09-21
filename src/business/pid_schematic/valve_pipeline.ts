@@ -4,8 +4,8 @@
  *
  * 主渲染与拾取两条 pipeline 共用同一套绑定，因此一份 bindGroup 可以同时用于两者。
  */
-import valvePickWgsl from '@/business/pid_schematic/shader/valve_pick.wgsl?raw';
-import valveWgsl from '@/business/pid_schematic/shader/valve_render.wgsl?raw';
+import valvePickWgsl from '@/business/pid_schematic/shader/generated/valve_pick';
+import valveWgsl from '@/business/pid_schematic/shader/generated/valve_render';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { ALPHA_BLEND_STATE, CANVAS_SAMPLE_COUNT } from '@/core/gpu/render_state';
 

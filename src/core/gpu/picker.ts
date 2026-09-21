@@ -3,7 +3,7 @@
  * 仅点击时执行，不占用主渲染循环
  */
 
-import defaultPickWgsl from '@/core/shader/core_render/primitive_pick.wgsl?raw';
+import defaultPickWgsl from '@/core/shader/generated/core_render/primitive_pick';
 
 /** 拾取管线需要复用的布局来源（Renderer2D 满足这个结构） */
 export interface PickLayoutSource {

@@ -16,8 +16,10 @@ gpuid-2d 是**自研的 2D 底层 WebGPU 引擎**，直接基于 WebGPU API 实�
 - `src/business/pid_schematic/`：P&ID 业务层（管线、阀门等设备图元、拓扑、状态），含业务着色器
 - `src/demo/`：示例运行入口，是唯一允许同时依赖 core 与 business 的地方
 - **`src/core/` 严禁 import `src/business/` 或 `src/demo/`**；自查：`rg -n "@/business|@/demo" src/core` 应无输出
-- 通用着色器放 `src/core/shader/`，业务着色器放 `src/business/pid_schematic/shader/`
-- WGSL 的 `#include` 支持 `@/` 别名（构建期由 vite 插件展开），跨目录 include 用 `@/...`，不要写 `../../`
+- 通用着色器放 `src/core/shader/`，业务着色器放 `src/business/pid_schematic/shader/`；
+  展开后的字符串模块放各自 `shader/generated/`（生成物，勿手改，随源码提交）
+- WGSL 的 `#include` 支持 `@/` 别名（`pnpm shaders` 生成期展开，逻辑见 `scripts/build_shaders.mjs`），跨目录 include 用 `@/...`，不要写 `../../`
+- TS 侧只 import 生成物（`shader/generated/*.ts`），不要用 `?raw` 等打包器私有语法引入 `.wgsl`
 - 用例与检查脚本分工：Node 可跑的逻辑用例放 `tests/*.test.ts`（`pnpm test` 运行，已并入 `pnpm run check`）；
   需要真实 WebGPU 的检查放 `scripts/check_*.mjs`（如 `pnpm run check:device`），按需运行、不阻塞 `check`
 - `src/` 之外的文件（`README.md`、`AGENTS.md`、`.github/`、`scripts/` 等）改动同样要过 `pnpm run format:check`

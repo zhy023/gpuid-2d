@@ -65,7 +65,8 @@ fn fragmentMain(input: PipelineVertexOutput) -> @location(0) vec4f {
     let distanceInWorld = input.flowUv.x + pidData.flowOffset;
     let cycles =
         distanceInWorld / pipelineAnimUbo.flowPeriodWorld
-        - pipelineAnimUbo.timeSeconds * pidData.flowSpeed * pipelineAnimUbo.flowCyclesPerSec;
+        - pipelineAnimUbo.timeSeconds * max(pidData.flowSpeed, 0.0)
+            * pipelineAnimUbo.flowCyclesPerSec;
 
     // 硬边矩形条带：直接用 step 切出实心长方形。
     // 管线只有 2~10px 粗，smoothstep 那种渐变边缘在细管上会糊成一片，看起来发虚。
@@ -73,10 +74,16 @@ fn fragmentMain(input: PipelineVertexOutput) -> @location(0) vec4f {
     let isDash = band < pipelineAnimUbo.flowDashDuty;
 
     // 阀门关闭（flowSpeed = 0）→ 默认样式：纯管身色，不画流动条纹
-    let isFlowing = pidData.flowSpeed > 0.0;
-    var color = select(pipelineBaseColor, pipelineFlowColor, isFlowing && isDash);
+    // flowSpeed > 0：流动条纹；< 0：静止虚线；= 0：默认样式（实心）
+    let showDash = pidData.flowSpeed != 0.0;
+    var color = select(pipelineBaseColor, pipelineFlowColor, showDash && isDash);
 
     let transformData = instanceTransformStorage[input.instanceIndex];
+    // 逐实例颜色（图纸管线按 strokeColor 上色）：alpha > 0.5 时直接作为管身色
+    if (transformData.color.a > 0.5) {
+        // 逐实例颜色是 vec4，保持与 color 同类型再 select（别混用 rgb）
+        color = select(transformData.color, vec4f(color.rgb, color.a), showDash && isDash);
+    }
     if (transformData.isSelected > 0.5) {
         color = mix(color, pipelineSelectedColor, 0.4);
     }

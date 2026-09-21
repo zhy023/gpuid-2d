@@ -47,7 +47,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
 - 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容）、`layoutText`（字素簇排版、逐实例颜色、可选底板与描边 halo）、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB/折线膨胀、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）、`spriteInstance`
-- 着色器工程：自研 `#include`（`@/` 别名、构建期由 vite 插件展开）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
+- 着色器工程：自研 `#include`（`@/` 别名）+ 生成期展开成字符串模块（`pnpm shaders`）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
 
 **业务（business/pid_schematic）**
 
@@ -90,11 +90,11 @@ src/
 │  ├─ geometry/                 # 顶点几何、AABB、四叉树、折线膨胀、2D 变换、精灵实例
 │  ├─ scene/                    # QuadTreeStore：图元索引与视口查询
 │  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText
-│  ├─ shader/                   # core_include + core_render
+│  ├─ shader/                   # core_include + core_render；generated/ 为展开后的字符串模块
 │  ├─ camera.ts                 # 正交相机
 │  └─ types.ts                  # AABB / QuadItem / RectInstance（16×f32 实例契约）
 ├─ business/pid_schematic/      # P&ID 业务层
-│  ├─ shader/                   # 管线渲染、阀门渲染/拾取着色器
+│  ├─ shader/                   # 管线、阀门着色器；generated/ 为展开后的字符串模块
 │  ├─ pid_scene.ts              # 设备/管线/阀门统一增删改与可见集
 │  ├─ pipe_*.ts                 # 样式、图元、实例化、pipeline、模块入口、压测数据
 │  ├─ valve_*.ts                # 阀门 pipeline、实例/精灵、模块入口、位号口径、示例链
@@ -119,26 +119,29 @@ src/
 - 业务拓扑不进入渲染底层，通过状态字段驱动管线显示和流动效果。
 - 分层：`core` 不下沉业务概念，管线/阀门等业务代码与其着色器全部在 `business/pid_schematic`；
   `core` 与 `business` 通过通用图元契约（`QuadItem` + `InstanceTransform`）对接，示例入口 `demo/main.ts` 负责组装。
-- WGSL 支持自研 `#include`：构建期由 vite 插件展开，`pnpm lint:wgsl` 用同一套逻辑校验展开后的代码。
+- WGSL 支持自研 `#include`：`pnpm shaders`（`scripts/build_shaders.mjs`）在生成期展开成
+  `<shader>/generated/*.ts` 字符串模块，`pnpm lint:wgsl` 用同一套展开逻辑校验源码。
 
 ## 脚本
 
-| 命令                | 说明                                                 |
-| ------------------- | ---------------------------------------------------- |
-| `pnpm install`      | 安装依赖                                             |
-| `pnpm dev`          | 启动开发服务器                                       |
-| `pnpm build`        | 类型检查并打包                                       |
-| `pnpm preview`      | 预览构建产物                                         |
-| `pnpm lint`         | ESLint 检查                                          |
-| `pnpm lint:fix`     | ESLint 自动修复                                      |
-| `pnpm lint:names`   | 文件名规范校验                                       |
-| `pnpm lint:wgsl`    | WGSL 编译校验                                        |
-| `pnpm test`         | Node 用例（20 个）                                   |
-| `pnpm check`        | 完整检查：lint + 命名 + WGSL + 用例 + format + build |
-| `pnpm check:device` | 掉设备重建检查（需真实 WebGPU）                      |
-| `pnpm format`       | Prettier 写入                                        |
-| `pnpm format:check` | Prettier 校验                                        |
-| `pnpm check`        | 完整检查                                             |
+| 命令                 | 说明                                                              |
+| -------------------- | ----------------------------------------------------------------- |
+| `pnpm install`       | 安装依赖                                                          |
+| `pnpm dev`           | 启动开发服务器                                                    |
+| `pnpm build`         | 类型检查并打包                                                    |
+| `pnpm preview`       | 预览构建产物                                                      |
+| `pnpm lint`          | ESLint 检查                                                       |
+| `pnpm lint:fix`      | ESLint 自动修复                                                   |
+| `pnpm lint:names`    | 文件名规范校验                                                    |
+| `pnpm shaders`       | 由 `.wgsl` 生成 `shader/generated/*.ts` 字符串模块                |
+| `pnpm shaders:check` | 校验生成物与 `.wgsl` 是否同步                                     |
+| `pnpm lint:wgsl`     | WGSL 编译校验                                                     |
+| `pnpm test`          | Node 用例（20 个）                                                |
+| `pnpm check`         | 完整检查：lint + 命名 + 着色器模块 + WGSL + 用例 + format + build |
+| `pnpm check:device`  | 掉设备重建检查（需真实 WebGPU）                                   |
+| `pnpm format`        | Prettier 写入                                                     |
+| `pnpm format:check`  | Prettier 校验                                                     |
+| `pnpm check`         | 完整检查                                                          |
 
 ## 代码约定
 
@@ -190,11 +193,17 @@ const vertexBuffer = device.createBuffer({
 
 引擎代码在 `strict` 下开发（见 `tsconfig.app.json`），可空值必须显式收窄后再使用。
 
-WGSL 着色器文件通过 Vite 的 `?raw` 以字符串引入，类型由 `vite/client` 提供：
+WGSL 以「源文件 + 生成物」两层存在：`.wgsl` 是唯一手写源（可拆片段、用 `#include`），
+`pnpm shaders` 把每个入口着色器展开成 `<shader>/generated/*.ts` 里的普通字符串模块，
+代码里 import 的是生成物：
 
 ```ts
-import shaderCode from '@/core/shader/shader.wgsl?raw';
+import primitiveRenderWgsl from '@/core/shader/generated/core_render/primitive_render';
 ```
+
+这样第三方不需要 `?raw` 之类的打包器私有语法，也不需要任何自定义插件（Vite 只是本仓库的
+开发工具）。生成物随源码一起提交，`pnpm shaders:check` 在 `pnpm check` 里保证两者同步；
+改完 `.wgsl` 执行 `pnpm shaders`（dev 下改着色器会自动重新生成并整页刷新）。
 
 ## 编辑器
 

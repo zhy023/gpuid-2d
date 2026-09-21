@@ -7,7 +7,7 @@ import {
   renderVisibleValves,
 } from '@/business/pid_schematic/valve_instances';
 import { createValveRenderResources } from '@/business/pid_schematic/valve_pipeline';
-import valvePickWgsl from '@/business/pid_schematic/shader/valve_pick.wgsl?raw';
+import valvePickWgsl from '@/business/pid_schematic/shader/generated/valve_pick';
 import type { ValveItem, ValveRenderResources } from '@/business/pid_schematic/types';
 import { WebGpuPicker } from '@/core/gpu/picker';
 

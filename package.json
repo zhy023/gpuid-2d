@@ -5,8 +5,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev": "node scripts/build_shaders.mjs && vite",
+    "shaders": "node scripts/build_shaders.mjs",
+    "shaders:check": "node scripts/build_shaders.mjs --check",
+    "build": "node scripts/build_shaders.mjs && tsc -b && vite build",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "lint:names": "node scripts/check_file_names.mjs",
@@ -15,7 +17,7 @@
     "format:check": "prettier --check .",
     "test": "node scripts/run_tests.mjs",
     "check:device": "node scripts/check_device_lost.mjs",
-    "check": "pnpm run lint && pnpm run lint:names && pnpm run lint:wgsl && pnpm run test && pnpm run format:check && pnpm run build",
+    "check": "pnpm run lint && pnpm run lint:names && pnpm run shaders:check && pnpm run lint:wgsl && pnpm run test && pnpm run format:check && pnpm run build",
     "preview": "vite preview"
   },
   "dependencies": {
