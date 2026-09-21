@@ -23,3 +23,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 图纸的 SVG 导出只作本地对比参照，不进仓库（数据源是 meta_demo.xml）
+public/assets/graph/*.svg
