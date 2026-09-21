@@ -66,8 +66,6 @@ export class Renderer2D {
 
   public projectionBuffer: GPUBuffer;
   public instanceStorageBuffer: GPUBuffer;
-  // ✅新增：P&ID业务属性storage buffer(阀门开关、管线参数)
-  public pidInstanceStorageBuffer?: GPUBuffer;
 
   public bindGroup!: GPUBindGroup;
   public bindGroupLayout!: GPUBindGroupLayout;
@@ -91,14 +89,12 @@ export class Renderer2D {
     format: GPUTextureFormat,
     vertexBuffer: GPUBuffer,
     vertexCount: number,
-    pidInstanceStorageBuffer?: GPUBuffer, // ✅可选传入pid业务buffer
   ) {
     this.device = device;
     this.context = context;
     this.format = format;
     this.vertexBuffer = vertexBuffer;
     this.vertexCount = vertexCount;
-    this.pidInstanceStorageBuffer = pidInstanceStorageBuffer;
 
     this.projectionBuffer = device.createBuffer({
       size: 64,
@@ -161,6 +157,7 @@ export class Renderer2D {
       (sum, batch) => sum + batch.instances.length,
       instances.length,
     );
+
     if (totalCount > MAX_INSTANCE_COUNT) {
       throw new Error(`实例数超出缓冲容量：${totalCount} > ${MAX_INSTANCE_COUNT}`);
     }
@@ -169,6 +166,7 @@ export class Renderer2D {
     const packed = new Float32Array(totalCount * INSTANCE_FLOAT_COUNT);
     let cursor = 0;
     for (const instance of instances) writeInstance(packed, cursor++, instance);
+
     for (const batch of batches) {
       for (const instance of batch.instances) writeInstance(packed, cursor++, instance);
     }
@@ -270,15 +268,6 @@ export class Renderer2D {
       },
     ];
 
-    // 如果存在pid业务buffer，则追加binding2
-    if (this.pidInstanceStorageBuffer) {
-      bindGroupLayoutEntries.push({
-        binding: 2,
-        visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
-        buffer: { type: 'read-only-storage' },
-      });
-    }
-
     const bindGroupLayout = device.createBindGroupLayout({
       entries: bindGroupLayoutEntries,
     });
@@ -292,10 +281,6 @@ export class Renderer2D {
       { binding: 3, resource: this.defaultTexture.view },
       { binding: 4, resource: this.defaultSampler },
     ];
-
-    if (this.pidInstanceStorageBuffer) {
-      bindGroupEntries.push({ binding: 2, resource: { buffer: this.pidInstanceStorageBuffer! } });
-    }
 
     this.bindGroup = device.createBindGroup({
       layout: bindGroupLayout,
@@ -361,6 +346,7 @@ export class Renderer2D {
     // 基础批次为空时跳过（例如某个功能测试只画管线/文字），避免 0 实例的无效绘制
     // 顺序：先画 over/under 里声明的底层（管线），再画主体实例（设备），最后是纹理批次（符号/文字）
     drawUnderlay?.(renderPass);
+
     if (this.baseInstanceCount > 0) {
       renderPass.setPipeline(this.pipeline);
       renderPass.setBindGroup(0, this.bindGroup);

@@ -140,6 +140,10 @@
 - 逐实例颜色的 alpha 是「画不画」的开关：`a <= 0.5` = 没指定颜色 → 渲染不画、拾取也不命中
   （内核不兜底灰色，`Graphic.fillColor = null` 就是「不绘制」）。demo/业务想让图元可见，
   必须在数据里显式 `fill(...)`；`device_stress_test` 就是显式给了一个中性灰
+- 内核的绑定槽是**固定四个**：`0` 正交投影 UBO / `1` 实例变换 Storage / `3` 图集纹理 / `4` 采样器
+  （`2` 空着，历史上曾给业务预留一个 storage，已删除）。业务要额外的 storage（阀门开关、管线流速这类），
+  自己建 `bindGroupLayout` + pipeline（见 `pipe_pipeline.ts` / `valve_pipeline.ts`），
+  内核不替业务预留槽位——`Renderer2D` 一旦认识 `pid*` 字段，内核就不再业务无关了
 - 实例缓冲容量 10 万（基础批次 + 覆盖批次共用一条）：实例打包与上传只有
   `renderComposite` 一条通路（`packInstances` 供用例断言），超容量直接抛错
 - 模型层与实例契约的分工：实例契约叫 `PrimitiveInstance`（16×f32，不带形状语义，方框/圆/三角形
