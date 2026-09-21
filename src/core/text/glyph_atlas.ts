@@ -48,11 +48,11 @@ export interface GlyphRasterizer {
 }
 
 /**
- * 默认字体：黑体系。
- * 用回退链覆盖各平台（macOS 黑体 Heiti SC / 苹方 PingFang SC，Windows SimHei/雅黑，Linux 落到 sans-serif）。
+ * 默认字体：**微软雅黑优先**（一套字同时包含中英文，中英混排最稳），
+ * 后面按平台回退：macOS 苹方 PingFang SC / 黑体 Heiti SC，Linux 落到 sans-serif。
  */
 export const DEFAULT_FONT_FAMILY =
-  "'SimHei', 'Heiti SC', 'Microsoft YaHei', 'PingFang SC', sans-serif";
+  "'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Heiti SC', 'SimHei', Arial, sans-serif";
 
 export class GlyphAtlas {
   /** 纹理会在扩容时重建，因此非只读 */
