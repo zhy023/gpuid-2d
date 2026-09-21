@@ -7,7 +7,7 @@ import {
   PIPE_FLOW_CYCLES_PER_SEC,
   PIPE_FLOW_DASH_DUTY,
   PIPE_FLOW_PERIOD_PX,
-  pipeLineWidthToWorld,
+  pipeLineWidthWorld,
 } from '@/business/pid_schematic/pipe_style';
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
@@ -147,10 +147,7 @@ function writePidInstanceData(
  * @param pixelsPerWorldUnit 当前相机缩放（1 世界单位对应多少屏幕像素）
  * @returns 有效实例个数（管线条数按段数展开后的总数）
  */
-function packPipeInstanceItems(
-  visibleItems: readonly PipeBatchItem[],
-  pixelsPerWorldUnit: number,
-): number {
+function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
   let writeIdx = 0;
 
   for (const item of visibleItems) {
@@ -175,7 +172,8 @@ function packPipeInstanceItems(
     const pipe: FlowPipe = item;
     const flowSpeed = pipe.flowSpeed;
     // 屏幕像素粗细 → 世界宽度，逐帧跟随缩放
-    const lineWidthWorld = pipeLineWidthToWorld(pipe.lineWidthPx, pixelsPerWorldUnit);
+    // 管宽是世界单位：只跟图纸 strokeWidth 有关，不随相机缩放浮动
+    const lineWidthWorld = pipeLineWidthWorld(pipe.lineWidthPx);
     // 以管宽为单位的累计里程，喂给 flowOffset，保证拐点两侧条纹相位接得上
     let travelled = 0;
 
@@ -257,7 +255,7 @@ export function renderAllVisiblePipes(
   const storage = getPipeStorageBuffers(device);
   if (!storage) return;
 
-  const validCount = packPipeInstanceItems(visibleItems, pixelsPerWorldUnit);
+  const validCount = packPipeInstanceItems(visibleItems);
   if (validCount <= 0) return;
 
   // 写两套storage buffer

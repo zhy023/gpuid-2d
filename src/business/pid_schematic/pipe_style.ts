@@ -1,10 +1,9 @@
 /**
- * 管线绘制规格：粗细以「屏幕像素」为单位，与相机缩放无关。
+ * 管线绘制规格：**粗细是世界单位**（与图元、文字同一套口径，跟着相机缩放一起变）。
  *
- * 世界宽度 = 像素宽度 / 相机 pixelsPerWorldUnit（正交相机下 1 世界单位 = scale 像素），
- * 提交绘制时用 pipeLineWidthToWorld 现算，因此放大缩小后屏幕粗细恒定。
- * 粗细本身以数据为准（图纸 XML 里 strokeWidth 是多少就画多少，最小只保证 1px），
- * 下面的档位只用于示例/压测数据生成，不作用于图纸。
+ * 图纸坐标本身就是 px，所以 `strokeWidth = 2` 就是 2 世界单位；`pipeLineWidthWorld()` 只保证
+ * 合法下限。粗细以数据为准（不吸附档位）；下面的档位只用于示例/压测数据生成，不作用于图纸。
+ * 流动条纹的周期/速度仍按屏幕像素定义，在绘制时按相机缩放折算。
  */
 export const PIPE_LINE_WIDTH_MIN_PX = 2;
 export const PIPE_LINE_WIDTH_MAX_PX = 10;
@@ -20,10 +19,13 @@ export const PIPE_LINE_WIDTH_STEPS: readonly number[] = Array.from(
   (_, index) => PIPE_LINE_WIDTH_MIN_PX + index * PIPE_LINE_WIDTH_STEP_PX,
 );
 
-/** 像素宽度 → 世界宽度（原样换算，不做档位吸附：粗细以数据为准） */
-export function pipeLineWidthToWorld(lineWidthPx: number, pixelsPerWorldUnit: number): number {
+/**
+ * 管线粗细：世界单位（图纸 px = 世界单位），不做档位吸附、也不按相机缩放折算，
+ * 这样缩放相机时管线粗细与图元、文字完全同步。
+ */
+export function pipeLineWidthWorld(lineWidthPx: number): number {
   const width = Number.isFinite(lineWidthPx) ? lineWidthPx : PIPE_LINE_WIDTH_DEFAULT_PX;
-  return Math.max(width, 1) / Math.max(pixelsPerWorldUnit, 1e-6);
+  return Math.max(width, 1);
 }
 
 /**

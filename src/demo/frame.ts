@@ -11,7 +11,7 @@
 import { renderPipes } from '@/business/pid_schematic/pipe_manager';
 import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import { getValveResources } from '@/business/pid_schematic/valve_manager';
-import { PIPE_LINE_WIDTH_MAX_PX, pipeLineWidthToWorld } from '@/business/pid_schematic/pipe_style';
+import { PIPE_LINE_WIDTH_MAX_PX, pipeLineWidthWorld } from '@/business/pid_schematic/pipe_style';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import { toInstances } from '@/core/scene/graphic/graphic';
 import { layoutText } from '@/core/text/text_batch';
@@ -63,7 +63,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
 
   /** 管线剔除视口要外扩「最粗管线的一半世界宽度」，否则贴边的管线会被提前剔掉 */
   function visiblePipes() {
-    const cullMargin = pipeLineWidthToWorld(PIPE_LINE_WIDTH_MAX_PX, camera.scale) / 2;
+    const cullMargin = pipeLineWidthWorld(PIPE_LINE_WIDTH_MAX_PX) / 2;
     const cullViewport = expandAABB(camera.getViewportAABB(), cullMargin);
     return pipeTester.tick(cullViewport, camera.isDrag).visibleItems;
   }
