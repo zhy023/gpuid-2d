@@ -41,11 +41,8 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> 
 
 @fragment
 fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-    // 形状遮罩里的 fwidth 必须在统一控制流里求值，所以统一提到分支之前
-    let localPos = input.localUv;
-    let unitMask = unitSquareMask(localPos);
-    let circleMask = 1.0 - smoothstep(0.94, 1.02, length(localPos) * 2.0);
-    let triangleMask = unitTriangleMask(localPos);
+    // 形状覆盖度（含「裁掉模板三角形多出的半边」）与拾取走同一份实现
+    let shapeMask = unitShapeMask(input.localUv, input.shape);
 
     var color = vec4f(0.3, 0.3, 0.3, 1.0);
     if (input.isInstanceSelected > 0.5) {
@@ -59,12 +56,5 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let hasInstanceColor = input.instanceColor.a > 0.5;
     let rgb = select(color.rgb, input.instanceColor.rgb, hasInstanceColor);
     let alpha = color.a * texel.a * select(1.0, input.instanceColor.a, hasInstanceColor);
-    // 形状裁剪：模板三角形比单位方形大（裁掉方形外），再按形状裁成方框/圆/三角形
-    var shapeMask = 1.0;
-    if (input.shape > 1.5) {
-        shapeMask = triangleMask;
-    } else if (input.shape > 0.5) {
-        shapeMask = circleMask;
-    }
-    return vec4f(rgb * texel.rgb, alpha * shapeMask * unitMask);
+    return vec4f(rgb * texel.rgb, alpha * shapeMask);
 }

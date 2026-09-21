@@ -57,3 +57,32 @@ fn unitTriangleMask(localPos: vec2f) -> f32 {
     let pixelWidth = max(fwidth(inside), 1e-6);
     return smoothstep(-pixelWidth, pixelWidth, inside);
 }
+
+// 单位方形内切圆（宽高相等即正圆，不等就是内切椭圆）的覆盖度：0~1，按屏幕像素抗锯齿。
+fn unitCircleMask(localPos: vec2f) -> f32 {
+    let radius = length(localPos) * 2.0; // 0 = 中心，1 = 内切边界
+    let pixelWidth = max(fwidth(radius), 1e-6);
+    return 1.0 - smoothstep(1.0 - pixelWidth, 1.0, radius);
+}
+
+/**
+ * 形状覆盖度：渲染拿它当 alpha，拾取用「>= 0.5」当命中判定，
+ * 两条通路共用这一份，天然保证「看到什么样就能点中什么样」。
+ *
+ * shape 与 TS 侧 `GRAPHIC_SHAPE_*` 同口径：0 = 方框 / 1 = 圆（内切椭圆）/ 2 = 三角形（内切）。
+ * 顶点模板三角形比单位方形大，所以方框遮罩是每种形状都要相交的底。
+ */
+fn unitShapeMask(localPos: vec2f, shape: f32) -> f32 {
+    // 覆盖度里的 fwidth 必须在统一控制流里求值：三个候选先全算出来，再按 shape 取用
+    let squareMask = unitSquareMask(localPos);
+    let circleMask = unitCircleMask(localPos);
+    let triangleMask = unitTriangleMask(localPos);
+
+    if (shape > 1.5) {
+        return min(squareMask, triangleMask);
+    }
+    if (shape > 0.5) {
+        return min(squareMask, circleMask);
+    }
+    return squareMask;
+}
