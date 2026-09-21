@@ -32,7 +32,7 @@ export class PidScene {
     this.devices.update(item);
   }
 
-  /** 新增或更新管线（几何变更后需先 pipe.rebuildGeometry() 再调用） */
+  /** 新增或更新管线（顶点原地改动后先 pipe.markGeometryDirty() 再调用） */
   upsertPipe(item: FlowPipe): void {
     this.pipes.update(item);
   }

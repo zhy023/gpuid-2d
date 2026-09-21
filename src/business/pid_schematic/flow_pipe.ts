@@ -5,21 +5,21 @@
  *  - 静止虚线：图纸里 `dashed=1` 的管线画条纹但不随时间移动
  *  - 速度约定：交给管线着色器的 `flowSpeed` 用符号区分三态
  *    `> 0` 流动 / `< 0` 静止虚线 / `= 0` 实心默认样式
+ *
+ * 几何：只保留折线顶点；渲染侧按「每段一个单位方块实例」展开
+ * （见 `pipe_instances.ts`），业务对象不再持有 CPU 膨胀顶点。
  */
 import {
   PIPE_LINE_WIDTH_DEFAULT_PX,
   snapPipeLineWidthPx,
 } from '@/business/pid_schematic/pipe_style';
-import { expandPolyline, type ExpandResult, type Point } from '@/core/geometry/polyline';
+import type { Point } from '@/core/geometry/polyline';
 import { Graphic } from '@/core/scene/graphic';
 
 /** 静止虚线的速度约定值（着色器按符号判定三态） */
 export const PIPE_DASHED_FLOW_SPEED = -1;
 
 export class FlowPipe extends Graphic {
-  /** 膨胀几何缓存：按屏幕像素粗细折算成世界宽度后展开的三角带 */
-  geoCache: ExpandResult | null = null;
-
   /** 是否画成虚线（图纸里的 dashed） */
   dashed = false;
 
@@ -36,12 +36,6 @@ export class FlowPipe extends Graphic {
     this.dirty = true;
     return this;
   }
-
-  /** 按相机缩放重建膨胀几何缓存（管宽以屏幕像素定义，与缩放无关） */
-  rebuildGeometry(pixelsPerWorldUnit = 1): void {
-    const worldWidth = this.lineWidthPx / Math.max(pixelsPerWorldUnit, 1e-6);
-    this.geoCache = expandPolyline(this.points, worldWidth);
-  }
 }
 
 /** 创建管线（示例与测试用的便捷工厂：id + 折线 + 像素粗细） */
@@ -52,6 +46,5 @@ export function createFlowPipe(
 ): FlowPipe {
   const pipe = new FlowPipe({ id });
   pipe.polyline(points, snapPipeLineWidthPx(lineWidthPx));
-  pipe.rebuildGeometry();
   return pipe;
 }

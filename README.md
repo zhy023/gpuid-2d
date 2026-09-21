@@ -46,7 +46,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 拾取：`rgba32uint` 离屏拾取（`pick` / `pickAt`）、`createRendererPicker`（复用渲染器布局）、`pickFirst`（多图层按优先级试到命中）
 - 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
 - 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容）、`layoutText`（字素簇排版、逐实例颜色、可选底板与描边 halo）、`splitGraphemes`
-- 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB/折线膨胀、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）、`spriteInstance`
+- 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB 与折线包围盒、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）、`spriteInstance`
 - 图形基类：只有 `Graphic` 一层（用法参考 PixiJS 的 `Graphics`）——位置/大小/旋转 + 可见/选中/变更标记 + 外观（`fill` / `stroke`）+ 状态（开关、hover）+ 动画；形状靠绘制命令表达（`rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`），方形与圆形/椭圆/三角形都按实例的 shape 通道在着色器里裁出来；实现 `QuadTreeItem`，可直接进四叉树。业务层的阀门（`ValveGraphic`）与流动管线（`FlowPipe`）都是它的实现类
 - 内置图元模板是**一个三角形**（`triangle-list`，3 顶点）而不是方形：局部空间仍是单位方形 `[-0.5, 0.5]`，模板三角形覆盖它、多出的部分由 `unitSquareMask` 按屏幕像素抗锯齿裁掉；正方形/长方形/圆形最终都由三角形拼出来，符合图形学最小图元的口径
 - 着色器工程：自研 `#include`（`@/` 别名）+ 生成期展开成字符串模块（`pnpm shaders`）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
@@ -90,7 +90,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 src/
 ├─ core/                        # 引擎内核：业务无关
 │  ├─ gpu/                      # device / context（装配与重建）/ renderer / picker / surface / texture / render_state / render_layer
-│  ├─ geometry/                 # 顶点几何、AABB、四叉树、折线膨胀、2D 变换、精灵实例
+│  ├─ geometry/                 # 顶点模板、AABB、四叉树、折线包围盒、2D 变换、精灵实例
 │  ├─ scene/                    # 图形基类 Graphic（唯一一层抽象）+ QuadTreeStore 索引
 │  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText
 │  ├─ shader/                   # core_include + core_render；generated/ 为展开后的字符串模块
@@ -119,7 +119,7 @@ src/
 ### 底层工程技术要点
 
 - 设备符号使用实例化渲染，重复几何只上传一次。
-- 管线使用预计算的带宽多段线，动画只更新时间 Uniform，不重建顶点缓冲区。
+- 管线按「每段一个单位方块实例」绘制（平移 × 旋转 × 缩放铺满该段），动画只更新时间 Uniform，不重建顶点缓冲区。
 - GPU 拾取通过离屏整数纹理输出实例 ID，避免 CPU 遍历全部图元。
 - AABB/四叉树用于快速筛选候选对象，精确几何命中检测作为后续补充。
 - 业务拓扑不进入渲染底层，通过状态字段驱动管线显示和流动效果。

@@ -26,7 +26,7 @@ import type { AABB, QuadItem } from '@/core/types';
 /** 逐实例颜色 (r, g, b, a)，分量取值 0~1 */
 export type Rgba = readonly [number, number, number, number];
 
-/** 形状：矩形（正方形是宽高相等的一种）、圆（宽高不等即椭圆）、三角形、折线 */
+/** 形状：三角形、矩形、圆、折线 */
 export type GraphicShape = 'triangle' | 'rect' | 'circle' | 'polyline';
 
 /** 形状编码：写进实例的 shape 通道，着色器按它裁形状 */
@@ -252,7 +252,7 @@ export class Graphic implements QuadItem {
     return this;
   }
 
-  // ---- 位置 / 大小 / 基本属性 ----
+  // 位置 / 大小 / 基本属性
 
   /** 移动到世界坐标中心点 */
   setPosition(x: number, y: number): this {
@@ -328,7 +328,7 @@ export class Graphic implements QuadItem {
     this.invalidate();
   }
 
-  // ---- 渲染契约 ----
+  // 渲染契约
 
   /** 形状编码：交给渲染侧裁形状 */
   get shapeCode(): number {

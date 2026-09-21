@@ -82,9 +82,8 @@ export class PipeStressTester {
             pt.x += (Math.random() - 0.5) * 6;
             pt.y += (Math.random() - 0.5) * 6;
           }
-          // 几何变了：让包围盒失效（顶点是原地改的，显式通知一次），重建膨胀缓存并更新索引
+          // 几何变了：让包围盒失效（顶点是原地改的，显式通知一次）并更新索引
           item.markGeometryDirty();
-          item.rebuildGeometry();
           this.scene.upsertPipe(item);
           item.clearDirty();
           geometryChanged = true;
