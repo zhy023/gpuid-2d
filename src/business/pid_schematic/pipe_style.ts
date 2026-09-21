@@ -29,10 +29,11 @@ export function pipeLineWidthWorld(lineWidthPx: number): number {
 }
 
 /**
- * 流动条纹：三种粗细、任意缩放下观感一致——只有管线粗细在变，条纹本身不跟着变。
- * 周期与速度都以屏幕像素定义，提交绘制时按当前缩放折算成世界单位。
+ * 流动条纹：周期是世界长度（与管线粗细、图元同一单位），速度按「每秒几个周期」定义，
+ * 所以缩放相机时条纹与图元一起缩放，不会出现「管子变粗、条纹间距不变」的错位。
  */
-export const PIPE_FLOW_PERIOD_PX = 24;
+/** 流动条纹一个周期的**世界长度**（与图元同一单位，跟着相机缩放） */
+export const PIPE_FLOW_PERIOD_WORLD = 24;
 export const PIPE_FLOW_CYCLES_PER_SEC = 1;
 /** 条带在一个周期里占的比例（其余为管身底色） */
 export const PIPE_FLOW_DASH_DUTY = 0.45;

@@ -92,10 +92,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
 
   /** 阀门精灵：口径（开关态分组、@2x 一半尺寸）由业务层决定，这里只装箱 */
   function buildValveSprites(valves: readonly ValveGraphic[]) {
-    const { closed, open } = buildValveSpriteGraphics(valves, {
-      textureWidth: resources.valveTextureWidth,
-      textureHeight: resources.valveTextureHeight,
-    });
+    const { closed, open } = buildValveSpriteGraphics(valves);
     return { closed: toInstances(closed, camera.scale), open: toInstances(open, camera.scale) };
   }
 
@@ -111,13 +108,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
     // 阀门显示走贴图精灵，但拾取仍需要最新的实例数据与投影矩阵
     const valveRes = getValveResources();
     if (valveRes) {
-      uploadValveInstances(
-        device,
-        valveRes,
-        camera.getCameraProjectionMatrix(),
-        visibleValves,
-        camera.scale,
-      );
+      uploadValveInstances(device, valveRes, camera.getCameraProjectionMatrix(), visibleValves);
     }
 
     const { titleGraphics, tagGraphics } = buildTextGraphics(visibleValves);
@@ -157,12 +148,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
             layer: RENDER_LAYER.pipe,
             // 压测管线与阀门示例管线共用一次实例化绘制
             draw: (overlayPass) =>
-              renderPipes(
-                overlayPass,
-                projMat,
-                [...visiblePipes(), ...visibleDemoPipes()],
-                camera.scale,
-              ),
+              renderPipes(overlayPass, projMat, [...visiblePipes(), ...visibleDemoPipes()]),
           },
         ];
         for (const item of sortRenderLayerDraws(layerDraws)) item.draw(pass);

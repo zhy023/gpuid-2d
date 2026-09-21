@@ -7,7 +7,6 @@ import {
   drawValveInstanced,
   updateValveUniform,
 } from '@/business/pid_schematic/valve_pipeline';
-import { minDeviceSymbolWorldSize } from '@/business/pid_schematic/device_style';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { SelectableGraphic } from '@/core/scene/capability/selectable';
@@ -86,16 +85,13 @@ export function disposeValveInstances(): void {
  * 构建阀门精灵图形：按开关态分成两组（关闭 / 开启），
  * 便于绘制时分别绑定 `famen_off` / `famen_on` 两张贴图。
  *
- * 尺寸口径：贴图按 @2x 的一半落地，属于屏幕像素尺寸（与相机缩放无关），所以用 `screenSize()`；
+ * 尺寸口径：直接用图元自身的世界尺寸（与图元、文字、管线同一套单位，跟着相机缩放）；
  * 颜色用贴图原色（白）。装箱交给核心的 `Graphic#toInstance`，这里只产出图形。
  */
-export function buildValveSpriteGraphics(
-  valves: readonly ValveGraphic[],
-  options: { textureWidth: number; textureHeight: number },
-): { closed: SelectableGraphic[]; open: SelectableGraphic[] } {
-  const { textureWidth, textureHeight } = options;
-  const widthPx = textureWidth / 2;
-  const heightPx = textureHeight / 2;
+export function buildValveSpriteGraphics(valves: readonly ValveGraphic[]): {
+  closed: SelectableGraphic[];
+  open: SelectableGraphic[];
+} {
   const closed: SelectableGraphic[] = [];
   const open: SelectableGraphic[] = [];
 
@@ -104,9 +100,12 @@ export function buildValveSpriteGraphics(
       id: valve.id,
       x: valve.x,
       y: valve.y,
+      width: valve.width,
+      height: valve.height,
+      rotation: valve.rotation,
       selected: valve.selected,
       fillColor: [1, 1, 1, 1],
-    }).screenSize(widthPx, heightPx);
+    });
     if (valve.open) open.push(sprite);
     else closed.push(sprite);
   }
@@ -118,17 +117,15 @@ export function buildValveSpriteGraphics(
  * 打包可见设备图元 → 两套 CPU 数组
  * @returns 有效实例个数
  */
-function packValveInstances(valves: readonly ValveGraphic[], pixelsPerWorldUnit: number): number {
+function packValveInstances(valves: readonly ValveGraphic[]): number {
   let writeIdx = 0;
-  // 符号最小 4×4 像素：低于下限时按世界单位撑大
-  const minSymbolWorld = minDeviceSymbolWorldSize(pixelsPerWorldUnit);
-
   for (const valve of valves) {
     if (writeIdx >= MAX_VALVE_INSTANCE) break;
 
     const instanceOffset = writeIdx * INSTANCE_FLOAT_COUNT;
-    instanceCpuBuffer[instanceOffset + 0] = Math.max(valve.width, minSymbolWorld);
-    instanceCpuBuffer[instanceOffset + 1] = Math.max(valve.height, minSymbolWorld);
+    // 拾取实例的尺寸口径与精灵一致：都用图元自身的世界尺寸
+    instanceCpuBuffer[instanceOffset + 0] = valve.width;
+    instanceCpuBuffer[instanceOffset + 1] = valve.height;
     instanceCpuBuffer[instanceOffset + 2] = valve.rotation;
     instanceCpuBuffer[instanceOffset + 3] = valve.x;
     instanceCpuBuffer[instanceOffset + 4] = valve.y;
@@ -174,12 +171,11 @@ export function renderVisibleValves(
   visibleValves: readonly ValveGraphic[],
   vertexBuffer: GPUBuffer,
   vertexCount: number,
-  pixelsPerWorldUnit: number,
 ): void {
   const storage = getValveStorage(device);
   if (!storage) return;
 
-  const instanceCount = packValveInstances(visibleValves, pixelsPerWorldUnit);
+  const instanceCount = packValveInstances(visibleValves);
   if (instanceCount <= 0) return;
 
   device.queue.writeBuffer(
@@ -214,12 +210,11 @@ export function uploadValveInstances(
   valveRes: ValveRenderResources,
   viewProj: Float32Array,
   visibleValves: readonly ValveGraphic[],
-  pixelsPerWorldUnit: number,
 ): void {
   const storage = getValveStorage(device);
   if (!storage) return;
 
-  const instanceCount = packValveInstances(visibleValves, pixelsPerWorldUnit);
+  const instanceCount = packValveInstances(visibleValves);
   if (instanceCount <= 0) return;
 
   device.queue.writeBuffer(

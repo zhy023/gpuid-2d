@@ -241,7 +241,7 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
   // 阀门拾取复用阀门模块自己的实例缓冲（与阀门示例同一套），这里每帧上传最新实例与投影
   const valveRes = getValveResources();
   if (valveRes) {
-    uploadValveInstances(device, valveRes, projMat, visible.valves, camera.scale);
+    uploadValveInstances(device, valveRes, projMat, visible.valves);
   }
   renderer.renderComposite({
     instances: deviceInstances,
@@ -266,7 +266,7 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
         {
           layer: RENDER_LAYER.pipe,
           draw: (overlayPass: GPURenderPassEncoder) =>
-            renderPipes(overlayPass, projMat, visible.pipes, camera.scale),
+            renderPipes(overlayPass, projMat, visible.pipes),
         },
       ]);
       for (const item of draws) item.draw(pass);

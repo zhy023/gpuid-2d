@@ -62,7 +62,6 @@ export function renderValves(
   passEncoder: GPURenderPassEncoder,
   viewProj: Float32Array,
   visibleValves: readonly ValveGraphic[],
-  pixelsPerWorldUnit: number,
 ): void {
   if (!valveRes || !gpuDevice || !valveTemplateVertexBuffer) return;
   renderVisibleValves(
@@ -73,7 +72,6 @@ export function renderValves(
     visibleValves,
     valveTemplateVertexBuffer,
     valveTemplateVertexCount,
-    pixelsPerWorldUnit,
   );
 }
 

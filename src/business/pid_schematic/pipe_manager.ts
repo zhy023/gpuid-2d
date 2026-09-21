@@ -47,15 +47,11 @@ export async function initPipe(device: GPUDevice, canvasFormat: GPUTextureFormat
   pipeRes = await createPipeRenderResources(device, canvasFormat);
 }
 
-/**
- * 主渲染入口，渲染循环调用
- * @param pixelsPerWorldUnit 当前相机缩放，用于把管线像素粗细折算成世界宽度
- */
+/** 主渲染入口，渲染循环调用（管线粗细是世界单位，不需要相机缩放） */
 export function renderPipes(
   passEncoder: GPURenderPassEncoder,
   viewProj: Float32Array,
   visibleItems: readonly PipeBatchItem[],
-  pixelsPerWorldUnit: number,
 ): void {
   if (!pipeRes || !gpuDevice || !pipeTemplateVertexBuffer) return;
 
@@ -69,7 +65,6 @@ export function renderPipes(
     visibleItems,
     pipeTemplateVertexBuffer,
     pipeTemplateVertexCount,
-    pixelsPerWorldUnit,
   );
 }
 

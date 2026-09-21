@@ -6,7 +6,7 @@ import {
 import {
   PIPE_FLOW_CYCLES_PER_SEC,
   PIPE_FLOW_DASH_DUTY,
-  PIPE_FLOW_PERIOD_PX,
+  PIPE_FLOW_PERIOD_WORLD,
   pipeLineWidthWorld,
 } from '@/business/pid_schematic/pipe_style';
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
@@ -144,7 +144,6 @@ function writePidInstanceData(
  * 管线按「每段一个实例」展开：单位方块模板经 平移(段中点) × 旋转(段方向角) × 缩放(段长, 管宽)
  * 正好铺满该段，因此多段折线不需要为每条管线单独建顶点 buffer。
  * 管宽按当前相机缩放折算成世界宽度，保证屏幕上的粗细恒定（像素单位）。
- * @param pixelsPerWorldUnit 当前相机缩放（1 世界单位对应多少屏幕像素）
  * @returns 有效实例个数（管线条数按段数展开后的总数）
  */
 function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
@@ -239,7 +238,6 @@ function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
  * @param visibleItems 四叉树返回全部可见图元
  * @param pipeTemplateVb 管线三角带模板顶点buffer
  * @param templateVertexCount 模板顶点数量
- * @param pixelsPerWorldUnit 当前相机缩放，用于把管线像素粗细折算成世界宽度
  */
 export function renderAllVisiblePipes(
   pass: GPURenderPassEncoder,
@@ -250,7 +248,6 @@ export function renderAllVisiblePipes(
   visibleItems: readonly PipeBatchItem[],
   pipeTemplateVb: GPUBuffer,
   templateVertexCount: number,
-  pixelsPerWorldUnit: number,
 ): void {
   const storage = getPipeStorageBuffers(device);
   if (!storage) return;
@@ -278,7 +275,8 @@ export function renderAllVisiblePipes(
   updatePipeUniform(device, pipeRes, {
     projection: viewProj,
     timeSeconds: timeSec,
-    flowPeriodWorld: PIPE_FLOW_PERIOD_PX / Math.max(pixelsPerWorldUnit, 1e-6),
+    // 条纹周期是 world 单位，不再按相机缩放折算
+    flowPeriodWorld: PIPE_FLOW_PERIOD_WORLD,
     flowCyclesPerSec: PIPE_FLOW_CYCLES_PER_SEC,
     flowDashDuty: PIPE_FLOW_DASH_DUTY,
   });
