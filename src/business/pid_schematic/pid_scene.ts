@@ -4,40 +4,41 @@
  * 空间索引、视口剔除与脏标记复用 core 的 QuadTreeStore；
  * 这里只负责「P&ID 有哪几类图元、按什么口径暴露给渲染与拾取」。
  */
-import type { StressTestItem } from '@/business/pid_schematic/device_stress_test';
-import type { PipePolylineItem, ValveItem } from '@/business/pid_schematic/types';
+import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import type { RectNode } from '@/core/scene/rect_node';
 import { QuadTreeStore } from '@/core/scene/quad_tree_store';
 import type { AABB } from '@/core/types';
 
 export interface PidVisibleItems {
-  devices: StressTestItem[];
-  pipes: PipePolylineItem[];
-  valves: ValveItem[];
+  devices: RectNode[];
+  pipes: FlowPipe[];
+  valves: ValveGraphic[];
 }
 
 export class PidScene {
-  readonly devices: QuadTreeStore<StressTestItem>;
-  readonly pipes: QuadTreeStore<PipePolylineItem>;
-  readonly valves: QuadTreeStore<ValveItem>;
+  readonly devices: QuadTreeStore<RectNode>;
+  readonly pipes: QuadTreeStore<FlowPipe>;
+  readonly valves: QuadTreeStore<ValveGraphic>;
 
   constructor(worldBounds: AABB) {
-    this.devices = new QuadTreeStore<StressTestItem>(worldBounds);
-    this.pipes = new QuadTreeStore<PipePolylineItem>(worldBounds);
-    this.valves = new QuadTreeStore<ValveItem>(worldBounds);
+    this.devices = new QuadTreeStore<RectNode>(worldBounds);
+    this.pipes = new QuadTreeStore<FlowPipe>(worldBounds);
+    this.valves = new QuadTreeStore<ValveGraphic>(worldBounds);
   }
 
   /** 新增或更新设备图元（位置/尺寸/选中态变化都走这里） */
-  upsertDevice(item: StressTestItem): void {
+  upsertDevice(item: RectNode): void {
     this.devices.update(item);
   }
 
-  /** 新增或更新管线（几何变更后需先 rebuildPipeGeometry 再调用） */
-  upsertPipe(item: PipePolylineItem): void {
+  /** 新增或更新管线（几何变更后需先 pipe.rebuildGeometry() 再调用） */
+  upsertPipe(item: FlowPipe): void {
     this.pipes.update(item);
   }
 
   /** 新增或更新阀门 */
-  upsertValve(item: ValveItem): void {
+  upsertValve(item: ValveGraphic): void {
     this.valves.update(item);
   }
 

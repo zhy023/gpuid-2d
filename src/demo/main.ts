@@ -5,7 +5,7 @@
  * 因此掉设备时 `recreateRendererContext()` 拿到新上下文后可以直接再跑一遍。
  */
 import { disposePipes } from '@/business/pid_schematic/pipe_manager';
-import type { ValveItem } from '@/business/pid_schematic/types';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import { disposeValves, getValvesPicker, initValves } from '@/business/pid_schematic/valve_manager';
 import {
   createRendererContext,
@@ -87,7 +87,7 @@ export async function runApp() {
 
     let instanceList: RectInstance[] = [];
     let visibleItemsSnapshot: ReturnType<typeof pidTester.tick>['visibleItems'] = [];
-    let visibleValves: ValveItem[] = [];
+    let visibleValves: ValveGraphic[] = [];
 
     /** 更新矩形可见集与实例缓冲；返回当前矩形实例列表（frame 阶段要在其后追加文字/贴图实例） */
     function updateVisibleInstances(): readonly RectInstance[] {

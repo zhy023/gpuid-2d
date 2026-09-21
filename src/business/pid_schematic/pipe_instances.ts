@@ -9,8 +9,16 @@ import {
   PIPE_FLOW_PERIOD_PX,
   pipeLineWidthToWorld,
 } from '@/business/pid_schematic/pipe_style';
-import type { PipePolylineItem, PipeRenderResources } from '@/business/pid_schematic/types';
-import type { QuadItem } from '@/core/types';
+import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import type { PipeRenderResources } from '@/business/pid_schematic/types';
+import type { Rgba } from '@/core/scene/graphic';
+
+/**
+ * 一轮管线条带实例化能出现的图元：管线本身（FlowPipe）
+ * 与画在同一批次里的阀门符号（ValveGraphic）。
+ */
+export type PipeBatchItem = FlowPipe | ValveGraphic;
 
 // 最大管线实例数量，压测可按需调大（管线按段展开，直角拐点还要各加一个方块实例）
 const MAX_PIPE_INSTANCE = 8192;
@@ -18,11 +26,6 @@ const MAX_PIPE_INSTANCE = 8192;
 const INSTANCE_FLOAT_COUNT = 16;
 // PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float
 const PID_DATA_FLOAT_COUNT = 4;
-
-/** 阀门图元：在通用 QuadItem 之上携带阀门开关状态 */
-interface ValveQuadItem extends QuadItem {
-  valveOpen: number;
-}
 
 // CPU侧复用数组，避免每帧new
 const instanceCpuBuffer = new Float32Array(MAX_PIPE_INSTANCE * INSTANCE_FLOAT_COUNT);
@@ -95,7 +98,7 @@ function writeInstanceTransform(
   tx: number,
   ty: number,
   selected: number,
-  color?: readonly [number, number, number, number],
+  color?: Rgba | null,
 ): void {
   const offset = writeIdx * INSTANCE_FLOAT_COUNT;
   instanceCpuBuffer[offset + 0] = sx;
@@ -133,7 +136,7 @@ function writePidInstanceData(
 }
 
 /**
- * 过滤并打包管线/阀门 QuadItem → 两套CPU数组。
+ * 过滤并打包管线/阀门图元 → 两套CPU数组。
  *
  * 管线按「每段一个实例」展开：单位方块模板经 平移(段中点) × 旋转(段方向角) × 缩放(段长, 管宽)
  * 正好铺满该段，因此多段折线不需要为每条管线单独建顶点 buffer。
@@ -142,7 +145,7 @@ function writePidInstanceData(
  * @returns 有效实例个数（管线条数按段数展开后的总数）
  */
 function packPipeInstanceItems(
-  visibleItems: readonly QuadItem[],
+  visibleItems: readonly PipeBatchItem[],
   pixelsPerWorldUnit: number,
 ): number {
   let writeIdx = 0;
@@ -155,21 +158,21 @@ function packPipeInstanceItems(
     if (item.type === 'valve') {
       writeInstanceTransform(
         writeIdx,
-        item.sx,
-        item.sy,
-        item.beta,
-        item.tx,
-        item.ty,
-        item.selected,
+        item.width,
+        item.height,
+        item.rotation,
+        item.x,
+        item.y,
+        item.selectedFlag,
       );
       // 阀门：valveOpen 有效，流速置 0（阀门本身不做流动动画）
-      writePidInstanceData(writeIdx, (item as ValveQuadItem).valveOpen ?? 1.0, 0, 0);
+      writePidInstanceData(writeIdx, (item as ValveGraphic).valveOpen, 0, 0);
       writeIdx += 1;
       continue;
     }
 
-    const pipe = item as PipePolylineItem;
-    const flowSpeed = pipe.flowSpeed ?? 1.0;
+    const pipe = item as FlowPipe;
+    const flowSpeed = pipe.flowSpeed;
     // 屏幕像素粗细 → 世界宽度，逐帧跟随缩放
     const lineWidthWorld = pipeLineWidthToWorld(pipe.lineWidthPx, pixelsPerWorldUnit);
     // 以管宽为单位的累计里程，喂给 flowOffset，保证拐点两侧条纹相位接得上
@@ -194,8 +197,8 @@ function packPipeInstanceItems(
         Math.atan2(dy, dx),
         (start.x + end.x) / 2,
         (start.y + end.y) / 2,
-        item.selected,
-        pipe.strokeColor,
+        item.selectedFlag,
+        pipe.backgroundColor,
       );
       // flowOffset 用世界里程，保证条纹沿整条管线连续
       writePidInstanceData(writeIdx, 0, flowSpeed, travelled);
@@ -214,8 +217,8 @@ function packPipeInstanceItems(
           0,
           end.x,
           end.y,
-          item.selected,
-          pipe.strokeColor,
+          item.selectedFlag,
+          pipe.backgroundColor,
         );
         writePidInstanceData(writeIdx, 0, flowSpeed, travelled);
         writeIdx += 1;
@@ -244,7 +247,7 @@ export function renderAllVisiblePipes(
   pipeRes: PipeRenderResources,
   viewProj: Float32Array,
   timeSec: number,
-  visibleItems: readonly QuadItem[],
+  visibleItems: readonly PipeBatchItem[],
   pipeTemplateVb: GPUBuffer,
   templateVertexCount: number,
   pixelsPerWorldUnit: number,

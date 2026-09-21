@@ -8,7 +8,8 @@ import {
   updateValveUniform,
 } from '@/business/pid_schematic/valve_pipeline';
 import { minDeviceSymbolWorldSize } from '@/business/pid_schematic/device_style';
-import type { ValveItem, ValveRenderResources } from '@/business/pid_schematic/types';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { spriteInstance } from '@/core/geometry/instance_sprite';
 import type { RectInstance } from '@/core/types';
 
@@ -90,7 +91,7 @@ export function disposeValveInstances(): void {
  * 这属于业务表现（用哪张图、多大），所以放业务层；像素↔世界的换算用核心的 spriteInstance。
  */
 export function buildValveSpriteInstances(
-  valves: readonly ValveItem[],
+  valves: readonly ValveGraphic[],
   options: { textureWidth: number; textureHeight: number; pixelsPerWorldUnit: number },
 ): { closed: RectInstance[]; open: RectInstance[] } {
   const { textureWidth, textureHeight, pixelsPerWorldUnit } = options;
@@ -101,13 +102,13 @@ export function buildValveSpriteInstances(
 
   for (const valve of valves) {
     const instance = spriteInstance({
-      tx: valve.tx,
-      ty: valve.ty,
+      tx: valve.x,
+      ty: valve.y,
       widthPx,
       heightPx,
       pixelsPerWorldUnit,
     });
-    if (valve.valveOpen > 0.5) open.push(instance);
+    if (valve.open) open.push(instance);
     else closed.push(instance);
   }
 
@@ -118,7 +119,7 @@ export function buildValveSpriteInstances(
  * 打包可见设备图元 → 两套 CPU 数组
  * @returns 有效实例个数
  */
-function packValveInstances(valves: readonly ValveItem[], pixelsPerWorldUnit: number): number {
+function packValveInstances(valves: readonly ValveGraphic[], pixelsPerWorldUnit: number): number {
   let writeIdx = 0;
   // 符号最小 4×4 像素：低于下限时按世界单位撑大
   const minSymbolWorld = minDeviceSymbolWorldSize(pixelsPerWorldUnit);
@@ -128,12 +129,12 @@ function packValveInstances(valves: readonly ValveItem[], pixelsPerWorldUnit: nu
     if (valve.type !== 'valve') continue;
 
     const instanceOffset = writeIdx * INSTANCE_FLOAT_COUNT;
-    instanceCpuBuffer[instanceOffset + 0] = Math.max(valve.sx, minSymbolWorld);
-    instanceCpuBuffer[instanceOffset + 1] = Math.max(valve.sy, minSymbolWorld);
-    instanceCpuBuffer[instanceOffset + 2] = valve.beta;
-    instanceCpuBuffer[instanceOffset + 3] = valve.tx;
-    instanceCpuBuffer[instanceOffset + 4] = valve.ty;
-    instanceCpuBuffer[instanceOffset + 5] = valve.selected;
+    instanceCpuBuffer[instanceOffset + 0] = Math.max(valve.width, minSymbolWorld);
+    instanceCpuBuffer[instanceOffset + 1] = Math.max(valve.height, minSymbolWorld);
+    instanceCpuBuffer[instanceOffset + 2] = valve.rotation;
+    instanceCpuBuffer[instanceOffset + 3] = valve.x;
+    instanceCpuBuffer[instanceOffset + 4] = valve.y;
+    instanceCpuBuffer[instanceOffset + 5] = valve.selectedFlag;
     instanceCpuBuffer[instanceOffset + 6] = 0;
     instanceCpuBuffer[instanceOffset + 7] = 0;
     // 图集 uv：设备符号暂不贴图，整张纹理
@@ -148,7 +149,7 @@ function packValveInstances(valves: readonly ValveItem[], pixelsPerWorldUnit: nu
     instanceCpuBuffer[instanceOffset + 15] = 0;
 
     const businessOffset = writeIdx * BUSINESS_FLOAT_COUNT;
-    businessCpuBuffer[businessOffset + 0] = valve.valveOpen > 0.5 ? 1 : 0;
+    businessCpuBuffer[businessOffset + 0] = valve.valveOpen;
     businessCpuBuffer[businessOffset + 1] = 0;
     businessCpuBuffer[businessOffset + 2] = 0;
     businessCpuBuffer[businessOffset + 3] = 0;
@@ -170,7 +171,7 @@ export function renderVisibleValves(
   device: GPUDevice,
   valveRes: ValveRenderResources,
   viewProj: Float32Array,
-  visibleValves: readonly ValveItem[],
+  visibleValves: readonly ValveGraphic[],
   vertexBuffer: GPUBuffer,
   vertexCount: number,
   pixelsPerWorldUnit: number,
@@ -212,7 +213,7 @@ export function uploadValveInstances(
   device: GPUDevice,
   valveRes: ValveRenderResources,
   viewProj: Float32Array,
-  visibleValves: readonly ValveItem[],
+  visibleValves: readonly ValveGraphic[],
   pixelsPerWorldUnit: number,
 ): void {
   const storage = getValveStorage(device);

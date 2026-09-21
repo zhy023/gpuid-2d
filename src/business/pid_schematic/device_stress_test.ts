@@ -6,44 +6,32 @@
  * 因此 tick() 不再全量扫描 5 万条图元找 dirty。
  */
 import { PidScene } from '@/business/pid_schematic/pid_scene';
-import { computeRotatedAABB } from '@/core/geometry/aabb';
-import type { AABB, QuadTreeItem, RectInstance } from '@/core/types';
+import { RectNode } from '@/core/scene/rect_node';
+import type { AABB, RectInstance } from '@/core/types';
 
-/** 压测矩形图元：空间索引字段 + 实例化渲染所需的 2D 变换 */
-export interface StressTestItem extends QuadTreeItem {
-  dirty: boolean;
-  tx: number;
-  ty: number;
-  sx: number;
-  sy: number;
-  beta: number;
-  selected: number; // 0=未选中，1=选中，float32对齐shader
-  /** 逐实例填充色（图纸 fillColor）；不设时用着色器默认灰 */
-  fillColor?: readonly [number, number, number, number];
-}
-
-/** 设备图元 → 实例化绘制数据（几何 + 选中态；uv 用整张纹理、颜色沿用默认） */
-export function toRectInstances(items: readonly StressTestItem[]): RectInstance[] {
+/** 设备图元（= 内核矩形节点）→ 实例化绘制数据（几何 + 选中态；uv 整张纹理、颜色取背景色） */
+export function toRectInstances(items: readonly RectNode[]): RectInstance[] {
   return items.map((item) => ({
-    sx: item.sx,
-    sy: item.sy,
-    beta: item.beta,
-    tx: item.tx,
-    ty: item.ty,
-    selected: item.selected,
+    sx: item.width,
+    sy: item.height,
+    beta: item.rotation,
+    tx: item.x,
+    ty: item.y,
+    // 模型层是布尔，实例数据里按 float 传（着色器 > 0.5 判定）
+    selected: item.selectedFlag,
     u0: 0,
     v0: 0,
     u1: 1,
     v1: 1,
-    colorR: item.fillColor?.[0] ?? 0,
-    colorG: item.fillColor?.[1] ?? 0,
-    colorB: item.fillColor?.[2] ?? 0,
-    colorA: item.fillColor?.[3] ?? 0,
+    colorR: item.backgroundColor?.[0] ?? 0,
+    colorG: item.backgroundColor?.[1] ?? 0,
+    colorB: item.backgroundColor?.[2] ?? 0,
+    colorA: item.backgroundColor?.[3] ?? 0,
   }));
 }
 
 export class DeviceStressTester {
-  public readonly itemMap = new Map<number, StressTestItem>();
+  public readonly itemMap = new Map<number, RectNode>();
   public readonly scene: PidScene;
   public worldBounds: AABB;
   public moveRatio: number;
@@ -77,17 +65,16 @@ export class DeviceStressTester {
       const sy = 20 + Math.random() * 80;
       const beta = Math.random() * Math.PI * 2;
 
-      const item: StressTestItem = {
+      const item = new RectNode({
         id: i,
-        dirty: false,
-        tx,
-        ty,
-        sx,
-        sy,
-        beta,
-        selected: 0,
-        worldAABB: computeRotatedAABB(tx, ty, sx, sy, beta),
-      };
+        x: tx,
+        y: ty,
+        width: sx,
+        height: sy,
+        rotation: beta,
+      });
+      // 刚生成、还未提交渲染，先清掉变更标记
+      item.clearDirty();
       this.itemMap.set(i, item);
       this.scene.upsertDevice(item);
     }
@@ -98,13 +85,12 @@ export class DeviceStressTester {
   setItemSelected(id: number, isSelected: boolean) {
     const item = this.itemMap.get(id);
     if (!item) return;
-    item.selected = isSelected ? 1 : 0;
-    item.dirty = true;
+    item.setSelected(isSelected);
     this.renderDirtyIds.add(id);
   }
 
-  /** 把可见 StressTestItem 数组转成 Renderer2D 需要的 RectInstance[] */
-  buildRectInstanceList(visibleItems: StressTestItem[]): RectInstance[] {
+  /** 把可见设备图元转成 Renderer2D 需要的 RectInstance[] */
+  buildRectInstanceList(visibleItems: RectNode[]): RectInstance[] {
     return toRectInstances(visibleItems);
   }
 
@@ -120,11 +106,9 @@ export class DeviceStressTester {
     if (isDrag) {
       for (const item of this.itemMap.values()) {
         if (Math.random() >= this.moveRatio) continue;
-        item.tx += (Math.random() - 0.5) * 15;
-        item.ty += (Math.random() - 0.5) * 15;
-        item.beta += 0.002;
-        item.worldAABB = computeRotatedAABB(item.tx, item.ty, item.sx, item.sy, item.beta);
-        item.dirty = true;
+        // 位置/旋转改动会打 dirty 并让包围盒失效，这里直接走图形基类的接口
+        item.moveBy((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15);
+        item.setRotation(item.rotation + 0.002);
         this.scene.upsertDevice(item);
         this.renderDirtyIds.add(item.id);
         geometryChanged = true;
@@ -135,7 +119,7 @@ export class DeviceStressTester {
     if (this.renderDirtyIds.size > 0) {
       for (const id of this.renderDirtyIds) {
         const item = this.itemMap.get(id);
-        if (item) item.dirty = false;
+        item?.clearDirty();
       }
       this.renderDirtyIds.clear();
     }

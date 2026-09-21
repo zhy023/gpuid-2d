@@ -4,29 +4,18 @@
  */
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { createPipeItem } from '@/business/pid_schematic/pipe_line';
+import { createFlowPipe, type FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { Topology, applyValveFlowState } from '@/business/pid_schematic/topology';
-import type { PipePolylineItem, ValveItem } from '@/business/pid_schematic/types';
 import { createValveDemoScene, toggleValve } from '@/business/pid_schematic/valve_demo';
+import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 
 /** 把管线流动状态压成字符串，便于断言：1 = 流动，0 = 默认样式 */
-function flowPattern(pipes: readonly PipePolylineItem[]): string {
+function flowPattern(pipes: readonly FlowPipe[]): string {
   return pipes.map((pipe) => (pipe.flowSpeed > 0 ? 1 : 0)).join('');
 }
 
-function makeValve(id: number, valveOpen = 1): ValveItem {
-  return {
-    id,
-    type: 'valve',
-    tx: id * 100,
-    ty: 0,
-    sx: 40,
-    sy: 40,
-    beta: 0,
-    selected: 0,
-    valveOpen,
-    worldAABB: { minX: id * 100 - 20, minY: -20, maxX: id * 100 + 20, maxY: 20 },
-  };
+function makeValve(id: number, open = true): ValveGraphic {
+  return new ValveGraphic({ id, x: id * 100, y: 0, width: 40, height: 40, open });
 }
 
 describe('applyValveFlowState', () => {
@@ -59,8 +48,8 @@ describe('applyValveFlowState', () => {
 
   it('环路拓扑不会死循环，且下游全部切为默认样式', () => {
     const topology = new Topology();
-    const pipes = new Map<number, PipePolylineItem>();
-    const pipeA = createPipeItem(
+    const pipes = new Map<number, FlowPipe>();
+    const pipeA = createFlowPipe(
       11,
       [
         { x: 0, y: 0 },
@@ -68,7 +57,7 @@ describe('applyValveFlowState', () => {
       ],
       2,
     );
-    const pipeB = createPipeItem(
+    const pipeB = createFlowPipe(
       12,
       [
         { x: 10, y: 0 },
@@ -81,7 +70,7 @@ describe('applyValveFlowState', () => {
     topology.setLink({ pipelineId: 11, sourceElementId: 1, targetElementId: 2 });
     topology.setLink({ pipelineId: 12, sourceElementId: 2, targetElementId: 1 });
 
-    const valves = [makeValve(1, 0), makeValve(2, 1)];
+    const valves = [makeValve(1, false), makeValve(2, true)];
     applyValveFlowState(topology, valves, pipes);
 
     assert.equal(flowPattern([pipeA, pipeB]), '00');
@@ -89,7 +78,7 @@ describe('applyValveFlowState', () => {
 
   it('拓扑里没有的管线不受影响', () => {
     const scene = createValveDemoScene({ valveCount: 4, initialClosedIndex: 1 });
-    const loose = createPipeItem(
+    const loose = createFlowPipe(
       999,
       [
         { x: 0, y: 0 },

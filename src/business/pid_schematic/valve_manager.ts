@@ -8,7 +8,8 @@ import {
 } from '@/business/pid_schematic/valve_instances';
 import { createValveRenderResources } from '@/business/pid_schematic/valve_pipeline';
 import valvePickWgsl from '@/business/pid_schematic/shader/generated/valve_pick';
-import type { ValveItem, ValveRenderResources } from '@/business/pid_schematic/types';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
+import type { ValveRenderResources } from '@/business/pid_schematic/types';
 import { WebGpuPicker } from '@/core/gpu/picker';
 
 let valveRes: ValveRenderResources | null = null;
@@ -60,7 +61,7 @@ export function getValvesPicker(): WebGpuPicker | null {
 export function renderValves(
   passEncoder: GPURenderPassEncoder,
   viewProj: Float32Array,
-  visibleValves: readonly ValveItem[],
+  visibleValves: readonly ValveGraphic[],
   pixelsPerWorldUnit: number,
 ): void {
   if (!valveRes || !gpuDevice || !valveTemplateVertexBuffer) return;

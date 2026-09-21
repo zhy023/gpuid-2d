@@ -2,11 +2,10 @@
  * 阀门示例场景：一条「阀门—管线—阀门」链 + 拓扑关系，
  * 用来演示阀门开闭沿拓扑把下游管线切回默认样式（关闭的阀门符号画红叉）。
  */
-import { createPipeItem } from '@/business/pid_schematic/pipe_line';
+import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { applyValveFlowState, Topology } from '@/business/pid_schematic/topology';
-import type { ValveItem } from '@/business/pid_schematic/types';
-import { computeRotatedAABB } from '@/core/geometry/aabb';
+import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { AABB } from '@/core/types';
 
 export interface ValveDemoScene {
@@ -51,23 +50,19 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
     maxY: centerY + spacing,
   };
   const scene = new PidScene(bounds);
-  const valves: ValveItem[] = [];
+  const valves: ValveGraphic[] = [];
   const topology = new Topology();
 
   for (let index = 0; index < valveCount; index += 1) {
     const tx = startX + index * spacing;
-    const valve: ValveItem = {
+    const valve = new ValveGraphic({
       id: VALVE_ID_BASE + index,
-      type: 'valve',
-      tx,
-      ty: centerY,
-      sx: symbolSize,
-      sy: symbolSize,
-      beta: 0,
-      selected: 0,
-      valveOpen: 1,
-      worldAABB: computeRotatedAABB(tx, centerY, symbolSize, symbolSize, 0),
-    };
+      x: tx,
+      y: centerY,
+      width: symbolSize,
+      height: symbolSize,
+    });
+    valve.clearDirty();
     valves.push(valve);
     scene.upsertValve(valve);
   }
@@ -76,7 +71,7 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
   for (let index = 1; index < valveCount; index += 1) {
     const from = valves[index - 1];
     const to = valves[index];
-    const pipe = createPipeItem(
+    const pipe = createFlowPipe(
       PIPE_ID_BASE + index,
       [
         { x: from.tx + halfSymbol, y: centerY },
@@ -93,7 +88,7 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
   }
 
   if (initialClosedIndex >= 0 && initialClosedIndex < valveCount) {
-    valves[initialClosedIndex].valveOpen = 0;
+    valves[initialClosedIndex].setOpen(false);
   }
   applyValveFlowState(topology, scene.valves.values(), scene.pipes);
 
@@ -101,11 +96,11 @@ export function createValveDemoScene(options: ValveDemoOptions = {}): ValveDemoS
 }
 
 /** 切换阀门开闭，并把下游管线切到对应样式 */
-export function toggleValve(scene: ValveDemoScene, valveId: number): ValveItem | null {
+export function toggleValve(scene: ValveDemoScene, valveId: number): ValveGraphic | null {
   const valve = scene.scene.valves.get(valveId);
   if (!valve) return null;
 
-  valve.valveOpen = valve.valveOpen > 0.5 ? 0 : 1;
+  valve.toggleOpen();
   // 状态变化也统一走 upsert（方案 A 约定：业务侧只需一个入口）
   scene.scene.upsertValve(valve);
   applyValveFlowState(scene.topology, scene.scene.valves.values(), scene.scene.pipes);

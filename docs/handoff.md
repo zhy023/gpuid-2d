@@ -19,12 +19,17 @@
 - 纹理：`loadTextureFromUrl`、`createTextureFromBitmap`、默认白纹理、采样器
 - 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容）、`layoutText`（字素排版、颜色、底板、描边 halo）、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`、`QuadTreeStore`、AABB/折线膨胀、`composeTransform2d`、`spriteInstance`
+- 图形基类（所有图形的抽象层，业务无关）：
+  `Graphic`（位置 / 大小 / 旋转 + 可见 / 选中 / dirty，实现 `QuadTreeItem`，可直接进 `QuadTreeStore`）
+  → `NodeGraphic`（背景 / 边框 / 开关状态 / hover）+ 开箱实现 `RectNode`
+  → `PipeGraphic`（管身底色 / 描边 / 开关状态，打开时流动动画）+ 开箱实现 `PolylinePipe`
 
 ### business/pid_schematic
 
 - 管线：分段实例化（拐点补方块、流动相位连续）、像素宽度档位 2–10、逐实例 `strokeColor`、
   `flowSpeed` 三态（`>0` 流动 / `<0` 静止虚线 / `=0` 实心）
-- 阀门：开关两态贴图精灵、拾取器托管
+- 阀门（`ValveGraphic`，节点基类的业务实现）：开关两态贴图精灵、拾取器托管
+- 流动管线（`FlowPipe`，管线基类的业务实现）：静止虚线 + 流速三态；设备矩形直接用内核的 `RectNode`
 - 拓扑：`applyValveFlowState` 下游广播
 - 场景：`PidScene` 统一增删改与可见集
 - 数据源解析：`drawio/mx_style.ts` + `drawio/mx_document.ts`（零运行时依赖，`DOMParser` 注入；
@@ -49,11 +54,14 @@
 
 ## 下一步
 
-1. 图纸交互：拾取（`PidScene` 的图元 id 已可直接喂 `pickFirst`）、框选、悬浮预览
-2. 图集淘汰与显存上限：位号图集与图标纹理目前只增不减，长跑要加 LRU 或页数上限
-3. 文字 LOD：大图缩小时隐藏位号或切换字号
-4. 数据接入：DXF / 后端图纸 JSON（`PidScene` 已就绪，只差解析器）
-5. 性能面板：draw call / 实例数 / 剔除数 / 帧时间
+1. 边框渲染：图形模型已经有 `borderColor` / `borderWidth`，但实例结构体 16×f32 已占满
+   （变换 8 + 图集 uv 4 + 颜色 4），要真画边框得给 `InstanceTransform` 加一条边框通道并改着色器
+2. hover 交互：`NodeGraphic` 已有 `hovered` 状态，还差在 demo 里把 pointermove 接到拾取
+3. 图纸交互：拾取（`PidScene` 的图元 id 已可直接喂 `pickFirst`）、框选、悬浮预览
+4. 图集淘汰与显存上限：位号图集与图标纹理目前只增不减，长跑要加 LRU 或页数上限
+5. 文字 LOD：大图缩小时隐藏位号或切换字号
+6. 数据接入：DXF / 后端图纸 JSON（`PidScene` 已就绪，只差解析器）
+7. 性能面板：draw call / 实例数 / 剔除数 / 帧时间
 
 样例数据：`public/assets/graph/meta_demo.xml`（532 个 mxCell，图纸范围 1238×984）
 
@@ -62,6 +70,8 @@
 - `copyExternalImageToTexture` 的目标纹理必须带 `RENDER_ATTACHMENT`，否则整张上传被拒、采样全透明
 - 额外实例（文字/贴图）必须只由图集批次绘制：`setInstances` 的数量只算基础批次，否则会被白纹理批次画成实心方块
 - 实例结构体 64B：变换 8 + 图集 uv 4 + 逐实例颜色 4（颜色在 `offset 12–15`）
+- 模型层与实例契约的分工：图形基类的 `selected` 是布尔，打包成实例时才用 `selectedFlag`（0/1）
+  映射；「背景」对应逐实例颜色通道，新增渲染通道要改 `InstanceTransform` 与全部打包点
 - `GPUQueue.writeBuffer` 的 `dataOffset` / `size` 对 TypedArray 是**元素数**（不是字节数），
   但 `bufferOffset` 是字节；两者混用会写错区间
 - wgpu-matrix 的 `mat3` 是 12 个元素（不是 9）

@@ -9,11 +9,10 @@
  */
 import type { MxDocument, MxNode } from '@/business/pid_schematic/drawio/mx_document';
 import { mxFlag, mxNumber } from '@/business/pid_schematic/drawio/mx_style';
+import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
-import { createPipeItem, setPipeDashed, setPipeFlow } from '@/business/pid_schematic/pipe_line';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
-import type { StressTestItem } from '@/business/pid_schematic/device_stress_test';
-import { computeRotatedAABB } from '@/core/geometry/aabb';
+import { RectNode } from '@/core/scene/rect_node';
 import type { AABB } from '@/core/types';
 
 /** 位号：文字 + 世界坐标 + 颜色（rgba） */
@@ -160,13 +159,13 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
         continue;
       }
       const lineWidthPx = snapPipeLineWidthPx(mxNumber(node.style, 'strokeWidth', 2));
-      const pipe = createPipeItem(idOf(node.id), points, lineWidthPx);
-      // 图纸管线默认静止（正式图纸不需要流动条纹），需要动画时由上层再打开
-      setPipeFlow(pipe, false);
+      const pipe = createFlowPipe(idOf(node.id), points, lineWidthPx);
+      // 图纸管线默认关闭（正式图纸不需要流动条纹），需要动画时由上层再打开
+      pipe.setOpen(false);
       // 图纸里 dashed=1 的管线画成静态虚线
-      if (mxFlag(node.style, 'dashed')) setPipeDashed(pipe, true);
-      // 图纸的 strokeColor → 逐实例管线颜色（拿不到就用默认配色）
-      pipe.strokeColor = parseDrawioColor(node.style.strokeColor) ?? undefined;
+      pipe.setDashed(mxFlag(node.style, 'dashed'));
+      // 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色）
+      pipe.setBackground(parseDrawioColor(node.style.strokeColor));
       scene.upsertPipe(pipe);
       stats.pipes += 1;
       continue;
@@ -183,19 +182,16 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
     // flipH/flipV 用负缩放表达（贴图跟着镜像，和 drawio 一致）
     const sx = mxFlag(node.style, 'flipH') ? -node.width : node.width;
     const sy = mxFlag(node.style, 'flipV') ? -node.height : node.height;
-    const device: StressTestItem = {
+    const device = new RectNode({
       id: idOf(node.id),
-      dirty: false,
-      tx: center.x,
-      ty: center.y,
-      sx,
-      sy,
-      beta,
-      selected: 0,
-      fillColor: parseDrawioColor(node.style.fillColor) ?? undefined,
-      // 旋转后 AABB 会变大，必须按旋转矩形算，否则剔除会漏图元
-      worldAABB: computeRotatedAABB(center.x, center.y, sx, sy, beta),
-    };
+      x: center.x,
+      y: center.y,
+      width: sx,
+      height: sy,
+      rotation: beta,
+      backgroundColor: parseDrawioColor(node.style.fillColor),
+    });
+    device.clearDirty();
     scene.upsertDevice(device);
     stats.devices += 1;
 

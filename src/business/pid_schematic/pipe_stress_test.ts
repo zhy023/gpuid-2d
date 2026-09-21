@@ -1,14 +1,11 @@
-import {
-  createPipeItem,
-  rebuildPipeGeometry,
-  computePipeAABB,
-} from '@/business/pid_schematic/pipe_line';
+import { createFlowPipe, type FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { initPipe } from '@/business/pid_schematic/pipe_manager';
 import { PIPE_LINE_WIDTH_STEPS } from '@/business/pid_schematic/pipe_style';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
+import type { Point } from '@/core/geometry/polyline';
 import type { AABB } from '@/core/types';
 
-export type PipeTestItem = ReturnType<typeof createPipeItem>;
+export type PipeTestItem = FlowPipe;
 
 export class PipeStressTester {
   public readonly itemMap = new Map<number, PipeTestItem>();
@@ -49,7 +46,7 @@ export class PipeStressTester {
       // P&ID 管线就是两点之间的一条直线段：横平竖直，没有斜线和其他形状
       const runLength = 200 + Math.random() * 600;
       const direction = Math.random() < 0.5 ? -1 : 1;
-      const points: Array<{ x: number; y: number }> =
+      const points: Point[] =
         Math.random() < 0.5
           ? [
               { x: startX, y: startY },
@@ -63,12 +60,10 @@ export class PipeStressTester {
       const lineWidthPx =
         PIPE_LINE_WIDTH_STEPS[Math.floor(Math.random() * PIPE_LINE_WIDTH_STEPS.length)];
 
-      const pipeItem = createPipeItem(i, points, lineWidthPx);
-      // 管线之间只有粗细不同：颜色、条纹、流速全部一致
-      pipeItem.flowSpeed = 1.0;
-      pipeItem.dirty = false;
-      rebuildPipeGeometry(pipeItem);
-      pipeItem.worldAABB = computePipeAABB(pipeItem);
+      const pipeItem = createFlowPipe(i, points, lineWidthPx);
+      // 管线之间只有粗细不同：颜色、条纹、流速全部一致（打开 = 流动动画）
+      pipeItem.setOpen(true);
+      pipeItem.clearDirty();
 
       this.itemMap.set(i, pipeItem);
       this.scene.upsertPipe(pipeItem);
@@ -87,11 +82,11 @@ export class PipeStressTester {
             pt.x += (Math.random() - 0.5) * 6;
             pt.y += (Math.random() - 0.5) * 6;
           }
-          // 几何变了：重建膨胀缓存与包围盒，并更新空间索引
-          rebuildPipeGeometry(item);
-          item.worldAABB = computePipeAABB(item);
+          // 几何变了：让包围盒失效（顶点是原地改的，显式通知一次），重建膨胀缓存并更新索引
+          item.markGeometryDirty();
+          item.rebuildGeometry();
           this.scene.upsertPipe(item);
-          item.dirty = false;
+          item.clearDirty();
           geometryChanged = true;
         }
       }

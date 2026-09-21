@@ -9,7 +9,7 @@ import { renderPipes } from '@/business/pid_schematic/pipe_manager';
 import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import { getValveResources } from '@/business/pid_schematic/valve_manager';
 import { PIPE_LINE_WIDTH_MAX_PX, pipeLineWidthToWorld } from '@/business/pid_schematic/pipe_style';
-import type { ValveItem } from '@/business/pid_schematic/types';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import { layoutText } from '@/core/text/text_batch';
 import { buildValveSpriteInstances } from '@/business/pid_schematic/valve_instances';
 import { buildValveLabelInstances } from '@/business/pid_schematic/valve_labels';
@@ -32,7 +32,7 @@ export interface DemoFrameContext {
   /** 更新矩形可见集与实例缓冲，返回当前矩形实例列表 */
   updateVisibleInstances: () => readonly RectInstance[];
   /** 每帧回写可见阀门（输入层拾取按同一数组下标解读） */
-  onVisibleValves: (valves: readonly ValveItem[]) => void;
+  onVisibleValves: (valves: readonly ValveGraphic[]) => void;
 }
 
 export interface DemoFrameRunner {
@@ -58,7 +58,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
   }
 
   /** 位号与标题的实例（每字一个，图集 uv 写在实例里） */
-  function buildTextInstances(valves: readonly ValveItem[]) {
+  function buildTextInstances(valves: readonly ValveGraphic[]) {
     const pixelsPerWorldUnit = camera.scale;
     const titleInstances = layoutText(titleAtlas, TITLE, {
       x: -260,
@@ -72,7 +72,7 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
   }
 
   /** 阀门精灵：口径（开关态分组、@2x 一半尺寸）由业务层决定 */
-  function buildValveSprites(valves: readonly ValveItem[]) {
+  function buildValveSprites(valves: readonly ValveGraphic[]) {
     return buildValveSpriteInstances(valves, {
       textureWidth: resources.valveTextureWidth,
       textureHeight: resources.valveTextureHeight,

@@ -47,6 +47,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
 - 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容）、`layoutText`（字素簇排版、逐实例颜色、可选底板与描边 halo）、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB/折线膨胀、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）、`spriteInstance`
+- 图形基类：`Graphic`（位置/大小/旋转 + 可见/选中/变更标记，实现 `QuadTreeItem`，可直接进四叉树）→ `NodeGraphic`（背景/边框/开关/hover）+ `RectNode`、`PipeGraphic`（管身底色/描边/开关，打开即流动动画）+ `PolylinePipe`；业务层的设备矩形、阀门、流动管线都是这层的实现类
 - 着色器工程：自研 `#include`（`@/` 别名）+ 生成期展开成字符串模块（`pnpm shaders`）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
 
 **业务（business/pid_schematic）**
@@ -89,7 +90,7 @@ src/
 ├─ core/                        # 引擎内核：业务无关
 │  ├─ gpu/                      # device / context（装配与重建）/ renderer / picker / surface / texture / render_state / render_layer
 │  ├─ geometry/                 # 顶点几何、AABB、四叉树、折线膨胀、2D 变换、精灵实例
-│  ├─ scene/                    # QuadTreeStore：图元索引与视口查询
+│  ├─ scene/                    # 图形基类（Graphic / NodeGraphic / PipeGraphic + RectNode / PolylinePipe）+ QuadTreeStore 索引
 │  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText
 │  ├─ shader/                   # core_include + core_render；generated/ 为展开后的字符串模块
 │  ├─ camera.ts                 # 正交相机
@@ -97,8 +98,9 @@ src/
 ├─ business/pid_schematic/      # P&ID 业务层
 │  ├─ shader/                   # 管线、阀门着色器；generated/ 为展开后的字符串模块
 │  ├─ pid_scene.ts              # 设备/管线/阀门统一增删改与可见集
-│  ├─ pipe_*.ts                 # 样式、图元、实例化、pipeline、模块入口、压测数据
-│  ├─ valve_*.ts                # 阀门 pipeline、实例/精灵、模块入口、位号口径、示例链
+│  ├─ flow_pipe.ts              # 流动管线（管线基类的业务实现：静止虚线、流速三态）
+│  ├─ pipe_*.ts                 # 样式、实例化、pipeline、模块入口、压测数据
+│  ├─ valve_*.ts                # 阀门图元（节点基类的业务实现）、pipeline、实例/精灵、位号、示例链
 │  ├─ topology.ts               # 管线-设备拓扑与下游样式广播
 │  ├─ drawio/                   # mxGraphModel → PidScene 翻译层（mx_document / mx_style / to_pid_scene）
 │  └─ device_stress_test.ts     # 设备图元压测数据

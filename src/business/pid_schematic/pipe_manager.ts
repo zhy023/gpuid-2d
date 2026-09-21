@@ -1,10 +1,10 @@
 import {
   disposePipeInstances,
   renderAllVisiblePipes,
+  type PipeBatchItem,
 } from '@/business/pid_schematic/pipe_instances';
 import { createPipeRenderResources } from '@/business/pid_schematic/pipe_pipeline';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
-import type { QuadItem } from '@/core/types';
 
 let pipeRes: PipeRenderResources | null = null;
 let gpuDevice: GPUDevice | null = null;
@@ -54,7 +54,7 @@ export async function initPipe(device: GPUDevice, canvasFormat: GPUTextureFormat
 export function renderPipes(
   passEncoder: GPURenderPassEncoder,
   viewProj: Float32Array,
-  visibleItems: QuadItem[],
+  visibleItems: readonly PipeBatchItem[],
   pixelsPerWorldUnit: number,
 ): void {
   if (!pipeRes || !gpuDevice || !pipeTemplateVertexBuffer) return;

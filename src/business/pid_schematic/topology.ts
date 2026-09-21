@@ -1,8 +1,8 @@
 /**
  * P&ID 拓扑：管线连接哪两个设备（阀门等），以及由阀门开闭推导下游管线的流动样式。
  */
-import { setPipeFlow } from '@/business/pid_schematic/pipe_line';
-import type { PipePolylineItem, ValveItem } from '@/business/pid_schematic/types';
+import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 
 export interface TopologyLink {
   /** 管线图元 id */
@@ -71,20 +71,20 @@ export class Topology {
  *      途中遇到其它设备继续往下游走（那个设备自己的开关由它那一轮处理）
  *
  * @param topology 拓扑关系
- * @param valves 设备图元（阀门），读取 id 与 valveOpen
+ * @param valves 设备图元（阀门），读取 id 与开关状态
  * @param pipes 管线图元表，按 id 取
  */
 export function applyValveFlowState(
   topology: Topology,
-  valves: Iterable<ValveItem>,
+  valves: Iterable<ValveGraphic>,
   pipes: PipeLookup,
 ): void {
   for (const pipe of pipes.values()) {
-    setPipeFlow(pipe, true);
+    pipe.setOpen(true);
   }
 
   for (const valve of valves) {
-    if (valve.valveOpen > 0.5) continue;
+    if (valve.open) continue;
 
     const visitedPipes = new Set<number>();
     const visitedElements = new Set<number>([valve.id]);
@@ -96,7 +96,7 @@ export function applyValveFlowState(
         if (!visitedPipes.has(link.pipelineId)) {
           visitedPipes.add(link.pipelineId);
           const pipe = pipes.get(link.pipelineId);
-          if (pipe) setPipeFlow(pipe, false);
+          if (pipe) pipe.setOpen(false);
         }
         // 环路保护：同一个设备只展开一次
         if (!visitedElements.has(link.targetElementId)) {
@@ -109,6 +109,6 @@ export function applyValveFlowState(
 }
 /** 管线查找表：Map 与 core 的 QuadTreeStore 都满足这个结构 */
 export interface PipeLookup {
-  values(): Iterable<PipePolylineItem>;
-  get(id: number): PipePolylineItem | undefined;
+  values(): Iterable<FlowPipe>;
+  get(id: number): FlowPipe | undefined;
 }

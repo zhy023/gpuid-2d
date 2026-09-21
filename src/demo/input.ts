@@ -4,7 +4,7 @@
  * 拾取机制都在 core（屏幕坐标换算 `pickAt`、按候选顺序试到命中 `pickFirst`），
  * 这里只声明「优先级顺序」与「命中后的业务动作」。
  */
-import type { ValveItem } from '@/business/pid_schematic/types';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import { toggleValve, type ValveDemoScene } from '@/business/pid_schematic/valve_demo';
 import { getValvesBindGroup } from '@/business/pid_schematic/valve_manager';
 import type { Camera2d } from '@/core/camera';
@@ -28,7 +28,7 @@ export interface DemoInputContext {
   /** 画布表面：尺寸变化时统一重配上下文并重建内部纹理 */
   surface: CanvasSurface;
   /** 当前帧可见设备图元（拾取下标 = 数组下标） */
-  getVisibleValves: () => readonly ValveItem[];
+  getVisibleValves: () => readonly ValveGraphic[];
   /** 当前帧矩形实例（数量用于限制拾取范围） */
   getInstanceList: () => readonly RectInstance[];
   /** 命中可见数组下标后的选中处理 */
@@ -87,9 +87,7 @@ export function bindDemoInput(ctx: DemoInputContext): () => void {
       const toggled = toggleValve(valveScene, hitValve.id);
       if (!toggled) return;
       console.log(
-        `阀门 ${toggled.id}：${
-          toggled.valveOpen > 0.5 ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'
-        }`,
+        `阀门 ${toggled.id}：${toggled.open ? '打开（下游恢复流动）' : '关闭（下游恢复默认样式）'}`,
       );
       return;
     }

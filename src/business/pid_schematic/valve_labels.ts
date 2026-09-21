@@ -2,7 +2,7 @@
  * 阀门位号（标签）：属于业务表现——显示什么文字、什么颜色、摆在符号的什么位置。
  * 排版本身交给 core 的文字模块（layoutText），这里只给业务口径。
  */
-import type { ValveItem } from '@/business/pid_schematic/types';
+import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { layoutText } from '@/core/text/text_batch';
 import type { RectInstance } from '@/core/types';
@@ -15,7 +15,7 @@ export const VALVE_LABEL_OFFSET = { x: -60, y: 100 } as const;
 export interface ValveLabelOptions {
   pixelsPerWorldUnit: number;
   /** 位号文本；默认「你好 <编号后三位>」用于演示中英文混排 */
-  label?: (valve: ValveItem) => string;
+  label?: (valve: ValveGraphic) => string;
   offsetX?: number;
   offsetY?: number;
 }
@@ -27,12 +27,12 @@ export interface ValveLabelOptions {
  */
 export function buildValveLabelInstances(
   atlas: GlyphAtlas,
-  valves: readonly ValveItem[],
+  valves: readonly ValveGraphic[],
   options: ValveLabelOptions,
 ): RectInstance[] {
   const {
     pixelsPerWorldUnit,
-    label = (valve: ValveItem) => `你好 ${valve.id % 1000}`,
+    label = (valve: ValveGraphic) => `你好 ${valve.id % 1000}`,
     offsetX = VALVE_LABEL_OFFSET.x,
     offsetY = VALVE_LABEL_OFFSET.y,
   } = options;

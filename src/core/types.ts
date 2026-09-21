@@ -25,6 +25,12 @@ export interface AABB {
   maxY: number;
 }
 
+/** 2D 点（世界坐标） */
+export interface Point2 {
+  x: number;
+  y: number;
+}
+
 // 四叉树索引最小单元：几何/空间层只依赖 id 与世界AABB，不感知渲染字段
 export interface QuadTreeItem {
   id: number;
@@ -42,5 +48,6 @@ export interface QuadItem extends QuadTreeItem {
   sx: number;
   sy: number;
   beta: number;
-  selected: number; // 0未选中，1选中
+  /** 选中态：模型层用布尔，打包成实例时才映射成 float（着色器按 > 0.5 判定） */
+  selected: boolean;
 }
