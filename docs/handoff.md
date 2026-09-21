@@ -19,17 +19,18 @@
 - 纹理：`loadTextureFromUrl`、`createTextureFromBitmap`、默认白纹理、采样器
 - 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容）、`layoutText`（字素排版、颜色、底板、描边 halo）、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`、`QuadTreeStore`、AABB/折线膨胀、`composeTransform2d`、`spriteInstance`
-- 图形基类（所有图形的抽象层，业务无关）：
-  `Graphic`（位置 / 大小 / 旋转 + 可见 / 选中 / dirty，实现 `QuadTreeItem`，可直接进 `QuadTreeStore`）
-  → `NodeGraphic`（背景 / 边框 / 开关状态 / hover）+ 开箱实现 `RectNode`
-  → `PipeGraphic`（管身底色 / 描边 / 开关状态，打开时流动动画）+ 开箱实现 `PolylinePipe`
+- 图形基类（全库唯一一层抽象，业务无关，用法参考 PixiJS 的 `Graphics`）：`Graphic` 同时承载
+  位置/大小/旋转、基本属性（可见/选中/dirty）、外观（`fill` / `stroke`）、状态（开关/hover）、
+  动画（`animationSpeed` / `flowOffset`）与形状绘制命令（`rect` / `square` / `circle` / `ellipse` /
+  `polyline`）；实现 `QuadTreeItem`，可直接进 `QuadTreeStore`。圆形/椭圆把形状编码写进实例的
+  shape 通道，渲染与拾取着色器都按包围盒内切圆裁剪
 
 ### business/pid_schematic
 
 - 管线：分段实例化（拐点补方块、流动相位连续）、像素宽度档位 2–10、逐实例 `strokeColor`、
   `flowSpeed` 三态（`>0` 流动 / `<0` 静止虚线 / `=0` 实心）
-- 阀门（`ValveGraphic`，节点基类的业务实现）：开关两态贴图精灵、拾取器托管
-- 流动管线（`FlowPipe`，管线基类的业务实现）：静止虚线 + 流速三态；设备矩形直接用内核的 `RectNode`
+- 阀门（`ValveGraphic`，图形基类的业务实现）：开关两态贴图精灵、拾取器托管
+- 流动管线（`FlowPipe`，图形基类的业务实现）：静止虚线 + 流速三态；设备矩形直接用内核的 `Graphic`
 - 拓扑：`applyValveFlowState` 下游广播
 - 场景：`PidScene` 统一增删改与可见集
 - 数据源解析：`drawio/mx_style.ts` + `drawio/mx_document.ts`（零运行时依赖，`DOMParser` 注入；
@@ -56,7 +57,7 @@
 
 1. 边框渲染：图形模型已经有 `borderColor` / `borderWidth`，但实例结构体 16×f32 已占满
    （变换 8 + 图集 uv 4 + 颜色 4），要真画边框得给 `InstanceTransform` 加一条边框通道并改着色器
-2. hover 交互：`NodeGraphic` 已有 `hovered` 状态，还差在 demo 里把 pointermove 接到拾取
+2. hover 交互：`Graphic` 已有 `hovered` 状态，还差在 demo 里把 pointermove 接到拾取
 3. 图纸交互：拾取（`PidScene` 的图元 id 已可直接喂 `pickFirst`）、框选、悬浮预览
 4. 图集淘汰与显存上限：位号图集与图标纹理目前只增不减，长跑要加 LRU 或页数上限
 5. 文字 LOD：大图缩小时隐藏位号或切换字号

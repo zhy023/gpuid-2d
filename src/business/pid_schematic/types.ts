@@ -2,7 +2,7 @@
  * P&ID 业务层类型：只在这里出现管线/阀门等业务概念，引擎内核（@/core）不感知它们。
  *
  * 图元本体（设备矩形 / 流动管线 / 阀门）现在是内核图形基类的实现类：
- * `@/core/graphic/rect_node`、`@/business/pid_schematic/flow_pipe`、
+ * `@/core/scene/rect_node`、`@/business/pid_schematic/flow_pipe`、
  * `@/business/pid_schematic/valve_graphic`；这里只留 GPU 侧的数据结构与资源。
  */
 

@@ -6,29 +6,29 @@
  */
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import type { RectNode } from '@/core/graphic/rect_node';
-import { QuadTreeStore } from '@/core/graphic/quad_tree_store';
+import type { Graphic } from '@/core/scene/graphic';
+import { QuadTreeStore } from '@/core/scene/quad_tree_store';
 import type { AABB } from '@/core/types';
 
 export interface PidVisibleItems {
-  devices: RectNode[];
+  devices: Graphic[];
   pipes: FlowPipe[];
   valves: ValveGraphic[];
 }
 
 export class PidScene {
-  readonly devices: QuadTreeStore<RectNode>;
+  readonly devices: QuadTreeStore<Graphic>;
   readonly pipes: QuadTreeStore<FlowPipe>;
   readonly valves: QuadTreeStore<ValveGraphic>;
 
   constructor(worldBounds: AABB) {
-    this.devices = new QuadTreeStore<RectNode>(worldBounds);
+    this.devices = new QuadTreeStore<Graphic>(worldBounds);
     this.pipes = new QuadTreeStore<FlowPipe>(worldBounds);
     this.valves = new QuadTreeStore<ValveGraphic>(worldBounds);
   }
 
   /** 新增或更新设备图元（位置/尺寸/选中态变化都走这里） */
-  upsertDevice(item: RectNode): void {
+  upsertDevice(item: Graphic): void {
     this.devices.update(item);
   }
 

@@ -12,7 +12,7 @@ import {
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
-import type { Rgba } from '@/core/graphic/graphic';
+import type { Rgba } from '@/core/scene/graphic';
 
 /**
  * 一轮管线条带实例化能出现的图元：管线本身（FlowPipe）
@@ -198,7 +198,7 @@ function packPipeInstanceItems(
         (start.x + end.x) / 2,
         (start.y + end.y) / 2,
         item.selectedFlag,
-        pipe.backgroundColor,
+        pipe.fillColor,
       );
       // flowOffset 用世界里程，保证条纹沿整条管线连续
       writePidInstanceData(writeIdx, 0, flowSpeed, travelled);
@@ -218,7 +218,7 @@ function packPipeInstanceItems(
           end.x,
           end.y,
           item.selectedFlag,
-          pipe.backgroundColor,
+          pipe.fillColor,
         );
         writePidInstanceData(writeIdx, 0, flowSpeed, travelled);
         writeIdx += 1;

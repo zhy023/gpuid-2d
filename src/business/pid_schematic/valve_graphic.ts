@@ -1,14 +1,14 @@
 /**
- * 阀门图元：节点基类在 P&ID 业务里的一个实现。
+ * 阀门图元：图形基类在 P&ID 业务里的一个实现（形状是矩形，外观由阀门着色器画）。
  *
- * 「开 / 关」用的就是节点基类的开关状态 `open`：符号由阀门着色器按它画成
+ * 「开 / 关」用的就是图形基类的开关状态 `open`：符号由阀门着色器按它画成
  * 打开（中心挖空，透出下层管线）或关闭（红色十字封堵）；
  * 下游管线的流动样式由拓扑层（`topology.ts`）沿流向派生。
  */
-import { NodeGraphic } from '@/core/graphic/node_graphic';
+import { Graphic, type GraphicType } from '@/core/scene/graphic';
 
-export class ValveGraphic extends NodeGraphic {
-  get type(): 'valve' {
+export class ValveGraphic extends Graphic {
+  get type(): GraphicType {
     return 'valve';
   }
 

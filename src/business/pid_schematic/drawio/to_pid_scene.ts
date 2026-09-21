@@ -12,7 +12,7 @@ import { mxFlag, mxNumber } from '@/business/pid_schematic/drawio/mx_style';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
-import { RectNode } from '@/core/graphic/rect_node';
+import { Graphic } from '@/core/scene/graphic';
 import type { AABB } from '@/core/types';
 
 /** 位号：文字 + 世界坐标 + 颜色（rgba） */
@@ -165,7 +165,7 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
       // 图纸里 dashed=1 的管线画成静态虚线
       pipe.setDashed(mxFlag(node.style, 'dashed'));
       // 图纸的 strokeColor → 管身底色（拿不到就沿用管线着色器的默认配色）
-      pipe.setBackground(parseDrawioColor(node.style.strokeColor));
+      pipe.fill(parseDrawioColor(node.style.strokeColor));
       scene.upsertPipe(pipe);
       stats.pipes += 1;
       continue;
@@ -182,14 +182,14 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
     // flipH/flipV 用负缩放表达（贴图跟着镜像，和 drawio 一致）
     const sx = mxFlag(node.style, 'flipH') ? -node.width : node.width;
     const sy = mxFlag(node.style, 'flipV') ? -node.height : node.height;
-    const device = new RectNode({
+    const device = new Graphic({
       id: idOf(node.id),
       x: center.x,
       y: center.y,
       width: sx,
       height: sy,
       rotation: beta,
-      backgroundColor: parseDrawioColor(node.style.fillColor),
+      fillColor: parseDrawioColor(node.style.fillColor),
     });
     device.clearDirty();
     scene.upsertDevice(device);

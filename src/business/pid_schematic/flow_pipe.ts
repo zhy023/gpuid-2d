@@ -1,7 +1,7 @@
 /**
- * 流动管线：管线基类在 P&ID 业务里的一个实现。
+ * 流动管线：图形基类在 P&ID 业务里的一个实现（形状是折线，外观是管身底色）。
  *
- * 管线基类只表达「打开 → 有流动动画」，这里补两块 P&ID 语义：
+ * 图形基类只表达「打开 → 有流动动画」，这里补两块 P&ID 语义：
  *  - 静止虚线：图纸里 `dashed=1` 的管线画条纹但不随时间移动
  *  - 速度约定：交给管线着色器的 `flowSpeed` 用符号区分三态
  *    `> 0` 流动 / `< 0` 静止虚线 / `= 0` 实心默认样式
@@ -11,12 +11,12 @@ import {
   snapPipeLineWidthPx,
 } from '@/business/pid_schematic/pipe_style';
 import { expandPolyline, type ExpandResult, type Point } from '@/core/geometry/polyline';
-import { PolylinePipe } from '@/core/graphic/polyline_pipe';
+import { Graphic } from '@/core/scene/graphic';
 
 /** 静止虚线的速度约定值（着色器按符号判定三态） */
 export const PIPE_DASHED_FLOW_SPEED = -1;
 
-export class FlowPipe extends PolylinePipe {
+export class FlowPipe extends Graphic {
   /** 膨胀几何缓存：按屏幕像素粗细折算成世界宽度后展开的三角带 */
   geoCache: ExpandResult | null = null;
 
@@ -50,7 +50,8 @@ export function createFlowPipe(
   points: readonly Point[],
   lineWidthPx = PIPE_LINE_WIDTH_DEFAULT_PX,
 ): FlowPipe {
-  const pipe = new FlowPipe({ id, points, lineWidthPx: snapPipeLineWidthPx(lineWidthPx) });
+  const pipe = new FlowPipe({ id });
+  pipe.polyline(points, snapPipeLineWidthPx(lineWidthPx));
   pipe.rebuildGeometry();
   return pipe;
 }

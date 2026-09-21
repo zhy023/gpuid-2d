@@ -15,6 +15,8 @@ export interface RectInstance {
   colorG: number;
   colorB: number;
   colorA: number;
+  /** 形状编码（见 `GRAPHIC_SHAPE_*`）：0 = 方框，1 = 圆/椭圆；缺省方框 */
+  shape?: number;
 }
 
 // 基础AABB包围盒

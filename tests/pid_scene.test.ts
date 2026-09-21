@@ -6,16 +6,16 @@ import { describe, it } from 'node:test';
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import { RectNode } from '@/core/graphic/rect_node';
+import { Graphic } from '@/core/scene/graphic';
 import type { AABB } from '@/core/types';
 
 const BOUNDS: AABB = { minX: -1000, minY: -1000, maxX: 1000, maxY: 1000 };
 const VIEWPORT: AABB = { minX: -200, minY: -200, maxX: 200, maxY: 200 };
 const FAR_VIEWPORT: AABB = { minX: 800, minY: 800, maxX: 900, maxY: 900 };
 
-function makeDevice(id: number, x: number, y: number): RectNode {
-  // 设备矩形就是内核的矩形节点：包围盒由位置/宽高自己算
-  return new RectNode({ id, x, y, width: 20, height: 20 });
+function makeDevice(id: number, x: number, y: number): Graphic {
+  // 设备矩形就是最普通的图形：包围盒由位置/宽高自己算
+  return new Graphic({ id, x, y, width: 20, height: 20 });
 }
 
 function makeValve(id: number, x: number, y: number): ValveGraphic {

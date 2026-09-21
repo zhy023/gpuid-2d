@@ -33,7 +33,8 @@ export function packRectInstances(list: readonly RectInstance[]): Float32Array {
     data[offset + 3] = instance.tx;
     data[offset + 4] = instance.ty;
     data[offset + 5] = instance.selected ?? 0;
-    data[offset + 6] = 0;
+    // shape：方框 / 圆（着色器按它裁形状），pad1 仍留空
+    data[offset + 6] = instance.shape ?? 0;
     data[offset + 7] = 0;
     data[offset + 8] = instance.u0;
     data[offset + 9] = instance.v0;
@@ -309,7 +310,7 @@ export class Renderer2D {
       arr[offset + 3] = inst.tx;
       arr[offset + 4] = inst.ty;
       arr[offset + 5] = inst.selected ?? 0;
-      arr[offset + 6] = 0; // pad0 ✅补齐wgsl结构体padding，防止内存错位
+      arr[offset + 6] = inst.shape ?? 0; // shape：0 方框 / 1 圆（着色器按它裁形状）
       arr[offset + 7] = 0; // pad1 ✅补齐
       // 图集 uv：矩形图元默认整张纹理
       arr[offset + 8] = inst.u0;

@@ -19,6 +19,7 @@ struct VertexOutput {
     @location(1) isInstanceSelected: f32,
     @location(2) atlasUvRect: vec4f,
     @location(3) instanceColor: vec4f,
+    @location(4) shape: f32,
 };
 
 @vertex
@@ -34,6 +35,7 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> 
     out.isInstanceSelected = inst.isSelected;
     out.atlasUvRect = inst.atlasUvRect;
     out.instanceColor = inst.color;
+    out.shape = inst.shape;
     return out;
 }
 
@@ -51,5 +53,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let hasInstanceColor = input.instanceColor.a > 0.5;
     let rgb = select(color.rgb, input.instanceColor.rgb, hasInstanceColor);
     let alpha = color.a * texel.a * select(1.0, input.instanceColor.a, hasInstanceColor);
-    return vec4f(rgb * texel.rgb, alpha);
+    // 形状裁剪：圆/椭圆按包围盒内切圆裁掉四角（localUv 是 [-0.5, 0.5]）
+    let edge = length(input.localUv) * 2.0;
+    let circleMask = 1.0 - smoothstep(0.94, 1.02, edge);
+    let shapeMask = select(1.0, circleMask, input.shape > 0.5);
+    return vec4f(rgb * texel.rgb, alpha * shapeMask);
 }

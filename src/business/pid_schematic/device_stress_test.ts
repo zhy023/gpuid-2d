@@ -6,11 +6,11 @@
  * 因此 tick() 不再全量扫描 5 万条图元找 dirty。
  */
 import { PidScene } from '@/business/pid_schematic/pid_scene';
-import { RectNode } from '@/core/graphic/rect_node';
+import { Graphic } from '@/core/scene/graphic';
 import type { AABB, RectInstance } from '@/core/types';
 
-/** 设备图元（= 内核矩形节点）→ 实例化绘制数据（几何 + 选中态；uv 整张纹理、颜色取背景色） */
-export function toRectInstances(items: readonly RectNode[]): RectInstance[] {
+/** 设备图元 → 实例化绘制数据（几何 + 选中态 + 形状；uv 整张纹理、颜色取填充色） */
+export function toRectInstances(items: readonly Graphic[]): RectInstance[] {
   return items.map((item) => ({
     sx: item.width,
     sy: item.height,
@@ -23,15 +23,16 @@ export function toRectInstances(items: readonly RectNode[]): RectInstance[] {
     v0: 0,
     u1: 1,
     v1: 1,
-    colorR: item.backgroundColor?.[0] ?? 0,
-    colorG: item.backgroundColor?.[1] ?? 0,
-    colorB: item.backgroundColor?.[2] ?? 0,
-    colorA: item.backgroundColor?.[3] ?? 0,
+    colorR: item.fillColor?.[0] ?? 0,
+    colorG: item.fillColor?.[1] ?? 0,
+    colorB: item.fillColor?.[2] ?? 0,
+    colorA: item.fillColor?.[3] ?? 0,
+    shape: item.shapeCode,
   }));
 }
 
 export class DeviceStressTester {
-  public readonly itemMap = new Map<number, RectNode>();
+  public readonly itemMap = new Map<number, Graphic>();
   public readonly scene: PidScene;
   public worldBounds: AABB;
   public moveRatio: number;
@@ -65,7 +66,7 @@ export class DeviceStressTester {
       const sy = 20 + Math.random() * 80;
       const beta = Math.random() * Math.PI * 2;
 
-      const item = new RectNode({
+      const item = new Graphic({
         id: i,
         x: tx,
         y: ty,
@@ -90,7 +91,7 @@ export class DeviceStressTester {
   }
 
   /** 把可见设备图元转成 Renderer2D 需要的 RectInstance[] */
-  buildRectInstanceList(visibleItems: RectNode[]): RectInstance[] {
+  buildRectInstanceList(visibleItems: Graphic[]): RectInstance[] {
     return toRectInstances(visibleItems);
   }
 
