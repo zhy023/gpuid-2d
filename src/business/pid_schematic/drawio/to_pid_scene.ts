@@ -98,7 +98,11 @@ export interface ToPidSceneOptions {
   valveOpen?: boolean;
 }
 
-const DEFAULT_COLOR: readonly [number, number, number, number] = [0.12, 0.12, 0.14, 1];
+/**
+ * 图纸没写 `fontColor` 时的字色：drawio 的默认字色就是纯黑
+ * （SVG 导出里这些单元的文字都是 `#000000`），所以不能自己调成灰的。
+ */
+const DEFAULT_LABEL_COLOR: readonly [number, number, number, number] = [0, 0, 0, 1];
 /** 位号默认字号（px，与 drawio 默认一致）：图纸没写 fontSize 时用它 */
 export const DEFAULT_LABEL_FONT_PX = 12;
 /**
@@ -145,14 +149,33 @@ export function normalizeIconUrl(url: string): string {
   return url.replace(',', ';base64,');
 }
 
+/**
+ * 取 `light-dark(a, b)` 的第一个实参（= 浅色主题用的那支）。
+ *
+ * 实参本身可能又是 `rgb(...)`：`light-dark(rgb(0, 0, 0), rgb(51, 153, 255))`，
+ * 所以必须按括号深度找顶层逗号，见逗号就切会把 `rgb(0` 切出来当颜色（解析失败 → 整条颜色丢掉）。
+ */
+function firstLightDarkArgument(raw: string): string {
+  if (!raw.startsWith('light-dark(')) return raw;
+  const body = raw.slice('light-dark('.length);
+  let depth = 0;
+  for (let index = 0; index < body.length; index += 1) {
+    const char = body[index];
+    if (char === '(') depth += 1;
+    else if (char === ')') {
+      if (depth === 0) return body.slice(0, index).trim();
+      depth -= 1;
+    } else if (char === ',' && depth === 0) return body.slice(0, index).trim();
+  }
+  return body.trim();
+}
+
 /** drawio 颜色：`#RRGGBB` / `none` / `light-dark(a,b)`（取第一个）→ rgba 元组 */
 export function parseDrawioColor(
   raw: string | undefined,
 ): readonly [number, number, number, number] | null {
   if (!raw || raw === 'none') return null;
-  const value = raw.startsWith('light-dark(')
-    ? raw.slice('light-dark('.length).split(',')[0].trim()
-    : raw;
+  const value = firstLightDarkArgument(raw);
   // 也支持 rgb()/rgba()（drawio 的富文本标签用这种写法）
   const rgb = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i.exec(value);
   if (rgb) {
@@ -513,7 +536,7 @@ export function toPidScene(
       text: rich.text,
       x: center.x + (shift?.dx ?? 0),
       y: center.y + (shift?.dy ?? 0),
-      color: rich.color ?? parseDrawioColor(draft.style.fontColor) ?? DEFAULT_COLOR,
+      color: rich.color ?? parseDrawioColor(draft.style.fontColor) ?? DEFAULT_LABEL_COLOR,
       fontSizePx:
         rich.fontSizePx ?? Math.round(mxNumber(draft.style, 'fontSize', DEFAULT_LABEL_FONT_PX)),
       // 字体与行高同样「内联样式优先、单元样式其次、最后才是 drawio 默认」：

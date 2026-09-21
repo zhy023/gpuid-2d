@@ -286,6 +286,33 @@ describe('toPidScene（真实图纸）', () => {
     assert.ok(colored, 'span 里的 light-dark(rgb(...)) 颜色应当被采用');
   });
 
+  it('`light-dark(rgb(...), rgb(...))` 要取第一支：实参里的逗号不能当分隔符', () => {
+    // 图纸里 `Flow` / `0.0` 这类位号：单元 fontColor=#ffffff，但内联 span 是
+    // `light-dark(rgb(0,0,0), rgb(51,153,255))` → 浅色主题下是黑字，压在白底上才看得见。
+    // 之前按逗号切会把 `rgb(0` 当颜色 → 解析失败 → 回退成白色 → 白字压白底。
+    assert.deepEqual(parseDrawioColor('light-dark(rgb(0, 0, 0), rgb(51, 153, 255))'), [0, 0, 0, 1]);
+    assert.deepEqual(parseDrawioColor('light-dark(rgb(0, 51, 102), rgb(0, 51, 102))'), [
+      0,
+      51 / 255,
+      102 / 255,
+      1,
+    ]);
+    assert.deepEqual(parseDrawioColor('light-dark(#FFFFFF, #3399FF)'), [1, 1, 1, 1]);
+    assert.deepEqual(parseDrawioColor('rgba(10, 20, 30, 0.5)'), [10 / 255, 20 / 255, 30 / 255, 1]);
+
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    const flows = withValves.labels.filter((label) => label.text === 'Flow');
+    assert.ok(flows.length > 0, '样例图纸里有 `Flow` 位号');
+    for (const label of flows) {
+      assert.deepEqual(label.color, [0, 0, 0, 1], '`Flow` 是内联黑字，不能回退成单元的白字色');
+    }
+    // 图纸没写 fontColor 的单元（ATM / Shutter / MFC90…）：drawio 默认是纯黑，不是我们自己调的灰
+    for (const text of ['ATM', 'Shutter', 'MFC90']) {
+      const label = withValves.labels.find((item) => item.text === text);
+      assert.deepEqual(label?.color, [0, 0, 0, 1], `${text} 无 fontColor 时应是 drawio 默认黑`);
+    }
+  });
+
   it('图纸里的椭圆单元画成椭圆（形状按图，而不是一律方框）', () => {
     const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
     const ellipseCells = document.nodes.filter(
