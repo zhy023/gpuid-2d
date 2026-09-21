@@ -9,7 +9,7 @@
  */
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { splitGraphemes } from '@/core/text/glyph_atlas';
-import { Graphic } from '@/core/scene/graphic';
+import { Graphic } from '@/core/scene/graphic/graphic';
 
 export interface TextLayoutOptions {
   /** 文字左上角（世界坐标，y 向下） */

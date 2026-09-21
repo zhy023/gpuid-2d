@@ -13,7 +13,7 @@ import { uploadValveInstances } from '@/business/pid_schematic/valve_instances';
 import { getValveResources } from '@/business/pid_schematic/valve_manager';
 import { PIPE_LINE_WIDTH_MAX_PX, pipeLineWidthToWorld } from '@/business/pid_schematic/pipe_style';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import { toInstances } from '@/core/scene/graphic';
+import { toInstances } from '@/core/scene/graphic/graphic';
 import { layoutText } from '@/core/text/text_batch';
 import { buildValveSpriteGraphics } from '@/business/pid_schematic/valve_instances';
 import { buildValveLabelGraphics } from '@/business/pid_schematic/valve_labels';

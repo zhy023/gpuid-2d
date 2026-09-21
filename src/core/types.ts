@@ -46,11 +46,13 @@ export interface QuadTreeItem {
 }
 
 /**
- * 实例化渲染图元：只描述「怎么摆到 GPU 上」——变换与选中态，
- * 字段顺序与 WGSL `InstanceTransform` 一致（8 × f32 = 32B）。
+ * 实例化渲染图元的变换契约：只描述「怎么摆到 GPU 上」——位置 / 大小 / 旋转。
  *
  * 图元是矩形、管线还是阀门属于上层分类（业务彼此不同），内核不感知：
  * 内核只认一件事——用三角形模板画出来的实例。
+ *
+ * 选中态不在这一层：只有「图形」可选中（`SelectableGraphic`），管线没有；
+ * 打包成实例时由 `Graphic#toInstance()` 写进实例的选中通道（没有选中就写 0）。
  */
 export interface QuadItem extends QuadTreeItem {
   tx: number;
@@ -58,6 +60,4 @@ export interface QuadItem extends QuadTreeItem {
   sx: number;
   sy: number;
   beta: number;
-  /** 选中态：模型层用布尔，打包成实例时才映射成 float（着色器按 > 0.5 判定） */
-  selected: boolean;
 }

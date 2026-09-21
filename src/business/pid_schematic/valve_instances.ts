@@ -10,7 +10,7 @@ import {
 import { minDeviceSymbolWorldSize } from '@/business/pid_schematic/device_style';
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
-import { Graphic } from '@/core/scene/graphic';
+import { SelectableGraphic } from '@/core/scene/capability/selectable';
 
 // 设备符号数量上限，压测可按需调大
 const MAX_VALVE_INSTANCE = 4096;
@@ -92,15 +92,15 @@ export function disposeValveInstances(): void {
 export function buildValveSpriteGraphics(
   valves: readonly ValveGraphic[],
   options: { textureWidth: number; textureHeight: number },
-): { closed: Graphic[]; open: Graphic[] } {
+): { closed: SelectableGraphic[]; open: SelectableGraphic[] } {
   const { textureWidth, textureHeight } = options;
   const widthPx = textureWidth / 2;
   const heightPx = textureHeight / 2;
-  const closed: Graphic[] = [];
-  const open: Graphic[] = [];
+  const closed: SelectableGraphic[] = [];
+  const open: SelectableGraphic[] = [];
 
   for (const valve of valves) {
-    const sprite = new Graphic({
+    const sprite = new SelectableGraphic({
       id: valve.id,
       x: valve.x,
       y: valve.y,

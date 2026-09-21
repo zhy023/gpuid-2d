@@ -14,7 +14,8 @@ import { renderPipes } from '@/business/pid_schematic/pipe_manager';
 import type { Camera2d } from '@/core/camera';
 import { RENDER_LAYER, sortRenderLayerDraws } from '@/core/gpu/render_layer';
 import type { Renderer2D } from '@/core/gpu/renderer';
-import { Graphic, toInstances } from '@/core/scene/graphic';
+import { toInstances, type Graphic } from '@/core/scene/graphic/graphic';
+import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import type { LabelAtlasCache } from '@/demo/label_atlases';
 import { layoutText } from '@/core/text/text_batch';
@@ -35,11 +36,11 @@ const ICON_FILL = [1, 1, 1, 1] as const;
  * 返回的是新对象，不改动场景里的图元本身。
  */
 function toDrawableGraphics(
-  devices: readonly Graphic[],
+  devices: readonly SelectableGraphic[],
   fallbackFill: readonly [number, number, number, number],
-): Graphic[] {
+): SelectableGraphic[] {
   return devices.map((device) =>
-    new Graphic({
+    new SelectableGraphic({
       id: device.id,
       x: device.x,
       y: device.y,
@@ -104,6 +105,7 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
 
   // 位号：每字一个实例，整批一次绘制（字号由 label.fontSizePx 决定，这里固定用同一张图集）
   // 按字号分到各自图集，再按图集分组提交（图纸里字号通常只有两三档）
+  // 位号文字是纯图形（不可选中），所以是 Graphic 而不是 SelectableGraphic
   const labelBatches = new Map<GlyphAtlas, Graphic[]>();
   for (const label of labels) {
     const atlas = labelAtlases.get(label.fontSizePx);

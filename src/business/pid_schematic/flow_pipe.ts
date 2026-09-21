@@ -14,12 +14,13 @@ import {
   snapPipeLineWidthPx,
 } from '@/business/pid_schematic/pipe_style';
 import type { Point } from '@/core/geometry/polyline';
-import { DataGraphic } from '@/core/scene/data_graphic';
+import { FlowGraphic } from '@/core/scene/capability/flow';
 
 /** 静止虚线的速度约定值（着色器按符号判定三态） */
 export const PIPE_DASHED_FLOW_SPEED = -1;
 
-export class FlowPipe<TData = unknown> extends DataGraphic<TData> {
+/** 流动管线：管线能力层（`FlowGraphic`）的业务实现——折线形状 + 流动三态 */
+export class FlowPipe<TData = unknown> extends FlowGraphic<TData> {
   /** 是否画成虚线（图纸里的 dashed） */
   dashed = false;
 

@@ -12,9 +12,12 @@ import {
   GRAPHIC_SHAPE_TRIANGLE,
   Graphic,
   toInstances,
-} from '@/core/scene/graphic';
-import { DataGraphic } from '@/core/scene/data_graphic';
-import { QuadTreeStore } from '@/core/scene/quad_tree_store';
+} from '@/core/scene/graphic/graphic';
+import { DataGraphic } from '@/core/scene/graphic/data';
+import { FlowGraphic } from '@/core/scene/capability/flow';
+import { GraphicBase } from '@/core/scene/graphic/base';
+import { SelectableGraphic } from '@/core/scene/capability/selectable';
+import { QuadTreeStore } from '@/core/scene/spatial/quad_tree_store';
 import { packInstances } from '@/core/gpu/renderer';
 import type { AABB } from '@/core/types';
 
@@ -36,8 +39,10 @@ describe('Graphic（图形基类）', () => {
     assert.equal(g.height, 0);
     assert.equal(g.rotation, 0);
     assert.equal(g.visible, true);
-    assert.equal(g.selected, false);
     assert.equal(g.shape, 'rect');
+    // 绘制层不带选中/流动：那是图形与管线各自的能力
+    assert.equal('selected' in g, false, 'Graphic 没有选中能力');
+    assert.equal('open' in g, false, 'Graphic 没有流动状态');
 
     g.setPosition(10, 20)
       .setSize(30, 40)
@@ -124,21 +129,53 @@ describe('Graphic（图形基类）', () => {
     assert.equal(Number(((g.worldAABB.minX + g.worldAABB.maxX) / 2).toFixed(6)), 100);
   });
 
-  it('基本属性：可见性、选中态与变更标记', () => {
+  it('基本属性：可见性与变更标记（基础层）', () => {
     const g = new Graphic({ id: 1 });
     g.clearDirty();
     assert.equal(g.dirty, false);
 
-    g.setSelected(true);
-    assert.equal(g.selected, true);
-    assert.equal(g.selectedFlag, 1, '实例数据里选中态是 float');
-    assert.equal(g.dirty, true, '状态变化要打变更标记');
-
-    g.clearDirty();
     g.setVisible(false);
     assert.equal(g.visible, false);
-    assert.equal(g.dirty, true);
-    assert.equal(g.selectedFlag, 1);
+    assert.equal(g.dirty, true, '状态变化要打变更标记');
+  });
+
+  it('图形能力：可选中 / 可取消选中 / hover（不带流动状态）', () => {
+    const node = new SelectableGraphic({ id: 1, width: 10, height: 10 });
+    assert.equal(node.selected, false, '默认未选中');
+    assert.equal(node.selectedFlag, 0);
+    assert.equal('open' in node, false, '图形没有流动状态');
+
+    node.clearDirty();
+    node.setSelected(true);
+    assert.equal(node.selected, true);
+    assert.equal(node.selectedFlag, 1, '实例数据里选中态是 float');
+    assert.equal(node.dirty, true, '选中态变化要打变更标记');
+    assert.equal(node.toInstance().selected, 1, '选中态进实例');
+
+    node.clearSelection();
+    assert.equal(node.selected, false);
+
+    node.setHovered(true);
+    assert.equal(node.hovered, true);
+  });
+
+  it('管线能力：只有流动状态（开关 / 速度 / 相位），不参与选中', () => {
+    const flow = new FlowGraphic({ id: 1, width: 10, height: 10, animationSpeed: 2 });
+    assert.equal(flow.open, true, '默认打开');
+    assert.equal(flow.animated, true);
+    assert.equal(flow.currentAnimationSpeed, 2);
+    assert.equal('selected' in flow, false, '管线没有选中能力');
+
+    flow.setOpen(false);
+    assert.equal(flow.animated, false);
+    assert.equal(flow.currentAnimationSpeed, 0, '关闭时不流动');
+
+    flow.toggleOpen();
+    assert.equal(flow.open, true, '实例化装配：关闭决定不动，重开恢复');
+
+    flow.advanceFlow(12.5);
+    assert.equal(flow.flowOffset, 12.5);
+    assert.equal(flow.toInstance().selected, 0, '管线实例的选中通道恒为 0');
   });
 
   it('自定义数据：默认 null，可挂可换，且不参与绘制', () => {
@@ -174,27 +211,6 @@ describe('Graphic（图形基类）', () => {
     g.noFill();
     assert.equal(g.fillColor, null);
   });
-
-  it('状态与动画：开关决定动不动，hover 只是状态', () => {
-    const g = new Graphic({ id: 1, animationSpeed: 2 });
-    assert.equal(g.open, true, '默认打开');
-    assert.equal(g.hovered, false);
-    assert.equal(g.animated, true);
-    assert.equal(g.currentAnimationSpeed, 2);
-
-    g.setOpen(false);
-    assert.equal(g.animated, false);
-    assert.equal(g.currentAnimationSpeed, 0, '关闭时不推进动画');
-
-    g.toggleOpen();
-    assert.equal(g.open, true);
-
-    g.setHovered(true);
-    assert.equal(g.hovered, true);
-
-    g.advanceFlow(12.5);
-    assert.equal(g.flowOffset, 12.5);
-  });
 });
 
 describe('图形可直接进四叉树', () => {
@@ -220,6 +236,40 @@ describe('图形可直接进四叉树', () => {
       store.query(far).map((item) => item.id),
       [7],
     );
+  });
+});
+
+describe('分层：基础 → 绘制 → 数据 → 两种能力', () => {
+  it('属性按层归位：基础只有身份/变换，绘制加外观形状，data 再上一层，能力层各加一种', () => {
+    const base = new GraphicBase({ id: 1, x: 1, y: 2, width: 3, height: 4 });
+    // 基础层自己就能算包围盒、能进四叉树、能当实例变换的来源
+    assert.deepEqual(round(base.worldAABB), { minX: -0.5, minY: 0, maxX: 2.5, maxY: 4 });
+    assert.equal(base.tx, 1);
+    // 但基础层不认识外观/形状/打包，也没有选中与流动
+    assert.equal('fillColor' in base, false, '基础层不带外观');
+    assert.equal('shape' in base, false, '基础层不带形状');
+    assert.equal('toInstance' in base, false, '基础层不参与打包');
+    assert.equal('selected' in base, false, '基础层不带选中');
+    assert.equal('open' in base, false, '基础层不带流动');
+
+    const graphic = new Graphic({ id: 2, x: 0, y: 0 }).rect(10, 10).fill(RED);
+    assert.ok(graphic instanceof GraphicBase, 'Graphic 继承基础层');
+    assert.equal('data' in graphic, false, '绘制层不带用户数据');
+    assert.equal('selected' in graphic, false, '绘制层不带选中');
+    assert.equal('open' in graphic, false, '绘制层不带流动');
+
+    const withData = new DataGraphic({ id: 3, data: { tag: 'x' } });
+    assert.ok(withData instanceof Graphic, 'DataGraphic 继承绘制层');
+    assert.deepEqual(withData.data, { tag: 'x' });
+
+    // 两种能力都长在 DataGraphic 上，但彼此独立
+    const shape = new SelectableGraphic({ id: 4 });
+    assert.ok(shape instanceof DataGraphic, '图形能力继承数据层');
+    assert.equal('open' in shape, false, '图形没有流动');
+
+    const pipe = new FlowGraphic({ id: 5 });
+    assert.ok(pipe instanceof DataGraphic, '管线能力继承数据层');
+    assert.equal('selected' in pipe, false, '管线没有选中');
   });
 });
 

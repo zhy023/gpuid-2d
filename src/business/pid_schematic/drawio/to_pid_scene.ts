@@ -12,7 +12,7 @@ import { mxFlag, mxNumber, type MxStyle } from '@/business/pid_schematic/drawio/
 import { createFlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { snapPipeLineWidthPx } from '@/business/pid_schematic/pipe_style';
-import { DataGraphic } from '@/core/scene/data_graphic';
+import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { AABB } from '@/core/types';
 
 /** 位号：文字 + 世界坐标 + 颜色（rgba） */
@@ -218,7 +218,7 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
     // flipH/flipV 用负缩放表达（贴图跟着镜像，和 drawio 一致）
     const sx = mxFlag(node.style, 'flipH') ? -node.width : node.width;
     const sy = mxFlag(node.style, 'flipV') ? -node.height : node.height;
-    const device = new DataGraphic({
+    const device = new SelectableGraphic({
       id: idOf(node.id),
       x: center.x,
       y: center.y,

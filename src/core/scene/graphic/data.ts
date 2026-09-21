@@ -9,7 +9,7 @@
  * 后续跨业务的图元属性（业务 id、外部主键、元信息、标签…）加在这一层，
  * 不要往 `Graphic` 里塞，免得绘制层被业务概念污染。
  */
-import { Graphic, type GraphicOptions } from '@/core/scene/graphic';
+import { Graphic, type GraphicOptions } from '@/core/scene/graphic/graphic';
 
 export interface DataGraphicOptions<TData = unknown> extends GraphicOptions {
   /**

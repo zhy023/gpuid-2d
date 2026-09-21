@@ -3,7 +3,7 @@
  * 排版本身交给 core 的文字模块（layoutText），这里只给业务口径。
  */
 import type { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
-import type { Graphic } from '@/core/scene/graphic';
+import type { Graphic } from '@/core/scene/graphic/graphic';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import { layoutText } from '@/core/text/text_batch';
 

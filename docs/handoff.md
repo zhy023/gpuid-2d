@@ -22,19 +22,26 @@
 - 内置图元模板：**一个覆盖单位方形的三角形**（`triangle-list`，3 顶点，`core/geometry/geometry.ts`），
   不再用 6 顶点双三角形；方形之外的部分由 `unitSquareMask`（`core_include/vertex_math.wgsl`）
   按屏幕像素抗锯齿裁掉。渲染与拾取（含阀门拾取）走同一套掩码，命中区域与看到的一致
-- 图形基类（全库唯一一层抽象，业务无关，用法参考 PixiJS 的 `Graphics`）：`Graphic` 同时承载
-  位置/大小/旋转、基本属性（可见/选中/dirty）、外观（`fill` / `stroke`）、状态（开关/hover）、
-  动画（`animationSpeed` / `flowOffset`）与形状绘制命令（`rect` / `square` / `circle` / `ellipse` /
-  `triangle` / `polyline`）；实现 `QuadTreeItem`，可直接进 `QuadTreeStore`。圆/椭圆与三角形把形状
-  编码写进实例的 shape 通道，渲染与拾取着色器按包围盒内切圆 / 内切三角形裁剪
-- 图形是唯一的绘制入口：`Graphic#toInstance()`（批量 `toInstances()`）负责把图形装箱成实例——
-  颜色只取 `fillColor`（null = 不画）、uv 取 `atlasUvRect`、尺寸按 `sizeUnit`（世界单位 / 屏幕像素）
-  折算相机缩放。demo 与业务只负责建图形，不再手搓实例数组
-- 图元分两层：`Graphic` 只管「怎么画」，`DataGraphic`（继承 `Graphic`，`Generic<TData>`）
-  只多带一份用户自定义数据 `data`——纯属性：内核不解释、不进实例、不改 dirty，供
-  「选中图元 → 查看信息」使用。业务图元（`FlowPipe` / `ValveGraphic`）与场景里的设备都长在
-  `DataGraphic` 上；图纸翻译层（`to_pid_scene.ts`）已经把 mxCell 的 id/文字/样式/端点
-  作为 `DrawioCellData` 挂在每个图元上
+- 图形按「本体 → 能力」分层，`core/scene` 下按目录归类（目录名 = 内容）：
+  - `scene/graphic`（图形本体，三个文件同目录）：
+    - `base`（`GraphicBase`）：基础属性——id + 世界变换 + 可见/变更标记 + 世界 AABB，
+      实现 `QuadTreeItem`，四叉树索引与拾取只需要它
+    - `graphic`（`Graphic`）：绘制属性——外观（`fill` / `stroke` / `atlasUv` / `sizeUnit`）、形状绘制
+      命令（`rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`）与唯一打包出口
+      `toInstance()`。圆/椭圆与三角形把形状编码写进实例的 shape 通道，渲染与拾取着色器按包围盒
+      内切圆 / 内切三角形裁剪
+    - `data`（`DataGraphic`）：用户自定义数据 `data`（纯属性：内核不解释、不进实例、不改 dirty）
+  - `scene/capability`（图形本体之上的两种互斥能力）：
+    - `selectable`（`SelectableGraphic`）：图形能力——选中/取消选中（+ hover），选中态进实例的
+      选中通道；图形没有流动状态
+    - `flow`（`FlowGraphic`）：管线能力——开关 + 动画速度 + 相位里程；管线不参与选中
+  - `scene/spatial`（`QuadTreeStore`）：空间索引与视口查询
+    业务侧：`FlowPipe` 长在 `FlowGraphic` 上（有流动、无选中），`ValveGraphic` 长在
+    `SelectableGraphic` 上（可选中，开/关是它自己的业务状态），场景里的设备同样是 `SelectableGraphic`；
+    图纸翻译层（`to_pid_scene.ts`）把 mxCell 的 id/文字/样式/端点作为 `DrawioCellData` 挂在图元上
+- 绘制入口唯一：`Graphic#toInstance()`（批量 `toInstances()`）负责把图形装箱成实例——颜色只取
+  `fillColor`（null = 不画）、uv 取 `atlasUvRect`、尺寸按 `sizeUnit`（世界单位 / 屏幕像素）折算
+  相机缩放。demo 与业务只负责建图形，不再手搓实例数组
 - 内核不认业务图元类型：`QuadItem` 里没有 `type`，只有变换 + 选中态 + 形状编码；
   是矩形/管线/阀门由业务类自己表达（实例打包处用 `instanceof ValveGraphic` 分流）
 

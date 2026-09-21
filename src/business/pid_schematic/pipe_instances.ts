@@ -12,7 +12,7 @@ import {
 import type { FlowPipe } from '@/business/pid_schematic/flow_pipe';
 import { ValveGraphic } from '@/business/pid_schematic/valve_graphic';
 import type { PipeRenderResources } from '@/business/pid_schematic/types';
-import type { Rgba } from '@/core/scene/graphic';
+import type { Rgba } from '@/core/scene/graphic/graphic';
 
 /**
  * 一轮管线条带实例化能出现的图元：管线本身（FlowPipe）
@@ -23,6 +23,8 @@ export type PipeBatchItem = FlowPipe | ValveGraphic;
 
 // 最大管线实例数量，压测可按需调大（管线按段展开，直角拐点还要各加一个方块实例）
 const MAX_PIPE_INSTANCE = 8192;
+/** 管线没有选中能力，实例的选中通道恒为 0 */
+const NO_SELECTION = 0;
 // InstanceTransform：8 个基字段 + 图集 uv 矩形(4) + 逐实例颜色(4) → 16 × f32 = 64B，与 WGSL 结构一致
 const INSTANCE_FLOAT_COUNT = 16;
 // PidSchematicInstanceData：valveOpen, flowSpeed, flowOffset, pad = 4 float
@@ -196,7 +198,8 @@ function packPipeInstanceItems(
         Math.atan2(dy, dx),
         (start.x + end.x) / 2,
         (start.y + end.y) / 2,
-        item.selectedFlag,
+        // 管线不可选中：选中通道恒为 0（图形才有选中能力）
+        NO_SELECTION,
         pipe.fillColor,
       );
       // flowOffset 用世界里程，保证条纹沿整条管线连续
@@ -216,7 +219,7 @@ function packPipeInstanceItems(
           0,
           end.x,
           end.y,
-          item.selectedFlag,
+          NO_SELECTION,
           pipe.fillColor,
         );
         writePidInstanceData(writeIdx, 0, flowSpeed, travelled);

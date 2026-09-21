@@ -1,10 +1,13 @@
 /**
- * 图形基类：全库唯一一层抽象（用法参考 PixiJS 的 `Graphics`）。
+ * 图形绘制层：在基础层（`GraphicBase`：身份 + 变换 + 可见）之上，加「外观 + 形状」。
  *
- * 一个图形 = 位置 / 大小 / 基本属性 + 外观（填充、描边）+ 状态（开关、hover）+ 形状。
+ * 一个图形 = 基础属性 + 外观（填充、描边、uv、尺寸口径）+ 形状。
  * **形状不靠继承区分，而是绘制命令**——正方形、长方形、圆形、折线都画在同一个对象上，
  * 差别只是外观与几何。内核不认「这是阀门还是管线」：渲染只按形状编码裁实例，
  * 图元属于哪类业务概念、该走哪条管线，都由上层自己决定。
+ *
+ * 这一层不带「选中」（图形能力，见 `SelectableGraphic`）也不带「流动」（管线能力，
+ * 见 `FlowGraphic`）：两种能力分属不同层，互不干扰。
  *
  * ```ts
  * const g = new Graphic({ id: 1, x: 100, y: 100 });
@@ -16,13 +19,13 @@
  *
  * 约定：
  *  - 位置 = 中心点，大小 = 包围盒宽高，旋转 = 弧度（与实例化渲染契约同一套口径）
- *  - 实现 `QuadTreeItem`：图形可以直接进 `QuadTreeStore`，剔除/拾取不需要适配层
+ *  - 实现 `QuadTreeItem`（继承自 `GraphicBase`）：图形可以直接进 `QuadTreeStore`
  *  - 几何或状态一变就 `dirty = true` 并让包围盒缓存失效
- *  - 这一层只管「怎么画」；要携带用户数据的图元用 `@/core/scene/data_graphic` 的 `DataGraphic`
+ *  - 这一层只管「怎么画」；要携带用户数据的图元用 `@/core/scene/graphic/data` 的 `DataGraphic`
  */
-import { computeRotatedAABB } from '@/core/geometry/aabb';
 import { calcPolylineBounds, type Point } from '@/core/geometry/polyline';
-import type { AABB, PrimitiveInstance, QuadItem } from '@/core/types';
+import { GraphicBase, type GraphicBaseOptions } from '@/core/scene/graphic/base';
+import type { AABB, PrimitiveInstance } from '@/core/types';
 
 /** 图集 uv 矩形 (u0, v0, u1, v1)：贴图/字形用，默认整张纹理 */
 export type AtlasUvRect = readonly [number, number, number, number];
@@ -41,21 +44,10 @@ export const GRAPHIC_SHAPE_RECT = 0;
 export const GRAPHIC_SHAPE_CIRCLE = 1;
 export const GRAPHIC_SHAPE_TRIANGLE = 2;
 
-export interface GraphicOptions {
-  /** 场景内唯一 id（四叉树、拾取、实例数据都按它索引） */
-  id: number;
-  /** 位置：世界坐标中心点，默认 (0, 0) */
-  x?: number;
-  y?: number;
-  /** 大小：包围盒宽高，默认 0 */
-  width?: number;
-  height?: number;
-  /** 旋转：弧度，逆时针为正，默认 0 */
-  rotation?: number;
-  /** 是否参与绘制与剔除，默认 true */
-  visible?: boolean;
-  /** 初始选中态，默认 false */
-  selected?: boolean;
+/** 尺寸口径：世界单位（随缩放变大变小）或屏幕像素（视觉尺寸恒定） */
+export type GraphicSizeUnit = 'world' | 'screen';
+
+export interface GraphicOptions extends GraphicBaseOptions {
   /** 填充色（管线里就是管身底色）；null 表示不填——该图元不绘制，也不参与拾取 */
   fillColor?: Rgba | null;
   /** 图集 uv 矩形，默认整张纹理 */
@@ -65,34 +57,9 @@ export interface GraphicOptions {
   /** 描边色与宽度（strokeWidth <= 0 视为不描边） */
   strokeColor?: Rgba | null;
   strokeWidth?: number;
-  /** 开关状态，默认打开 */
-  open?: boolean;
-  /** 打开时的动画速度倍率（0 表示不流动） */
-  animationSpeed?: number;
 }
 
-/** 尺寸口径：世界单位（随缩放变大变小）或屏幕像素（视觉尺寸恒定） */
-export type GraphicSizeUnit = 'world' | 'screen';
-
-export class Graphic implements QuadItem {
-  readonly id: number;
-
-  /** 位置：世界坐标中心点 */
-  x: number;
-  y: number;
-  /** 大小：包围盒宽高 */
-  width: number;
-  height: number;
-  /** 旋转：弧度（逆时针为正，与 WGSL 侧同一套约定） */
-  rotation: number;
-
-  /** 基本属性：是否可见 */
-  visible: boolean;
-  /** 基本属性：是否选中 */
-  selected: boolean;
-  /** 变更标记：几何或状态改过就为 true，渲染侧消费后 clearDirty() */
-  dirty: boolean;
-
+export class Graphic extends GraphicBase {
   /** 外观：填充色 */
   fillColor: Rgba | null;
   /** 外观：图集 uv 矩形（贴图/字形），默认整张纹理 */
@@ -103,46 +70,21 @@ export class Graphic implements QuadItem {
   strokeColor: Rgba | null;
   strokeWidth: number;
 
-  /** 状态：开关（阀门开闭、管线通断…） */
-  open: boolean;
-  /** 状态：鼠标是否悬停 */
-  hovered: boolean;
-
-  /** 动画：打开时的速度倍率与沿自身的相位里程 */
-  animationSpeed: number;
-  flowOffset: number;
-
   /** 折线顶点（shape = 'polyline' 时有效） */
   points: Point[];
   /** 折线粗细：屏幕像素（放大缩小后视觉粗细恒定） */
   lineWidthPx: number;
 
   private shapeKind: GraphicShape = 'rect';
-  /** 世界包围盒缓存（四叉树插入/剔除会频繁读它，避免每次重算） */
-  private aabbCache: AABB | null = null;
 
   constructor(options: GraphicOptions) {
-    this.id = options.id;
-    this.x = options.x ?? 0;
-    this.y = options.y ?? 0;
-    this.width = options.width ?? 0;
-    this.height = options.height ?? 0;
-    this.rotation = options.rotation ?? 0;
-    this.visible = options.visible ?? true;
-    this.selected = options.selected ?? false;
-    this.dirty = true;
+    super(options);
 
     this.fillColor = options.fillColor ?? null;
     this.atlasUvRect = options.atlasUvRect ?? FULL_TEXTURE_UV;
     this.sizeUnit = options.sizeUnit ?? 'world';
     this.strokeColor = options.strokeColor ?? null;
     this.strokeWidth = options.strokeWidth ?? 0;
-
-    this.open = options.open ?? true;
-    this.hovered = false;
-
-    this.animationSpeed = options.animationSpeed ?? 1;
-    this.flowOffset = 0;
 
     this.points = [];
     this.lineWidthPx = 2;
@@ -193,7 +135,6 @@ export class Graphic implements QuadItem {
     this.shapeKind = 'polyline';
     this.points = [...points];
     this.lineWidthPx = lineWidthPx;
-    this.flowOffset = 0;
     this.invalidate();
     return this;
   }
@@ -235,79 +176,6 @@ export class Graphic implements QuadItem {
     return this.strokeWidth > 0 && this.strokeColor !== null;
   }
 
-  // ---- 状态与动画 ----
-
-  /** 是否正在动画：打开且速度非 0 */
-  get animated(): boolean {
-    return this.open && this.animationSpeed !== 0;
-  }
-
-  /** 交给渲染的动画速度：关闭时为 0（静止的外观） */
-  get currentAnimationSpeed(): number {
-    return this.animated ? this.animationSpeed : 0;
-  }
-
-  /** 设置开关状态（阀门开闭、管线通断） */
-  setOpen(open: boolean): this {
-    if (this.open === open) return this;
-    this.open = open;
-    this.dirty = true;
-    return this;
-  }
-
-  toggleOpen(): this {
-    return this.setOpen(!this.open);
-  }
-
-  setHovered(hovered: boolean): this {
-    if (this.hovered === hovered) return this;
-    this.hovered = hovered;
-    this.dirty = true;
-    return this;
-  }
-
-  setAnimationSpeed(speed: number): this {
-    if (this.animationSpeed === speed) return this;
-    this.animationSpeed = speed;
-    this.dirty = true;
-    return this;
-  }
-
-  /** 推进动画相位（世界单位），按沿图形的里程调用 */
-  advanceFlow(distance: number): this {
-    this.flowOffset += distance;
-    return this;
-  }
-
-  // 位置 / 大小 / 基本属性
-
-  /** 移动到世界坐标中心点 */
-  setPosition(x: number, y: number): this {
-    if (this.x === x && this.y === y) return this;
-    this.x = x;
-    this.y = y;
-    this.invalidate();
-    return this;
-  }
-
-  /** 相对移动（拖动时用） */
-  moveBy(dx: number, dy: number): this {
-    if (dx === 0 && dy === 0) return this;
-    this.x += dx;
-    this.y += dy;
-    this.invalidate();
-    return this;
-  }
-
-  /** 设置大小（包围盒宽高） */
-  setSize(width: number, height: number): this {
-    if (this.width === width && this.height === height) return this;
-    this.width = width;
-    this.height = height;
-    this.invalidate();
-    return this;
-  }
-
   /**
    * 按屏幕像素定尺寸：视觉尺寸不随相机缩放变化（贴图符号、文字用）。
    * 世界包围盒仍按当前 width/height 算，所以这里的像素尺寸只在打包成实例时折算。
@@ -317,32 +185,9 @@ export class Graphic implements QuadItem {
     return this.setSize(widthPx, heightPx);
   }
 
-  /** 设置旋转（弧度） */
-  setRotation(rotation: number): this {
-    if (this.rotation === rotation) return this;
-    this.rotation = rotation;
-    this.invalidate();
-    return this;
-  }
-
-  setVisible(visible: boolean): this {
-    if (this.visible === visible) return this;
-    this.visible = visible;
-    this.dirty = true;
-    return this;
-  }
-
-  setSelected(selected: boolean): this {
-    if (this.selected === selected) return this;
-    this.selected = selected;
-    this.dirty = true;
-    return this;
-  }
-
   /** 更新折线顶点（几何变更） */
   setPoints(points: readonly Point[]): this {
     this.points = [...points];
-    this.flowOffset = 0;
     this.invalidate();
     return this;
   }
@@ -354,17 +199,7 @@ export class Graphic implements QuadItem {
     return this;
   }
 
-  /** 渲染侧消费完变更后调用 */
-  clearDirty(): void {
-    this.dirty = false;
-  }
-
-  /** 外部就地改了几何（例如批量写折线顶点）后调用：让包围盒缓存失效并标记 dirty */
-  markGeometryDirty(): void {
-    this.invalidate();
-  }
-
-  // 渲染契约
+  // ---- 渲染契约 ----
 
   /**
    * 打包成一个实例：内核唯一的「图形 → 实例」出口。
@@ -400,45 +235,9 @@ export class Graphic implements QuadItem {
     return GRAPHIC_SHAPE_RECT;
   }
 
-  /** 世界包围盒：缓存 + 变更失效，四叉树与拾取直接用它 */
-  get worldAABB(): AABB {
-    this.aabbCache ??=
-      this.shape === 'polyline'
-        ? calcPolylineBounds(this.points)
-        : computeRotatedAABB(this.x, this.y, this.width, this.height, this.rotation);
-    return this.aabbCache;
-  }
-
-  // 实例化渲染契约别名：位置/大小/旋转与 tx/ty/sx/sy/beta 是同一份数据
-  get tx(): number {
-    return this.x;
-  }
-
-  get ty(): number {
-    return this.y;
-  }
-
-  get sx(): number {
-    return this.width;
-  }
-
-  get sy(): number {
-    return this.height;
-  }
-
-  get beta(): number {
-    return this.rotation;
-  }
-
-  /** 实例契约里选中态是 float（着色器按 > 0.5 判定） */
-  get selectedFlag(): number {
-    return this.selected ? 1 : 0;
-  }
-
-  /** 几何或状态变化：标记 dirty 并让包围盒缓存失效 */
-  protected invalidate(): void {
-    this.aabbCache = null;
-    this.dirty = true;
+  /** 折线按顶点算包围盒，其余形状沿用基础层的「中心 + 宽高 + 旋转」 */
+  protected override computeWorldAABB(): AABB {
+    return this.shape === 'polyline' ? calcPolylineBounds(this.points) : super.computeWorldAABB();
   }
 }
 

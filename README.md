@@ -47,7 +47,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
 - 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容）、`layoutText`（字素簇排版、逐实例颜色、可选底板与描边 halo）、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB 与折线包围盒、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）
-- 图形与图元：绘制层是 `Graphic` 一层（用法参考 PixiJS 的 `Graphics`）——位置/大小/旋转 + 可见/选中/变更标记 + 外观（`fill` / `stroke`）+ 状态（开关、hover）+ 动画；形状靠绘制命令表达（`rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`），方形与圆形/椭圆/三角形都按实例的 shape 通道在着色器里裁出来；实现 `QuadTreeItem`，可直接进四叉树。图元层是 `DataGraphic`（继承 `Graphic`）——目前只多带一份用户自定义数据 `data`（内核不解释、不参与绘制，选中图元后查看信息用）。业务层的阀门（`ValveGraphic`）与流动管线（`FlowPipe`）都长在 `DataGraphic` 上
+- 图形分层（`core/scene`）：`graphic/` 放图形本体——`base` `GraphicBase`（基础属性：id / 位置 / 大小 / 旋转 / 可见 / 变更标记 / 世界 AABB，实现 `QuadTreeItem`）、`graphic` `Graphic`（绘制属性：外观 `fill` / `stroke` / `atlasUv`、形状绘制命令 `rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`、唯一打包出口 `toInstance`）、`data` `DataGraphic`（用户自定义数据 `data`：纯属性，内核不解释、不参与绘制）；`capability/` 放它上层的两种互斥能力——`selectable` `SelectableGraphic`（图形：可选中 / 取消选中 + hover，无流动）与 `flow` `FlowGraphic`（管线：开关 + 流动动画 / 相位，不参与选中）；`spatial/` 放 `QuadTreeStore` 空间索引。业务层的阀门（`ValveGraphic`）长在 `SelectableGraphic` 上（开 / 关是它自己的业务状态），流动管线（`FlowPipe`）长在 `FlowGraphic` 上
 - 内置图元模板是**一个三角形**（`triangle-list`，3 顶点）而不是方形：局部空间仍是单位方形 `[-0.5, 0.5]`，模板三角形覆盖它、多出的部分由 `unitSquareMask` 按屏幕像素抗锯齿裁掉；正方形/长方形/圆形最终都由三角形拼出来，符合图形学最小图元的口径
 - 着色器工程：自研 `#include`（`@/` 别名）+ 生成期展开成字符串模块（`pnpm shaders`）+ `lint:wgsl` 用真实 Tint 校验 `src` 下全部着色器
 
@@ -91,7 +91,8 @@ src/
 ├─ core/                        # 引擎内核：业务无关
 │  ├─ gpu/                      # device / context（装配与重建）/ renderer / picker / surface / texture / render_state / render_layer
 │  ├─ geometry/                 # 顶点模板、AABB、四叉树、折线包围盒、2D 变换
-│  ├─ scene/                    # 图形基类 Graphic（唯一一层抽象）+ QuadTreeStore 索引
+│  ├─ scene/                    # graphic（图形本体：base / graphic / data）/ capability（能力：selectable / flow）/
+│  │                            #   spatial（空间索引 QuadTreeStore）
 │  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText
 │  ├─ shader/                   # core_include + core_render；generated/ 为展开后的字符串模块
 │  ├─ camera.ts                 # 正交相机
