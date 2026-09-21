@@ -24,6 +24,13 @@ export interface PidLabel {
   y: number;
   color: readonly [number, number, number, number];
   fontSizePx: number;
+  /**
+   * 字体（来自单元的 `fontFamily` 或富文本的 `font-family`）。
+   * 字体决定字宽，也就决定每行宽度与换行位置，所以必须跟图纸走。
+   */
+  fontFamily: string;
+  /** 行高倍率（来自单元 `lineHeight` 或富文本 `line-height`），行距 = 字号 × 它 */
+  lineHeightRatio: number;
 }
 
 /**
@@ -94,6 +101,33 @@ export interface ToPidSceneOptions {
 const DEFAULT_COLOR: readonly [number, number, number, number] = [0.12, 0.12, 0.14, 1];
 /** 位号默认字号（px，与 drawio 默认一致）：图纸没写 fontSize 时用它 */
 export const DEFAULT_LABEL_FONT_PX = 12;
+/**
+ * drawio 的默认字体名：XML 里不写 `fontFamily` 时就是它
+ * （导出的 SVG 里也写着 `font-family="Helvetica"`）。
+ */
+export const DRAWIO_DEFAULT_FONT_FAMILY_NAME = 'Helvetica';
+/**
+ * 中文字形回退链：drawio 的默认拉丁字体没有中文字形，
+ * 中文位号要落到系统里能画中文的字体上（与 drawio 在中文系统里的回落一致）。
+ */
+const CJK_FONT_FALLBACK =
+  "'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Heiti SC', 'SimHei', sans-serif";
+/** 图纸没写字体时用的完整字体链：先按图纸默认拉丁字体度量，再回退中文 */
+export const DRAWIO_DEFAULT_FONT_FAMILY = `${DRAWIO_DEFAULT_FONT_FAMILY_NAME}, Arial, ${CJK_FONT_FALLBACK}`;
+/**
+ * drawio 的默认行高倍率：样式与富文本里的 `line-height` 都是 `1.2`，
+ * 所以行距 = 字号 × 1.2。
+ */
+export const DRAWIO_LINE_HEIGHT_RATIO = 1.2;
+
+/** 图纸给的字体名（可能带引号）→ 完整字体链；没给就用 drawio 默认 */
+function toFontFamilyChain(fontFamily: string | undefined | null): string {
+  const name = String(fontFamily ?? '')
+    .replace(/^["']|["']$/g, '')
+    .trim();
+  if (!name || name === DRAWIO_DEFAULT_FONT_FAMILY_NAME) return DRAWIO_DEFAULT_FONT_FAMILY;
+  return `${name}, ${CJK_FONT_FALLBACK}`;
+}
 
 /**
  * drawio 存内联图片时写的是 `data:image/png,<base64>`（少了 `;base64`），
@@ -222,7 +256,8 @@ export function toPidScene(
    */
   /**
    * 图纸的位号 `value` 常常是富文本（`<span style="color: …">AV70</span>`、`<div>` 多行）：
-   * 去掉标签、把 `<br>` / `</div>` 换成换行，并取出内联的 color / font-size。
+   * 去掉标签、把 `<br>` / `</div>` 换成换行，并取出内联的
+   * color / font-size / font-family / line-height——字体字号行高都决定版式，缺一不可。
    */
   const parseDrawioLabel = (
     raw: string,
@@ -230,10 +265,17 @@ export function toPidScene(
     text: string;
     color: readonly [number, number, number, number] | null;
     fontSizePx: number | null;
+    fontFamily: string | null;
+    lineHeightRatio: number | null;
   } => {
     const text = raw
       .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(div|p)>/gi, '\n')
+      // drawio 的多行是块级 `<div>`：**开标签才是换行位置**，闭标签只收尾。
+      // 只把 `</div>` 当换行会把 `<div>10</div>` 拼成 `10`，和上一行黏成 `N210`——
+      // 图纸里 `N2<div>10</div><div>FL71</div>` 是三行，不是两行。
+      .replace(/<div[^>]*>/gi, '\n')
+      .replace(/<\/div>/gi, '')
+      .replace(/<\/p>/gi, '\n')
       .replace(/<[^>]+>/g, '')
       .replace(/&nbsp;/g, ' ')
       .split('\n')
@@ -242,10 +284,14 @@ export function toPidScene(
       .join('\n');
     const color = /color:\s*([^;"]+)/i.exec(raw)?.[1];
     const fontSize = /font-size:\s*([\d.]+)px/i.exec(raw)?.[1];
+    const fontFamily = /font-family:\s*([^;]+)/i.exec(raw)?.[1]?.trim();
+    const lineHeight = /line-height:\s*([\d.]+)/i.exec(raw)?.[1];
     return {
       text,
       color: parseDrawioColor(color?.trim()),
       fontSizePx: fontSize ? Number(fontSize) : null,
+      fontFamily: fontFamily || null,
+      lineHeightRatio: lineHeight ? Number(lineHeight) : null,
     };
   };
 
@@ -470,6 +516,11 @@ export function toPidScene(
       color: rich.color ?? parseDrawioColor(draft.style.fontColor) ?? DEFAULT_COLOR,
       fontSizePx:
         rich.fontSizePx ?? Math.round(mxNumber(draft.style, 'fontSize', DEFAULT_LABEL_FONT_PX)),
+      // 字体与行高同样「内联样式优先、单元样式其次、最后才是 drawio 默认」：
+      // 图纸没写字体时就是 Helvetica + 1.2 行高，不能替换成别的字体，否则字宽与行距都会变
+      fontFamily: toFontFamilyChain(rich.fontFamily ?? draft.style.fontFamily),
+      lineHeightRatio:
+        rich.lineHeightRatio ?? mxNumber(draft.style, 'lineHeight', DRAWIO_LINE_HEIGHT_RATIO),
     });
     stats.labels += 1;
   }

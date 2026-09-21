@@ -9,6 +9,8 @@ import { describe, it } from 'node:test';
 import { DOMParser } from '@xmldom/xmldom';
 import { parseMxDocument } from '@/business/pid_schematic/drawio/mx_document';
 import {
+  DRAWIO_DEFAULT_FONT_FAMILY,
+  DRAWIO_LINE_HEIGHT_RATIO,
   isDrawioCellData,
   normalizeIconUrl,
   parseDrawioColor,
@@ -114,7 +116,26 @@ describe('toPidScene（真实图纸）', () => {
       assert.ok(Number.isFinite(label.x) && Number.isFinite(label.y));
       assert.ok(label.fontSizePx > 0);
       assert.equal(label.color.length, 4);
+      assert.equal(
+        label.fontFamily,
+        DRAWIO_DEFAULT_FONT_FAMILY,
+        '图纸没写字体 → 用 drawio 默认字体',
+      );
+      assert.equal(
+        label.lineHeightRatio,
+        DRAWIO_LINE_HEIGHT_RATIO,
+        '图纸没写行高 → 用 drawio 默认 1.2',
+      );
     }
+  });
+
+  it('字体 / 行高按图纸走：默认 Helvetica + 1.2，不能被替换成别的字体', () => {
+    // 复刻 SVG 导出里的 `font-family: Helvetica; line-height: 1.2`：
+    // 换字体会改字宽（每行宽度、换行位置都跟着变）与行距，所以默认值必须钉在图纸口径上
+    const fontFamilies = new Set(result.labels.map((label) => label.fontFamily));
+    assert.deepEqual([...fontFamilies], [DRAWIO_DEFAULT_FONT_FAMILY]);
+    assert.ok(DRAWIO_DEFAULT_FONT_FAMILY.startsWith('Helvetica'));
+    assert.equal(DRAWIO_LINE_HEIGHT_RATIO, 1.2);
   });
 
   it('图纸范围覆盖全部图元（相机取景用它，不能写死页宽高）', () => {
@@ -245,6 +266,11 @@ describe('toPidScene（真实图纸）', () => {
     const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
     const rich = withValves.labels.filter((label) => label.text.includes('\n'));
     assert.ok(rich.length > 0, '样例里有 `<div>` 多行位号');
+    // `<div>` 是块级换行：开标签就是断行位置。只认 `</div>` 会把前两行黏成 `N210`
+    assert.ok(
+      withValves.labels.some((label) => label.text === 'N2\n10\nFL71'),
+      '`N2<div>10</div><div>FL71</div>` 要解析成三行',
+    );
     assert.ok(
       withValves.labels.every((label) => !label.text.includes('<') && !label.text.includes('&')),
       '位号文字里不应残留 HTML 标签或实体',

@@ -45,7 +45,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 渲染：实例化绘制（16×f32 实例：变换 + 图集 uv + 逐实例颜色）、`renderComposite`（基础批次 + 多纹理批次 + 覆盖层，偏移内部累加）、4x MSAA + 标准 alpha 混合、层契约 `RENDER_LAYER`
 - 拾取：`rgba32uint` 离屏拾取（`pick` / `pickAt`）、`createRendererPicker`（复用渲染器布局）、`pickFirst`（多图层按优先级试到命中）
 - 纹理：`loadTextureFromUrl` / `createTextureFromBitmap` / 默认白纹理 / 采样器
-- 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容）、`layoutText`（字素簇排版、逐实例颜色、可选底板与描边 halo）、`splitGraphemes`
+- 文字：按需动态字形图集（shelf 打包 + 局部写入 + 满页自动扩容、超采样烘焙）、`layoutText` / `layoutTextBlock`（字素簇排版、**行高与基线口径跟图纸走**：行盒高 = 字号 × `lineHeightRatio`（drawio 默认 1.2），同一行的字共用一条基线；水平 / 垂直锚点对齐、逐实例颜色、可选底板与描边 halo）、`measureTextLine`、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`（id→节点索引，拖动 0.67ms/帧）、`QuadTreeStore`（增删改 + 视口查询）、AABB 与折线包围盒、`composeTransform2d`（与 WGSL 同一套 2D 变换约定）
 - 图形分层（`core/scene`）：`graphic/` 放图形本体——`base` `GraphicBase`（基础属性：id / 位置 / 大小 / 旋转 / 可见 / 变更标记 / 世界 AABB，实现 `QuadTreeItem`）、`graphic` `Graphic`（绘制属性：外观 `fill` / `stroke` / `atlasUv`、形状绘制命令 `rect` / `square` / `circle` / `ellipse` / `triangle` / `polyline`、唯一打包出口 `toInstance`）、`data` `DataGraphic`（用户自定义数据 `data`：纯属性，内核不解释、不参与绘制）；`capability/` 放它上层的两种互斥能力——`selectable` `SelectableGraphic`（图形：可选中 / 取消选中 + hover，无流动）与 `flow` `FlowGraphic`（管线：开关 + 流动动画 / 相位，不参与选中）；`spatial/` 放 `QuadTreeStore` 空间索引。业务层的阀门（`ValveGraphic`）长在 `SelectableGraphic` 上（开 / 关是它自己的业务状态），流动管线（`FlowPipe`）长在 `FlowGraphic` 上
 - 内置图元模板是**一个三角形**（`triangle-list`，3 顶点）而不是方形：局部空间仍是单位方形 `[-0.5, 0.5]`，模板三角形覆盖它、多出的部分由 `unitSquareMask` 按屏幕像素抗锯齿裁掉；正方形/长方形/圆形最终都由三角形拼出来，符合图形学最小图元的口径

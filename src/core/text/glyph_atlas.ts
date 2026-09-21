@@ -21,6 +21,12 @@ export interface GlyphEntry {
   cellWidth: number;
   cellHeight: number;
   /**
+   * 格子顶边到基线的距离（逻辑像素）。
+   * 同一行的所有字共用一条基线，排版时用 `基线 y - baselineOffset` 反推格子顶边，
+   * 这样数字 / 括号 / 带降部的字母才会坐在同一条基线上，而不是各按自己的墨迹居中。
+   */
+  baselineOffset: number;
+  /**
    * 图集里的实际像素尺寸（超采样后 = 逻辑尺寸 × rasterScale）。
    * uv 按它算；不填视为与逻辑尺寸相同（测试用的假图集）。
    */
@@ -41,6 +47,11 @@ export interface GlyphAtlasOptions {
    * 对外仍按逻辑字号排版与绘制。文字按世界单位缩放时，放大 3 倍以内不会有锯齿。
    */
   rasterScale?: number;
+  /**
+   * 行高倍率，默认 1.2（与 draw.io 的 `line-height: 1.2` 同口径）：
+   * 行距（行盒高）= `fontSizePx × lineHeightRatio`。
+   */
+  lineHeightRatio?: number;
 }
 
 /**
@@ -65,6 +76,12 @@ export interface GlyphRasterizer {
 export const DEFAULT_FONT_FAMILY =
   "'Microsoft YaHei', 'PingFang SC', 'Hiragino Sans GB', 'Heiti SC', 'SimHei', Arial, sans-serif";
 
+/**
+ * 默认行高倍率：draw.io 的默认样式与富文本都会写 `line-height: 1.2`，
+ * 所以「行距 = 字号 × 1.2」是复刻图纸行距的口径。
+ */
+export const DEFAULT_LINE_HEIGHT_RATIO = 1.2;
+
 export class GlyphAtlas {
   /** 纹理会在扩容时重建，因此非只读 */
   texture: Texture2d;
@@ -72,7 +89,16 @@ export class GlyphAtlas {
   readonly fontSizePx: number;
   /** 烘焙超采样倍率（字形位图 = 逻辑字号 × 该倍率） */
   readonly rasterScale: number;
+  /** 行高倍率（行距 = 字号 × 它） */
+  readonly lineHeightRatio: number;
+  /** 行距 / 行盒高（逻辑像素），多行排版按它排 */
   readonly lineHeight: number;
+  /**
+   * 字体级 ascent / descent（逻辑像素，descent 为正）：行盒里基线的位置由它算——
+   * 基线 = 行盒顶 + 半行距 + ascent，与浏览器给 `line-height` 排版的 strut 同口径。
+   */
+  readonly ascentPx: number;
+  readonly descentPx: number;
 
   private readonly device: GPUDevice;
   private readonly font: string;
@@ -90,6 +116,7 @@ export class GlyphAtlas {
       fontFamily = DEFAULT_FONT_FAMILY,
       fontSizePx = 16,
       rasterScale = 3,
+      lineHeightRatio = DEFAULT_LINE_HEIGHT_RATIO,
       textureWidthPx = 512,
       textureHeightPx = 512,
       paddingPx = 2,
@@ -98,7 +125,8 @@ export class GlyphAtlas {
     this.device = device;
     this.fontSizePx = fontSizePx;
     this.rasterScale = Math.max(rasterScale, 1);
-    this.lineHeight = Math.ceil(fontSizePx * 1.25);
+    this.lineHeightRatio = lineHeightRatio;
+    this.lineHeight = fontSizePx * lineHeightRatio;
     this.paddingPx = paddingPx;
     // 光栅化按「逻辑字号 × 超采样倍率」，排版与绘制仍用逻辑字号
     this.font = `${fontSizePx * this.rasterScale}px ${fontFamily}`;
@@ -117,6 +145,21 @@ export class GlyphAtlas {
     this.ctx.textAlign = 'left';
     this.ctx.textBaseline = 'alphabetic';
     this.ctx.fillStyle = '#ffffff';
+
+    // 字体级度量取整行的「样式盒」而不是某个字的墨迹：`fontBoundingBox*` 缺失时退回经验比例
+    const probe = this.ctx.measureText('Hg');
+    this.ascentPx = fontMetricAtScale(
+      probe,
+      'fontBoundingBoxAscent',
+      this.rasterScale,
+      fontSizePx * 0.8,
+    );
+    this.descentPx = fontMetricAtScale(
+      probe,
+      'fontBoundingBoxDescent',
+      this.rasterScale,
+      fontSizePx * 0.2,
+    );
 
     this.texture = createTextureFromBitmap(device, this.canvas, 'glyph-atlas');
     this.sampler = createTextureSampler(device, 'glyph-atlas-sampler');
@@ -169,6 +212,8 @@ export class GlyphAtlas {
       advance,
       cellWidth,
       cellHeight,
+      // 格子顶边到基线：顶部 padding + 该字的 ascent（换算回逻辑像素）
+      baselineOffset: (paddingRaster + rasterAscent) / scale,
       rasterWidth,
       rasterHeight,
     };
@@ -235,4 +280,20 @@ export function splitGraphemes(text: string): string[] {
     return [...segmenter.segment(text)].map((item) => item.segment);
   }
   return Array.from(text);
+}
+
+/**
+ * 取字体级度量并换算回逻辑像素。
+ * 度量是在「字号 × 超采样倍率」下量的，所以这里除以倍率；
+ * 浏览器没实现该属性（老 Safari）时退回经验比例，保证行盒里的基线始终有值。
+ */
+function fontMetricAtScale(
+  metrics: TextMetrics,
+  key: 'fontBoundingBoxAscent' | 'fontBoundingBoxDescent',
+  rasterScale: number,
+  fallbackPx: number,
+): number {
+  const raw = (metrics as unknown as Record<string, unknown>)[key];
+  if (typeof raw !== 'number' || !Number.isFinite(raw) || raw <= 0) return fallbackPx;
+  return raw / rasterScale;
 }

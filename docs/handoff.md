@@ -17,7 +17,9 @@
 - 渲染：`Renderer2D`（16×f32 实例 = 变换 + 图集 uv + 逐实例颜色；`renderComposite` 批次偏移内部累加；4x MSAA + alpha 混合；层契约 `RENDER_LAYER`）
 - 拾取：`WebGpuPicker.pick` / `pickAt`、`createRendererPicker`、`pickFirst`
 - 纹理：`loadTextureFromUrl`、`createTextureFromBitmap`、默认白纹理、采样器
-- 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容）、`layoutText`（字素排版、颜色、底板、描边 halo）、`splitGraphemes`
+- 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容、字体级 ascent/descent 与逐字形 `baselineOffset`）、
+  `layoutText` / `layoutTextBlock`（字素排版、行高 = 字号 × `lineHeightRatio`、同一行共用一条基线、水平/垂直锚点对齐、颜色、底板、描边 halo）、
+  `measureTextLine`、`splitGraphemes`
 - 几何与空间：`Camera2d`、`QuadTree`、`QuadTreeStore`、AABB 与折线包围盒、`composeTransform2d`
 - 内置图元模板：**一个覆盖单位方形的三角形**（`triangle-list`，3 顶点，`core/geometry/geometry.ts`），
   不再用 6 顶点双三角形；方形之外的部分由 `unitSquareMask`（`core_include/vertex_math.wgsl`）
@@ -65,12 +67,16 @@
 `drawio_frame.ts`（设备批次 + 图标批次 + 阀门精灵批次 + 管线层 + 位号批次）、
 `scene.ts`（图纸 → PidScene，并把阀门图标表交给翻译层；阀门/管线保持默认关闭，静止初始态）、
 `resources.ts`、`input.ts`、`frame.ts`、
-`label_atlases.ts`（按字号缓存位号图集）
+`label_atlases.ts`（按「字号 + 字体 + 行高倍率」缓存位号图集——图纸换字体就必须换图集）
 
 图纸交互：单击阀门 = 选中 / 取消选中（一次只选中一个，日志打印图元 id 与 drawio cellId）；
 双击阀门 = 开 / 关，并按拓扑把下游管线切到流动 / 默认样式。
 
 图纸绘制口径：**图纸是唯一事实来源**，渲染端不自作主张——
+
+- 文字版式：字体 / 字号 / 行高都按图纸来（XML 不写 `fontFamily` 时就是 drawio 默认的 Helvetica +
+  `line-height: 1.2`，与导出的 SVG 一致；中文字形挂回退链）。换行只由图纸的 `<div>` / `<br>` 决定
+  （解析层折成 `\n`，`layoutTextBlock` 不再自行折行），对齐按 drawio 的「每行水平居中 + 整块垂直居中于图元中心」
 
 - 颜色：`fillColor` 有值才画，`fill=none` / 没写填充的单元保持透明（与 draw.io 导出的 SVG 一致）；
   `group` 单元（阀门 + 位号那一组）自己也没有填充，所以不会变成白底。代价是「只有描边」的单元

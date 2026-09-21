@@ -24,7 +24,7 @@ import { SelectableGraphic } from '@/core/scene/capability/selectable';
 import type { PrimitiveInstance } from '@/core/types';
 import type { GlyphAtlas } from '@/core/text/glyph_atlas';
 import type { LabelAtlasCache } from '@/demo/label_atlases';
-import { layoutText } from '@/core/text/text_batch';
+import { layoutTextBlock } from '@/core/text/text_batch';
 
 /** demo 自己的画布底色：淡淡的灰（图纸底），颜色由数据与 demo 决定，引擎不兜底 */
 export const DRAWIO_CLEAR_COLOR: GPUColor = { r: 0.95, g: 0.955, b: 0.96, a: 1 };
@@ -152,7 +152,7 @@ export interface DrawioFrameContext {
   scene: PidScene;
   /** 位号：文字 + 位置 + 颜色 */
   labels: readonly PidLabel[];
-  /** 位号图集缓存：按字号取（缺则新建） */
+  /** 位号图集缓存：按「字号 + 字体 + 行高」取（缺则新建） */
   labelAtlases: LabelAtlasCache;
   /** 图元 id → 内联图标 data URL */
   icons: ReadonlyMap<number, string>;
@@ -206,30 +206,29 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
     });
   }
 
-  // 位号：每字一个实例，整批一次绘制（字号由 label.fontSizePx 决定，这里固定用同一张图集）
-  // 按字号分到各自图集，再按图集分组提交（图纸里字号通常只有两三档）
+  // 位号：每字一个实例，整批一次绘制。
+  // 图集按「字号 + 字体 + 行高」取（字体换了图集就得换，否则量宽还是旧字体），
+  // 再按图集分组提交（图纸里字号通常只有两三档）
   // 位号文字是纯图形（不可选中），所以是 Graphic 而不是 SelectableGraphic
   const labelBatches = new Map<GlyphAtlas, Graphic[]>();
   for (const label of labels) {
-    const atlas = labelAtlases.get(label.fontSizePx);
+    const atlas = labelAtlases.get(label.fontSizePx, {
+      fontFamily: label.fontFamily,
+      lineHeightRatio: label.lineHeightRatio,
+    });
     // 文字按图纸的世界单位排版（图纸坐标就是 px，字号 12 就是 12 世界单位）：
     // 这样文字的缩放和图元完全一致——相机放大缩小时，文字跟着图一起缩放
-    const common = {
+    // 对齐也按图纸/SVG 导出的口径：每行水平居中、整块垂直居中于图元中心
+    // （label.x / label.y 存的是图元中心，对应 drawio 的 align-items: unsafe center）。
+    // 换行只认解析层折出来的 \n，排版器不擅自折行。
+    const graphics = layoutTextBlock(atlas, label.text, {
+      x: label.x,
+      y: label.y,
+      align: 'center',
+      verticalAlign: 'middle',
       pixelsPerWorldUnit: 1,
       color: label.color,
-    };
-    // 先量宽再居中：drawio 的文字默认居中在图元内（label.x 存的是图元中心）。
-    // 富文本换行后的多行文字按行高居中排布（block 围绕图元中心）
-    const lines = label.text.split('\n');
-    const lineHeightWorld = atlas.lineHeight;
-    const graphics = lines.flatMap((line, index) => {
-      const measured = layoutText(atlas, line, { ...common, x: 0, y: 0 });
-      return layoutText(atlas, line, {
-        ...common,
-        x: label.x - measured.width / 2,
-        y: label.y + (index - (lines.length - 1) / 2) * lineHeightWorld,
-      }).graphics;
-    });
+    }).graphics;
 
     const bucket = labelBatches.get(atlas);
     if (bucket) bucket.push(...graphics);
