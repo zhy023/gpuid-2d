@@ -172,15 +172,15 @@ py = canvas.height / 2 + (worldY - camera.centerY) * camera.scale
 
 ## 6. 风险与坑
 
-| 坑                      | 说明                                                                                           | 规避                                                        |
-| ----------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
-| y 轴翻转                | 正交投影把 `bottom/top` 传反了达到 y 向下；随手写 `py = (centerY - worldY) * scale` 会上下颠倒 | 统一用 §2 的公式，并写进 `tests/`                           |
-| CSS 尺寸 vs 后备尺寸    | `pickAt` 用 rect 归一化、`screenToWorld` 用后备尺寸，两者不等价                                | 修 `screenToWorld`；测试页覆盖 0.5×/2×                      |
-| 实例契约已满            | 没有边框通道，BBox 只能靠 4 条细矩形拼                                                         | 见步骤 3；真要边框通道得改 `InstanceTransform` + 全部打包点 |
-| 层序                    | 基础批次先画、`drawOverlay` 后画、纹理批次最后                                                 | 见步骤 4 的 `overlayInstances` 方案                         |
-| 网格实例爆炸            | 缩放到 `minScale = 0.05` 时刻度若按固定世界间距会生成上万条                                    | 按 `getViewportAABB()` 裁剪 + 屏幕间距换档                  |
-| 生成物纪律              | 改动任何 `.wgsl`（含 `*_include/`）后必须 `pnpm shaders`，否则 `shaders:check` 会拦            | 按项目约定执行                                              |
-| 检查脚本别进 check gate | 需要浏览器的检查在 CI 上会因缺 GPU/Chrome 抖动                                                 | 与 `check:device` 同档，单独 `pnpm run check:pixel`         |
+| 坑                      | 说明                                                                                | 规避                                                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| y 轴翻转                | 世界 y 向下（屏幕 y 也向下）；随手写 `py = (centerY - worldY) * scale` 会上下颠倒   | 口径统一在 `core/geometry/transform_2d.ts`（`composeProjection2d` / `screenToWorld2d`），并写进 `tests/core_math.test.ts` |
+| CSS 尺寸 vs 后备尺寸    | `pickAt` 用 rect 归一化、`screenToWorld` 用后备尺寸，两者不等价                     | 修 `screenToWorld`；测试页覆盖 0.5×/2×                                                                                    |
+| 实例契约已满            | 没有边框通道，BBox 只能靠 4 条细矩形拼                                              | 见步骤 3；真要边框通道得改 `InstanceTransform` + 全部打包点                                                               |
+| 层序                    | 基础批次先画、`drawOverlay` 后画、纹理批次最后                                      | 见步骤 4 的 `overlayInstances` 方案                                                                                       |
+| 网格实例爆炸            | 缩放到 `minScale = 0.05` 时刻度若按固定世界间距会生成上万条                         | 按 `getViewportAABB()` 裁剪 + 屏幕间距换档                                                                                |
+| 生成物纪律              | 改动任何 `.wgsl`（含 `*_include/`）后必须 `pnpm shaders`，否则 `shaders:check` 会拦 | 按项目约定执行                                                                                                            |
+| 检查脚本别进 check gate | 需要浏览器的检查在 CI 上会因缺 GPU/Chrome 抖动                                      | 与 `check:device` 同档，单独 `pnpm run check:pixel`                                                                       |
 
 ## 7. 待确认（实现前回答）
 

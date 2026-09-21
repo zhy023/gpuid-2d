@@ -7,6 +7,7 @@
  */
 import valveWgsl from '@/business/pid_schematic/shader/generated/valve_render';
 import type { ValveRenderResources } from '@/business/pid_schematic/types';
+import { PROJECTION_FLOAT_COUNT } from '@/core/geometry/transform_2d';
 import { ALPHA_BLEND_STATE, CANVAS_SAMPLE_COUNT } from '@/core/gpu/render_state';
 
 /** 与 WGSL OrthoProjectionUniform 对齐，留出后续设备动画参数的余量 */
@@ -101,7 +102,8 @@ export function updateValveUniform(
   orthoMat: Float32Array,
 ): void {
   const tmp = new Float32Array(UNIFORM_BUFFER_SIZE / 4);
-  tmp.set(orthoMat, 0);
+  // orthoMat 是 composeProjection2d 出来的 mat3（每列补齐，12 个 float）
+  tmp.set(orthoMat.subarray(0, PROJECTION_FLOAT_COUNT), 0);
   device.queue.writeBuffer(valveRes.uniformBuffer, 0, tmp);
 }
 

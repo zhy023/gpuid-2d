@@ -32,7 +32,9 @@ fn vertexMain(input: VertexInput, @builtin(instance_index) instanceIdx: u32) -> 
 
     let localVec3 = vec3f(input.localPos, 1.0);
     let worldVec3 = modelMat * localVec3;
-    out.clipPos = projectionUbo.orthoMatrix * vec4f(worldVec3.xy, 0.0, 1.0);
+    // 3×3 正交投影：只算 xy，z 恒定 0.5（原 4×4 投影把 z=0 映射到 0.5，深度行为不变）
+    let clip = projectionUbo.orthoMatrix * worldVec3;
+    out.clipPos = vec4f(clip.xy, 0.5, 1.0);
     out.localUv = input.localPos;
     out.isInstanceSelected = inst.isSelected;
     out.atlasUvRect = inst.atlasUvRect;

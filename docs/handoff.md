@@ -20,7 +20,12 @@
 - 文字：`GlyphAtlas`（按需图集、shelf 打包、局部写入、满页扩容、字体级 ascent/descent 与逐字形 `baselineOffset`）、
   `layoutText` / `layoutTextBlock`（字素排版、行高 = 字号 × `lineHeightRatio`、同一行共用一条基线、水平/垂直锚点对齐、颜色、底板、描边 halo）、
   `measureTextLine`、`splitGraphemes`
-- 几何与空间：`Camera2d`、`QuadTree`、`QuadTreeStore`、AABB 与折线包围盒、`composeTransform2d`
+- 几何与空间：`Camera2d`（只持视口中心/缩放/画布尺寸）、`QuadTree`、`QuadTreeStore`、AABB 与折线包围盒
+- **变换口径唯一来源** `core/geometry/transform_2d.ts`：模型矩阵 `composeTransform2d`（T·R·S、单位方块模板）、
+  正交投影 `composeProjection2d`（**3×3**，输出 12 个 float = 每列补到 16 字节，直接喂 WGSL `mat3x3f`）、
+  屏幕↔世界 `screenToWorld2d` / `worldToScreen2d`（世界 y 向下、屏幕 y 也向下）。
+  相机/命中检测只调用它；GPU 侧对应 `vertex_math.wgsl`（模型）与 `primitive_uniforms.wgsl`（投影，48 字节 UBO），
+  改约定要两边一起改，`tests/core_math.test.ts` 里钉了中心/边界/方向/往返
 - 内置图元模板：**一个覆盖单位方形的三角形**（`triangle-list`，3 顶点，`core/geometry/geometry.ts`），
   不再用 6 顶点双三角形；方形之外的部分由 `unitSquareMask`（`core_include/vertex_math.wgsl`）
   按屏幕像素抗锯齿裁掉。渲染与拾取（含阀门拾取）走同一套掩码，命中区域与看到的一致
@@ -140,7 +145,7 @@
 - 逐实例颜色的 alpha 是「画不画」的开关：`a <= 0.5` = 没指定颜色 → 渲染不画、拾取也不命中
   （内核不兜底灰色，`Graphic.fillColor = null` 就是「不绘制」）。demo/业务想让图元可见，
   必须在数据里显式 `fill(...)`；`device_stress_test` 就是显式给了一个中性灰
-- 内核的绑定槽是**固定四个**：`0` 正交投影 UBO / `1` 实例变换 Storage / `3` 图集纹理 / `4` 采样器
+- 内核的绑定槽是**固定四个**：`0` 正交投影 UBO（**3×3**，48 字节）/ `1` 实例变换 Storage / `3` 图集纹理 / `4` 采样器
   （`2` 空着，历史上曾给业务预留一个 storage，已删除）。业务要额外的 storage（阀门开关、管线流速这类），
   自己建 `bindGroupLayout` + pipeline（见 `pipe_pipeline.ts` / `valve_pipeline.ts`），
   内核不替业务预留槽位——`Renderer2D` 一旦认识 `pid*` 字段，内核就不再业务无关了

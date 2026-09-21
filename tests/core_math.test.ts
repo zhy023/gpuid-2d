@@ -9,6 +9,12 @@ import { Camera2d } from '@/core/camera';
 import { computeRotatedAABB } from '@/core/geometry/aabb';
 import { orthogonalizePolyline } from '@/core/geometry/polyline';
 import { QuadTree } from '@/core/geometry/quad_tree';
+import {
+  composeProjection2d,
+  PROJECTION_FLOAT_COUNT,
+  screenToWorld2d,
+  worldToScreen2d,
+} from '@/core/geometry/transform_2d';
 import type { AABB, QuadTreeItem } from '@/core/types';
 
 /** 固定种子伪随机，保证用例可复现 */
@@ -244,5 +250,64 @@ describe('QuadTree', () => {
       [...expected].sort((a, b) => a - b),
     );
     for (const id of removed) assert.ok(!got.has(id), `已删除的 ${id} 仍被查询到`);
+  });
+});
+
+/**
+ * 投影口径用例：CPU 与 GPU 共用同一套 3×3 正交投影（`composeProjection2d` 的输出
+ * 直接喂 WGSL 的 mat3x3f），所以这里把「中心/边界映射」与「世界 y 向下」钉死；
+ * 哪天有人改了方向约定，这几条会先红，而不是等到画面上下颠倒才发现。
+ */
+describe('composeProjection2d', () => {
+  const view = { centerX: 100, centerY: -50, scale: 2 };
+  const width = 800;
+  const height = 600;
+  const viewW = width / view.scale;
+  const viewH = height / view.scale;
+
+  /** 按列主序把世界点乘进投影矩阵（与 WGSL `mat3x3f * vec3f` 同一算法） */
+  const project = (matrix: Float32Array, x: number, y: number) => ({
+    x: matrix[0] * x + matrix[4] * y + matrix[8],
+    y: matrix[1] * x + matrix[5] * y + matrix[9],
+  });
+
+  it('视口中心 → NDC 原点，四边 → ±1', () => {
+    const m = composeProjection2d(view, width, height);
+    const center = project(m, view.centerX, view.centerY);
+    assert.ok(Math.abs(center.x) < 1e-6 && Math.abs(center.y) < 1e-6, '中心应落在 NDC 原点');
+
+    assert.ok(Math.abs(project(m, view.centerX - viewW / 2, view.centerY).x + 1) < 1e-6);
+    assert.ok(Math.abs(project(m, view.centerX + viewW / 2, view.centerY).x - 1) < 1e-6);
+  });
+
+  it('世界 y 向下：y 越大 NDC y 越负（屏幕越靠下）', () => {
+    const m = composeProjection2d(view, width, height);
+    const above = project(m, view.centerX, view.centerY - viewH / 2).y;
+    const below = project(m, view.centerX, view.centerY + viewH / 2).y;
+    assert.ok(Math.abs(above - 1) < 1e-6, `视口上边界应映射到 NDC y = +1，实际 ${above}`);
+    assert.ok(Math.abs(below + 1) < 1e-6, `视口下边界应映射到 NDC y = -1，实际 ${below}`);
+  });
+
+  it('输出按 WGSL mat3x3f 的列对齐排布（每列补 1 个 float，共 12 个）', () => {
+    const m = composeProjection2d(view, width, height);
+    assert.equal(m.length, PROJECTION_FLOAT_COUNT);
+    assert.deepEqual([m[3], m[7], m[11]], [0, 0, 0], '每列末尾是 16 字节对齐的填充');
+    assert.deepEqual([m[2], m[6], m[10]], [0, 0, 1], '第三行是 (0, 0, 1)');
+  });
+
+  it('屏幕 ↔ 世界往返一致（相机拖拽/拾取都靠它）', () => {
+    for (const [px, py] of [
+      [0, 0],
+      [width, 0],
+      [width, height],
+      [0, height],
+      [123.5, 456.25],
+    ]) {
+      const world = screenToWorld2d(view, width, height, px, py);
+      const back = worldToScreen2d(view, width, height, world.x, world.y);
+      assert.ok(Math.abs(back.x - px) < 1e-6 && Math.abs(back.y - py) < 1e-6);
+    }
+    const center = worldToScreen2d(view, width, height, view.centerX, view.centerY);
+    assert.deepEqual([center.x, center.y], [width / 2, height / 2]);
   });
 });

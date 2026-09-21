@@ -233,7 +233,7 @@ function packPipeInstanceItems(visibleItems: readonly PipeBatchItem[]): number {
  * @param pass 主渲染RenderPass
  * @param device gpu设备
  * @param pipeRes 管线资源
- * @param viewProj 相机正交矩阵 Float32Array(16)
+ * @param viewProj 相机正交投影（mat3，12 个 float：每列补到 16 字节，直接喂 WGSL）
  * @param timeSec 时间秒，用于流动动画
  * @param visibleItems 四叉树返回全部可见图元
  * @param pipeTemplateVb 管线三角带模板顶点buffer

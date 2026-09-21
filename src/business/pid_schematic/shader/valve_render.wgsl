@@ -37,7 +37,9 @@ fn vertexMain(input: ValveVertexInput, @builtin(instance_index) instanceIdx: u32
     let localVec3 = vec3f(input.localPos, 1.0);
     let worldVec3 = modelMat * localVec3;
 
-    out.clipPos = projectionUbo.orthoMatrix * vec4f(worldVec3.xy, 0.0, 1.0);
+    // 与内核同一套 3×3 正交投影
+    let clip = projectionUbo.orthoMatrix * worldVec3;
+    out.clipPos = vec4f(clip.xy, 0.5, 1.0);
     out.localUv = input.localPos;
     out.isSelected = transformData.isSelected;
     out.valveSwitch = businessData.valveOpen;

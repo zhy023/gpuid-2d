@@ -26,7 +26,9 @@ fn vertexMain(input: PickVertexInput, @builtin(instance_index) instanceIdx: u32)
     let modelMat = computeInstanceModelMatrix(inst);
     let localVec3 = vec3f(input.localPos, 1.0);
     let worldVec3 = modelMat * localVec3;
-    out.clipPos = projectionUbo.orthoMatrix * vec4f(worldVec3.xy, 0.0, 1.0);
+    // 与渲染侧同一套 3×3 投影（拾取与绘制必须逐像素一致）
+    let clip = projectionUbo.orthoMatrix * worldVec3;
+    out.clipPos = vec4f(clip.xy, 0.5, 1.0);
     out.instanceId = instanceIdx;
     out.localUv = input.localPos;
     out.shape = inst.shape;

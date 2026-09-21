@@ -1,5 +1,11 @@
-import { mat3, mat4, vec4 } from 'wgpu-matrix';
-import { composeTransform2d, transformPoint2d } from '@/core/geometry/transform_2d';
+import { mat3 } from 'wgpu-matrix';
+import {
+  composeProjection2d,
+  composeTransform2d,
+  PROJECTION_FLOAT_COUNT,
+  screenToWorld2d,
+  transformPoint2d,
+} from '@/core/geometry/transform_2d';
 import type { AABB } from '@/core/types';
 
 // hitTestRect 的复用缓冲（静态方法不能用实例字段）
@@ -19,10 +25,8 @@ export class Camera2d {
 
   private readonly minScale = 0.05;
   private readonly maxScale = 50;
-  // 预先在类里面声明一个成员
-  private readonly projectionMatrixBuffer = new Float32Array(16);
-  // 逆投影矩阵缓存
-  private readonly invProjBuffer = new Float32Array(16);
+  // 投影矩阵缓冲（mat3 + 每列补齐，直接喂 WGSL）
+  private readonly projectionMatrixBuffer = new Float32Array(PROJECTION_FLOAT_COUNT);
 
   private lastMouseX = 0;
   private lastMouseY = 0;
@@ -55,29 +59,14 @@ export class Camera2d {
    */
   public screenToWorld(pxX: number, pxY: number) {
     const rect = this.canvas.getBoundingClientRect();
-    const mousePxX = pxX - rect.left;
-    const mousePxY = pxY - rect.top;
-    const pw = this.canvas.width;
-    const ph = this.canvas.height;
-
-    // 像素坐标 → WebGPU NDC: x[-1,1], y[-1,1], z [0,1]
-    const ndcX = (2.0 * mousePxX) / pw - 1.0;
-    const ndcY = 1.0 - (2.0 * mousePxY) / ph;
-
-    // 相机投影矩阵
-    const projMat = this.getCameraProjectionMatrix();
-    const invProj = mat4.invert(projMat, this.invProjBuffer);
-    if (!invProj) return { x: 0, y: 0 };
-
-    // 齐次向量 NDC: (x,y,0,1)
-    const ndcVec = vec4.create(ndcX, ndcY, 0, 1);
-    // 乘逆投影矩阵
-    const worldVec = vec4.transformMat4(ndcVec, invProj);
-    // 齐次除法 w
-    const worldX = worldVec[0] / worldVec[3];
-    const worldY = worldVec[1] / worldVec[3];
-
-    return { x: worldX, y: worldY };
+    // 换算口径统一在 core/geometry/transform_2d.ts（屏幕 y 与世界 y 同向）
+    return screenToWorld2d(
+      this,
+      this.canvas.width,
+      this.canvas.height,
+      pxX - rect.left,
+      pxY - rect.top,
+    );
   }
 
   public static hitTestRect(
@@ -114,28 +103,6 @@ export class Camera2d {
       maxX: this.centerX + halfW,
       maxY: this.centerY + halfH,
     };
-  }
-
-  /**
-   * 生成2D模型矩阵：平移 * 旋转Z * 缩放
-   * @param tx 中心X
-   * @param ty 中心Y
-   * @param beta 旋转弧度
-   * @param sx X缩放
-   * @param sy Y缩放
-   */
-  public static createModelMatrix(
-    tx: number,
-    ty: number,
-    beta: number,
-    sx: number,
-    sy: number,
-  ): Float32Array {
-    const m = mat4.identity();
-    mat4.translate(m, [tx, ty, 0], m);
-    mat4.rotateZ(m, beta, m);
-    mat4.scale(m, [sx, sy, 1], m);
-    return m;
   }
 
   // 绑定鼠标事件
@@ -180,15 +147,12 @@ export class Camera2d {
 
   // 获取相机投影矩阵
   public getCameraProjectionMatrix(): Float32Array {
-    const viewW = this.canvas.width / this.scale;
-    const viewH = this.canvas.height / this.scale;
-    const left = this.centerX - viewW / 2;
-    const right = this.centerX + viewW / 2;
-    const top = this.centerY - viewH / 2;
-    const bottom = this.centerY + viewH / 2;
-
-    mat4.ortho(left, right, bottom, top, -1, 1, this.projectionMatrixBuffer);
-
-    return this.projectionMatrixBuffer;
+    // 相机只出「视口中心 + 缩放」，矩阵怎么算由 transform_2d.ts 统一负责
+    return composeProjection2d(
+      this,
+      this.canvas.width,
+      this.canvas.height,
+      this.projectionMatrixBuffer,
+    );
   }
 }

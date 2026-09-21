@@ -107,7 +107,8 @@ export function createPipeBindGroup(
 /**
  * 更新管线实例渲染UBO：正交矩阵 + 全局时间
  * UBO 字段顺序必须与 WGSL 的 PidPipelineAnimationUniform 一致：
- * orthoMatrix(16) / timeSeconds / flowPeriodWorld / flowCyclesPerSec / flowDashDuty
+ * orthoMatrix(mat3，12 个 float = 48 字节) / timeSeconds / flowPeriodWorld /
+ * flowCyclesPerSec / flowDashDuty
  */
 export interface PipeUniformValues {
   projection: Float32Array;
@@ -125,10 +126,10 @@ export function updatePipeUniform(
 ) {
   const tmp = new Float32Array(256 / 4);
   tmp.set(values.projection, 0);
-  tmp[16] = values.timeSeconds;
-  tmp[17] = values.flowPeriodWorld;
-  tmp[18] = values.flowCyclesPerSec;
-  tmp[19] = values.flowDashDuty;
+  tmp[12] = values.timeSeconds;
+  tmp[13] = values.flowPeriodWorld;
+  tmp[14] = values.flowCyclesPerSec;
+  tmp[15] = values.flowDashDuty;
   device.queue.writeBuffer(res.uniformBuffer, 0, tmp);
 }
 

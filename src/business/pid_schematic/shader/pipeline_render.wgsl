@@ -4,8 +4,9 @@
 #include "@/core/shader/core_include/vertex_math.wgsl"
 
 // 管线渲染专用UBO：正交矩阵 + 动画时间，与 updatePipeUniform/pipe_render_pass 写入布局一致
+// orthoMatrix 是 3×3（每列补到 16 字节 = 48 字节），后面四个 f32 从第 48 字节开始
 struct PidPipelineAnimationUniform {
-    orthoMatrix: mat4x4<f32>,
+    orthoMatrix: mat3x3f,
     timeSeconds: f32,
     flowPeriodWorld: f32, // 一个流动周期对应的世界长度（= 周期像素 / 相机缩放）
     flowCyclesPerSec: f32, // 每秒走过多少个周期
@@ -42,7 +43,9 @@ fn vertexMain(input: PipelineVertexInput, @builtin(instance_index) instanceIdx: 
     let modelMat = computeInstanceModelMatrix(transformData);
     let localVec3 = vec3f(input.localPos, 1.0);
     let worldVec3 = modelMat * localVec3;
-    out.clipPos = pipelineAnimUbo.orthoMatrix * vec4f(worldVec3.xy, 0.0, 1.0);
+    // 与内核同一套 3×3 正交投影
+    let clip = pipelineAnimUbo.orthoMatrix * worldVec3;
+    out.clipPos = vec4f(clip.xy, 0.5, 1.0);
 
     // 模板 uv.x 在段内是 0..1，这里换算成世界里程（段长取自实例矩阵第一列缩放）；
     // 配合 flowOffset（CPU 侧累计里程）让折线拐点处的流动相位连续

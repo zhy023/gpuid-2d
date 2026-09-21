@@ -90,7 +90,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 src/
 ├─ core/                        # 引擎内核：业务无关
 │  ├─ gpu/                      # device / context（装配与重建）/ renderer / picker / surface / texture / render_state / render_layer
-│  ├─ geometry/                 # 顶点模板、AABB、四叉树、折线包围盒、2D 变换
+│  ├─ geometry/                 # 顶点模板、AABB、四叉树、折线包围盒、2D 变换（transform_2d.ts = 变换口径唯一来源）
 │  ├─ scene/                    # graphic（图形本体：base / graphic / data）/ capability（能力：selectable / flow）/
 │  │                            #   spatial（空间索引 QuadTreeStore）
 │  ├─ text/                     # GlyphAtlas（按需字形图集）+ layoutText

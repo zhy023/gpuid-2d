@@ -5,6 +5,7 @@ import {
   type Texture2d,
 } from '@/core/gpu/texture';
 import type { PrimitiveInstance } from '@/core/types';
+import { PROJECTION_FLOAT_COUNT } from '@/core/geometry/transform_2d';
 import defaultRenderWgsl from '@/core/shader/generated/core_render/primitive_render';
 
 /** 实例契约：8 个基字段（变换/选中/形状/填充）+ 图集 uv(4) + 逐实例颜色(4) = 16 × f32 = 64B */
@@ -97,7 +98,8 @@ export class Renderer2D {
     this.vertexCount = vertexCount;
 
     this.projectionBuffer = device.createBuffer({
-      size: 64,
+      // 正交投影是 3×3：每列补到 16 字节 → 48 字节（与 WGSL `mat3x3f` 一致）
+      size: PROJECTION_FLOAT_COUNT * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
 
