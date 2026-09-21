@@ -96,3 +96,4 @@ import heroImg from '@/assets/hero.png';
 3. 跨目录引用使用 `@` 别名
 4. 依赖变更使用 pnpm，锁文件只保留 `pnpm-lock.yaml`
 5. 没有残留的调试代码和 `console.log`
+6. 改过 `.wgsl` 后已跑 `pnpm shaders`（生成物与源码必须同步，`pnpm check` 会拦）

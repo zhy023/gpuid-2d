@@ -55,11 +55,12 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 - 阀门：开关两态贴图精灵、拾取器由业务模块托管、点击切换开闭
 - 拓扑：`applyValveFlowState` 把阀门状态广播到下游管线（含环路保护）
 - 场景：`PidScene` 统一增删改（`upsertDevice` / `upsertPipe` / `upsertValve` / `remove`）与视口可见集
+- 图纸接入：`drawio/mx_document.ts` + `mx_style.ts`（零运行时依赖，`DOMParser` 注入）→ `to_pid_scene.ts` 把 mxGraphModel 翻译成 `PidScene`（绝对坐标按父链累加、折点在 `<Array as="points">`）
 
 **质量保障**
 
-- `tests/` 20 个用例（几何等价性、四叉树一致性、QuadTreeStore、PidScene、拓扑广播、文字排版与字素切分）
-- `pnpm run check`（lint + 文件名 + WGSL + 用例 + format + build）与 `pnpm run check:device`（掉设备探针：destroy → lost → 新适配器 → 建管线并渲染一帧）
+- `tests/` 31 个用例 / 12 组（几何等价性、四叉树一致性、QuadTreeStore、PidScene、拓扑广播、文字排版与字素切分、drawio 解析与翻译）
+- `pnpm run check`（lint + 文件名 + 着色器模块同步 + WGSL + 用例 + format + build）与 `pnpm run check:device`（掉设备探针：destroy → lost → 新适配器 → 建管线并渲染一帧）
 - GitHub Actions：`check` job 跑完整检查，`device` job 单独跑掉设备用例（不阻塞）
 - 性能基线：5 万设备图元 + 800 管线，拖动渲染中位 16.7ms、p95 17.7ms
 
@@ -68,7 +69,7 @@ gpuid-2d 是一个自研的 2D 底层 WebGPU 引擎，直接基于 WebGPU API �
 1. **符号图集与状态变体**：泵/仪表/接线端等符号进同一张图集，按状态切换 uv（阀门已用两张贴图验证通路）。
 2. **图集淘汰与显存上限**：字形图集目前按需扩容，需要 LRU 或页数上限，保证长跑不涨内存。
 3. **文字 LOD**：大图缩小时隐藏位号或切换字号。
-4. **数据接入**：DXF/XML 或后端图纸 JSON 接入 `PidScene`。
+4. **数据接入**：drawio（mxGraphModel）已接入 `PidScene`，图标贴图与位号批次进行中（见 `docs/handoff.md`）；DXF / 后端图纸 JSON 待接。
 5. **性能面板**：draw call / 实例数 / 剔除数 / 帧时间。
 
 ### 后续扩展
@@ -99,14 +100,16 @@ src/
 │  ├─ pipe_*.ts                 # 样式、图元、实例化、pipeline、模块入口、压测数据
 │  ├─ valve_*.ts                # 阀门 pipeline、实例/精灵、模块入口、位号口径、示例链
 │  ├─ topology.ts               # 管线-设备拓扑与下游样式广播
+│  ├─ drawio/                   # mxGraphModel → PidScene 翻译层（mx_document / mx_style / to_pid_scene）
 │  └─ device_stress_test.ts     # 设备图元压测数据
 ├─ demo/                        # 示例组装（唯一同时依赖 core 与 business 的地方）
 │  ├─ main.ts                   # 入口：装配 → 资源 → 场景 → 输入 → 帧循环 → 卸载；掉设备自动重建
+│  ├─ drawio_main.ts            # 图纸模式入口（真实 drawio 图纸 + 帧组装）
 │  ├─ scene.ts / resources.ts   # 示例场景数据 / 示例所需 GPU 资源
 │  ├─ input.ts                  # 拾取优先级（设备优先 → 矩形）
 │  └─ frame.ts                  # 每帧批次与层序提交
 ├─ tests/                       # Node 用例（tests/*.test.ts）
-├─ scripts/                     # 文件名、WGSL、测试运行器、掉设备检查
+├─ scripts/                     # 文件名、着色器生成、WGSL、测试运行器、掉设备检查
 └─ app.tsx                      # React 示例入口
 ```
 
@@ -136,7 +139,7 @@ src/
 | `pnpm shaders`       | 由 `.wgsl` 生成 `shader/generated/*.ts` 字符串模块                |
 | `pnpm shaders:check` | 校验生成物与 `.wgsl` 是否同步                                     |
 | `pnpm lint:wgsl`     | WGSL 编译校验                                                     |
-| `pnpm test`          | Node 用例（20 个）                                                |
+| `pnpm test`          | Node 用例（31 个 / 12 组）                                        |
 | `pnpm check`         | 完整检查：lint + 命名 + 着色器模块 + WGSL + 用例 + format + build |
 | `pnpm check:device`  | 掉设备重建检查（需真实 WebGPU）                                   |
 | `pnpm format`        | Prettier 写入                                                     |
