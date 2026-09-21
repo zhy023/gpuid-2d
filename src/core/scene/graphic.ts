@@ -49,7 +49,7 @@ export interface GraphicOptions {
   visible?: boolean;
   /** 初始选中态，默认 false */
   selected?: boolean;
-  /** 填充色（管线里就是管身底色），null 表示不填/用渲染默认色 */
+  /** 填充色（管线里就是管身底色）；null 表示不填——该图元不绘制，也不参与拾取 */
   fillColor?: Rgba | null;
   /** 描边色与宽度（strokeWidth <= 0 视为不描边） */
   strokeColor?: Rgba | null;

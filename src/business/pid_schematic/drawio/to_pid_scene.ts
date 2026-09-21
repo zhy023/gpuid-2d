@@ -177,7 +177,7 @@ export function toPidScene(document: MxDocument): DrawioSceneResult {
     }
 
     const center = centerOf(node);
-    // drawio 的 rotation 是角度；fillColor 是填充色（不填则沿用默认灰）
+    // drawio 的 rotation 是角度；fillColor 是填充色（fill=none 或没写就是不绘制）
     const beta = (mxNumber(node.style, 'rotation', 0) * Math.PI) / 180;
     // flipH/flipV 用负缩放表达（贴图跟着镜像，和 drawio 一致）
     const sx = mxFlag(node.style, 'flipH') ? -node.width : node.width;

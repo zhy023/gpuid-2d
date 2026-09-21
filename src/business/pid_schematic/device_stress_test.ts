@@ -9,6 +9,12 @@ import { PidScene } from '@/business/pid_schematic/pid_scene';
 import { Graphic } from '@/core/scene/graphic';
 import type { AABB, PrimitiveInstance } from '@/core/types';
 
+/**
+ * 压测设备图元的填充色：内核不再兜底颜色（没指定颜色就整块不画），
+ * 所以「要能看见」这件事得由数据自己声明，这里显式给一个中性灰。
+ */
+const STRESS_DEVICE_FILL = [0.3, 0.3, 0.3, 1] as const;
+
 /** 设备图元 → 实例化绘制数据（几何 + 选中态 + 形状；uv 整张纹理、颜色取填充色） */
 export function toInstances(items: readonly Graphic[]): PrimitiveInstance[] {
   return items.map((item) => ({
@@ -73,7 +79,7 @@ export class DeviceStressTester {
         width: sx,
         height: sy,
         rotation: beta,
-      });
+      }).fill(STRESS_DEVICE_FILL);
       // 刚生成、还未提交渲染，先清掉变更标记
       item.clearDirty();
       this.itemMap.set(i, item);

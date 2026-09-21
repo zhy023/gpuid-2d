@@ -44,17 +44,19 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
     // 形状覆盖度（含「裁掉模板三角形多出的半边」）与拾取走同一份实现
     let shapeMask = unitShapeMask(input.localUv, input.shape);
 
-    var color = vec4f(0.3, 0.3, 0.3, 1.0);
-    if (input.isInstanceSelected > 0.5) {
-        color = mix(color, vec4f(0.95, 0.7, 0.2, 1.0), 0.35);
-    }
     // 模板坐标 [-0.5,0.5] → 图集局部 uv [0,1] → 实例指定图集区域
     let localUv = input.localUv + vec2f(0.5, 0.5);
     let uv = mix(input.atlasUvRect.xy, input.atlasUvRect.zw, localUv);
     let texel = textureSample(atlasTexture, atlasSampler, uv);
-    // 逐实例颜色：alpha > 0.5 表示该实例显式指定颜色（文字/位号），否则用默认灰/选中色
+
+    // 逐实例颜色是唯一的颜色来源：alpha > 0.5 才算「指定了颜色」。
+    // 没指定就整块不画（内核不再兜底灰色，免得把图纸里 fill=none 的图元画成灰块）——
+    // 拾取着色器用了同一条判据，所以也点不中看不见的图元。
     let hasInstanceColor = input.instanceColor.a > 0.5;
-    let rgb = select(color.rgb, input.instanceColor.rgb, hasInstanceColor);
-    let alpha = color.a * texel.a * select(1.0, input.instanceColor.a, hasInstanceColor);
-    return vec4f(rgb * texel.rgb, alpha * shapeMask);
+    var rgb = select(vec3f(0.0, 0.0, 0.0), input.instanceColor.rgb, hasInstanceColor);
+    if (input.isInstanceSelected > 0.5) {
+        rgb = mix(rgb, vec3f(0.95, 0.7, 0.2), 0.35);
+    }
+    let alpha = select(0.0, input.instanceColor.a, hasInstanceColor) * texel.a * shapeMask;
+    return vec4f(rgb * texel.rgb, alpha);
 }
