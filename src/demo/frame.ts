@@ -28,6 +28,13 @@ import type { DemoScene } from '@/demo/scene';
 const TITLE = '你好';
 /** 标题颜色（金黄，压在浅底上可辨） */
 const TITLE_COLOR = [1.0, 0.78, 0.25, 1] as const;
+/**
+ * 示例里文字按**世界字号**排版（跟着图元一起缩放）：
+ * 初始缩放 0.1（1 世界单位 = 0.1 屏幕像素），位号取 120 世界单位、标题取 320，
+ * 在初始视距下分别约等于 12px / 32px，和改之前观感一致。
+ */
+const LABEL_WORLD_FONT = 120;
+const TITLE_WORLD_FONT = 320;
 /** demo 自己的画布背景色：淡淡的灰（引擎不兜底色，背景由 demo 决定） */
 export const DEMO_CLEAR_COLOR: GPUColor = { r: 0.95, g: 0.955, b: 0.96, a: 1 };
 
@@ -67,15 +74,19 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
 
   /** 位号与标题的图形（每字一个 `Graphic`，图集 uv 写在图形里） */
   function buildTextGraphics(valves: readonly ValveGraphic[]) {
-    const pixelsPerWorldUnit = camera.scale;
+    // 图集按屏幕像素造字形，这里换算成「世界字号」口径：ppwu = 图集字号 / 目标世界字号
+    const tagScale = glyphAtlas.fontSizePx / LABEL_WORLD_FONT;
+    const titleScale = titleAtlas.fontSizePx / TITLE_WORLD_FONT;
     const titleGraphics = layoutText(titleAtlas, TITLE, {
       x: -260,
       y: -900,
-      pixelsPerWorldUnit,
+      pixelsPerWorldUnit: titleScale,
       color: TITLE_COLOR,
     }).graphics;
     // 位号文案/颜色/偏移是业务表现，交给业务层
-    const tagGraphics = buildValveLabelGraphics(glyphAtlas, valves, { pixelsPerWorldUnit });
+    const tagGraphics = buildValveLabelGraphics(glyphAtlas, valves, {
+      pixelsPerWorldUnit: tagScale,
+    });
     return { titleGraphics, tagGraphics };
   }
 
@@ -111,8 +122,9 @@ export function createFrameRunner(ctx: DemoFrameContext): DemoFrameRunner {
 
     const { titleGraphics, tagGraphics } = buildTextGraphics(visibleValves);
     const { closed, open } = buildValveSprites(visibleValves);
-    const titleInstances = toInstances(titleGraphics, camera.scale);
-    const tagInstances = toInstances(tagGraphics, camera.scale);
+    // 装箱与排版用同一个 ppwu（文字是世界字号口径，不能再按相机缩放折算一次）
+    const titleInstances = toInstances(titleGraphics, titleAtlas.fontSizePx / TITLE_WORLD_FONT);
+    const tagInstances = toInstances(tagGraphics, glyphAtlas.fontSizePx / LABEL_WORLD_FONT);
     const projMat = camera.getCameraProjectionMatrix();
     renderer.uploadProjectionMatrix(projMat);
 

@@ -254,7 +254,8 @@ export function renderDrawioFrame(ctx: DrawioFrameContext): { devices: number; p
         sampler: renderer.getDefaultSampler(),
       },
       ...[...labelBatches].map(([atlas, graphics]) => ({
-        instances: toInstances(graphics, camera.scale),
+        // 位号排版时用的是 ppwu = 1（字号即世界单位），装箱必须用同一个口径
+        instances: toInstances(graphics, 1),
         textureView: atlas.texture.view,
         sampler: atlas.sampler,
       })),
