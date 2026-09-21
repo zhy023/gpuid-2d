@@ -67,6 +67,8 @@ export interface DrawioSceneResult {
   stats: {
     devices: number;
     valves: number;
+    /** 纯连接点（drawio 的 `shape=waypoint`）：只用来接边，不建图元 */
+    connectionPoints: number;
     pipes: number;
     labels: number;
     icons: number;
@@ -175,7 +177,15 @@ export function toPidScene(
   const cellGroupId = new Map<string, string>();
   const groupValveId = new Map<string, number>();
   const pendingLinks: Array<{ pipeId: number; sourceId: string; targetId: string }> = [];
-  const stats = { devices: 0, valves: 0, pipes: 0, labels: 0, icons: 0, skipped: 0 };
+  const stats = {
+    devices: 0,
+    valves: 0,
+    connectionPoints: 0,
+    pipes: 0,
+    labels: 0,
+    icons: 0,
+    skipped: 0,
+  };
   let nextId = 1;
 
   const idOf = (rawId: string): number => {
@@ -201,10 +211,13 @@ export function toPidScene(
 
   /** 端点在节点矩形上的锚点：fx/fy 是 0~1 的比例（drawio 的 exitX/entryX） */
   const anchorOf = (node: MxNode, fx: number, fy: number) => {
+    // drawio 的 centerPerimeter：不管 exit/entry 给什么比例，端口都在节点中心出线。
+    // 图纸里的连接点（waypoint）就是这么连的，两条管线必须在同一点接上，否则会断开。
+    const centerPort = node.style.perimeter === 'centerPerimeter';
     // 单元的 rotation（角度，顺时针）要作用在锚点上，否则旋转过的设备会连歪
     const beta = (mxNumber(node.style, 'rotation', 0) * Math.PI) / 180;
-    const localX = (fx - 0.5) * node.width;
-    const localY = (fy - 0.5) * node.height;
+    const localX = ((centerPort ? 0.5 : fx) - 0.5) * node.width;
+    const localY = ((centerPort ? 0.5 : fy) - 0.5) * node.height;
     const cos = Math.cos(beta);
     const sin = Math.sin(beta);
     return {
@@ -278,6 +291,14 @@ export function toPidScene(
 
     if (node.width <= 0 || node.height <= 0) {
       stats.skipped += 1;
+      continue;
+    }
+
+    // 纯连接点（drawio 的 shape=waypoint）：图纸里只作为接边用的节点，没有实际含义，
+    // 所以只保留 id 让管线拓扑能串过去，不建成可绘制的图元
+    if (node.style.shape === 'waypoint') {
+      idOf(node.id);
+      stats.connectionPoints += 1;
       continue;
     }
 

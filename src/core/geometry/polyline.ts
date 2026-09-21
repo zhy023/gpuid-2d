@@ -18,7 +18,8 @@ export interface OrthogonalizeOptions {
  *  1. 与坐标轴夹角在容差内的线段直接拉正 —— 纠正绘图员画线时的手抖
  *  2. 仍然斜着的线段插入一个肘点，改成「先水平后垂直 / 先垂直后水平」两段
  *
- * 首点固定（端点吸附在哪个设备上不动），返回新数组；重复点会被去掉。
+ * **首末点固定不动**（它们是吸附在设备 / 连接点上的端口，动了管线就会在接头处断开）：
+ * 末段用一小段肘点把方向摆正，而不是挪端点。返回新数组；重复点会被去掉。
  */
 export function orthogonalizePolyline(
   points: readonly Point[],
@@ -41,6 +42,15 @@ export function orthogonalizePolyline(
     const dx = raw.x - prev.x;
     const dy = raw.y - prev.y;
     if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) continue;
+
+    // 末点是端口，不能挪：按主导方向插一个肘点，让最后一段沿端口方向进出
+    // （近轴段只会产生一小段摆正用的短肘，肉眼看不出来）
+    if (index === points.length - 1) {
+      if (Math.abs(dy) <= Math.abs(dx)) push({ x: prev.x, y: raw.y });
+      else push({ x: raw.x, y: prev.y });
+      push({ ...raw });
+      continue;
+    }
 
     const angle = Math.atan2(Math.abs(dy), Math.abs(dx));
     if (angle <= tolerance) {

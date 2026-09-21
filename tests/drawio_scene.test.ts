@@ -44,6 +44,22 @@ describe('toPidScene（真实图纸）', () => {
     assert.ok(result.stats.icons > 0, '应当提取出内联图标');
   });
 
+  it('纯连接点（shape=waypoint）不建成图元，只保留 id 给管线串联', () => {
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    assert.ok(withValves.stats.connectionPoints > 0, '样例图纸里有连接点');
+    assert.equal(
+      withValves.stats.devices,
+      result.stats.devices - withValves.stats.valves,
+      '设备数 = 原设备数 - 被识别成阀门的单元（连接点在两边都不算设备）',
+    );
+    // 连接点虽然没有图元，但拓扑仍要能串过去
+    assert.equal(
+      [...withValves.topology.values()].length,
+      withValves.stats.pipes,
+      '每条管线仍然建了拓扑链',
+    );
+  });
+
   it('图纸管线默认静止（默认样式）', () => {
     for (const pipe of result.scene.pipes.values()) {
       assert.equal(pipe.flowSpeed, 0, `管线 ${pipe.id} 应为静止样式`);
@@ -169,6 +185,40 @@ describe('toPidScene（真实图纸）', () => {
       const pipe = withValves.scene.pipes.get(link.pipelineId);
       assert.ok(pipe, `管线 ${link.pipelineId} 应当存在`);
       assert.equal(pipe.flowSpeed, 0, '阀门关闭后下游管线是默认样式');
+    }
+  });
+
+  it('接在连接点上的管线共用同一个端点（中心出线，接头不断开）', () => {
+    const withValves = toPidScene(document, { valveIcons: VALVE_ICONS });
+    const endpoints = new Map<string, Array<{ x: number; y: number }>>();
+
+    for (const pipe of withValves.scene.pipes.values()) {
+      if (!isDrawioCellData(pipe.data)) continue;
+      const cells = [
+        { cellId: pipe.data.sourceId, point: pipe.points[0] },
+        { cellId: pipe.data.targetId, point: pipe.points[pipe.points.length - 1] },
+      ];
+      for (const cell of cells) {
+        if (!cell.cellId || !cell.point) continue;
+        const node = document.byId.get(cell.cellId);
+        if (node?.style.shape !== 'waypoint') continue;
+        // 连接点用 centerPerimeter：端口就是单元中心，必须严格对上
+        assert.equal(Number(cell.point.x.toFixed(6)), Number((node.x + node.width / 2).toFixed(6)));
+        assert.equal(
+          Number(cell.point.y.toFixed(6)),
+          Number((node.y + node.height / 2).toFixed(6)),
+        );
+        const bucket = endpoints.get(cell.cellId) ?? [];
+        bucket.push(cell.point);
+        endpoints.set(cell.cellId, bucket);
+      }
+    }
+
+    assert.ok(endpoints.size > 0, '样例图纸里有接在连接点上的管线');
+    for (const [cellId, points] of endpoints) {
+      for (const point of points) {
+        assert.deepEqual(point, points[0], `连接点 ${cellId} 上的端点应当完全重合`);
+      }
     }
   });
 });

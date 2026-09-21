@@ -48,6 +48,7 @@ export interface DrawioDemoScene {
   stats: {
     devices: number;
     valves: number;
+    connectionPoints: number;
     pipes: number;
     labels: number;
     icons: number;
@@ -86,8 +87,8 @@ export async function createDrawioScene(): Promise<DrawioDemoScene> {
   // 阀门与管线都保持默认关闭：图纸一进来是静止的初始态，
   // 流动（flow 能力）由后续交互再打开
   console.log(
-    `[drawio] 设备 ${stats.devices} / 阀门 ${stats.valves} / 管线 ${stats.pipes}` +
-      ` / 位号 ${stats.labels}` +
+    `[drawio] 设备 ${stats.devices} / 阀门 ${stats.valves} / 连接点 ${stats.connectionPoints}` +
+      ` / 管线 ${stats.pipes} / 位号 ${stats.labels}` +
       ` / 范围 ${Math.round(bounds.maxX - bounds.minX)}×${Math.round(bounds.maxY - bounds.minY)}`,
   );
   return { pidScene: scene, topology, labels, icons, bounds, stats };

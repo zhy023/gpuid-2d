@@ -93,39 +93,52 @@ describe('orthogonalizePolyline（管线横平竖直）', () => {
     const points = orthogonalizePolyline([
       { x: 0, y: 0 },
       { x: 100, y: 2 }, // 差 1.1°，按容差拉平
-      { x: 103, y: 80 }, // 差 2°，按容差拉直
+      { x: 103, y: 80 }, // 差 2°，按容差拉直（这是末点，固定不动 → 用短肘摆正）
     ]);
     assert.deepEqual(points[0], { x: 0, y: 0 }, '首点（吸附在设备上的端点）不动');
     assert.equal(points[1].y, 0, '水平段被拉平');
-    assert.equal(points[2].x, points[1].x, '垂直段被拉直');
+    const end = points[points.length - 1];
+    assert.deepEqual(end, { x: 103, y: 80 }, '末点（端口）也固定不动');
+    for (let index = 1; index < points.length; index += 1) {
+      const dx = points[index].x - points[index - 1].x;
+      const dy = points[index].y - points[index - 1].y;
+      assert.ok(Math.abs(dx) < 1e-9 || Math.abs(dy) < 1e-9, '每段都横平竖直');
+    }
   });
 
-  it('真正的斜线插一个肘点，变成两段正交线', () => {
+  it('真正的斜线段插入肘点，变成两段正交线', () => {
+    // 中间有一段真斜线（首末两点是端口，都不动）
     const points = orthogonalizePolyline(
       [
         { x: 0, y: 0 },
-        { x: 100, y: 100 },
-      ],
-      { preferHorizontalFirst: true },
-    );
-    assert.deepEqual(points, [
-      { x: 0, y: 0 },
-      { x: 100, y: 0 },
-      { x: 100, y: 100 },
-    ]);
-
-    const verticalFirst = orthogonalizePolyline(
-      [
-        { x: 0, y: 0 },
-        { x: 100, y: 100 },
+        { x: 40, y: 0 },
+        { x: 140, y: 100 },
+        { x: 200, y: 100 },
       ],
       { preferHorizontalFirst: false },
     );
-    assert.deepEqual(verticalFirst, [
+    assert.deepEqual(points[0], { x: 0, y: 0 });
+    assert.deepEqual(points[points.length - 1], { x: 200, y: 100 });
+    for (let index = 1; index < points.length; index += 1) {
+      const dx = points[index].x - points[index - 1].x;
+      const dy = points[index].y - points[index - 1].y;
+      assert.ok(Math.abs(dx) < 1e-9 || Math.abs(dy) < 1e-9, '每段都横平竖直');
+    }
+    assert.ok(points.length > 4, '斜线段被拆成了两段（多出一个肘点）');
+  });
+
+  it('首末点（端口）不动：管线接头不会断开', () => {
+    const points = orthogonalizePolyline([
       { x: 0, y: 0 },
-      { x: 0, y: 100 },
-      { x: 100, y: 100 },
+      { x: 100, y: 30 }, // 近水平但不完全
     ]);
+    assert.deepEqual(points[0], { x: 0, y: 0 }, '首点固定');
+    assert.deepEqual(points[points.length - 1], { x: 100, y: 30 }, '末点固定（端口在设备上）');
+    for (let index = 1; index < points.length; index += 1) {
+      const dx = points[index].x - points[index - 1].x;
+      const dy = points[index].y - points[index - 1].y;
+      assert.ok(Math.abs(dx) < 1e-9 || Math.abs(dy) < 1e-9, '每段仍然横平竖直');
+    }
   });
 
   it('整理后每段都是横平竖直，且不产生重复点', () => {
