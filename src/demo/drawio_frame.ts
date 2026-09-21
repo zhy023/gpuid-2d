@@ -41,7 +41,7 @@ function toDrawableGraphic(
   /** 需要强制原色显示时（图标批次）传入；默认按图纸自己的填充色 */
   fillOverride?: readonly [number, number, number, number],
 ): SelectableGraphic {
-  return new SelectableGraphic({
+  const graphic = new SelectableGraphic({
     id: node.id,
     x: node.x,
     y: node.y,
@@ -50,8 +50,17 @@ function toDrawableGraphic(
     rotation: node.rotation,
     selected: node.selected,
     fillColor: fillOverride ?? node.fillColor,
+    // 描边也要带过来，否则图纸里的边框（strokeColor / strokeWidth）在 demo 里会丢
+    strokeColor: node.strokeColor,
+    strokeWidth: node.strokeWidth,
     sizeUnit: node.sizeUnit,
   }).atlasUv(node.atlasUvRect);
+  // 形状同样按图纸还原：椭圆 / 三角形（内核按 shape 通道裁，拾取也跟着一致）
+  if (node.shape === 'circle') graphic.ellipse(Math.abs(node.width), Math.abs(node.height));
+  else if (node.shape === 'triangle') {
+    graphic.triangle(Math.abs(node.width), Math.abs(node.height));
+  }
+  return graphic;
 }
 
 /**
